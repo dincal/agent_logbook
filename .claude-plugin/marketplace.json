@@ -1,0 +1,16 @@
+{
+  "name": "agent-logbook",
+  "description": "dincal's marketplace for the logbook plugin.",
+  "owner": {
+    "name": "dincal",
+    "email": "dincal9@gmail.com"
+  },
+  "plugins": [
+    {
+      "name": "logbook",
+      "source": "./",
+      "description": "Briefing before implementation, debriefing after the PR, /goal missions, and GitHub Issues tracking, with the rules installed into each project's AGENTS.md.",
+      "version": "0.1.0"
+    }
+  ]
+}

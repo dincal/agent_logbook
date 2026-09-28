@@ -1,0 +1,11 @@
+{
+  "name": "logbook",
+  "version": "0.1.0",
+  "description": "Claude Code-first workflow: the agent researches and decides, asks only about ambiguous intent, and reports twice with CTO-style HTML (a briefing before implementation and a debriefing after the PR), tracked on GitHub Issues, with /goal missions for unattended runs.",
+  "author": {
+    "name": "dincal",
+    "email": "dincal9@gmail.com"
+  },
+  "repository": "https://github.com/dincal/agent_logbook",
+  "keywords": ["workflow", "briefing", "debriefing", "goal", "issue-tracking"]
+}
