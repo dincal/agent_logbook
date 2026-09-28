@@ -1,10 +1,11 @@
 #!/usr/bin/env python3
-"""Render a logbook plan doc's brief or debrief block into a CTO-style HTML deck.
+"""Render a logbook plan doc's brief or debrief block into an HTML slide deck.
 
 Standard library only. Each `##` section inside the block becomes one slide; the
 section's first short paragraph becomes the slide headline. Fenced `mermaid`
 blocks become diagrams, and fenced `html` or `svg` blocks pass through as
-free-form diagrams after scripts and event handlers are stripped.
+free-form diagrams after scripts and event handlers are stripped. Pictures are
+optional: a deck carries only the ones its author judged worth drawing.
 """
 import html
 import pathlib
@@ -246,29 +247,20 @@ def split_sections(block_text):
     return sections
 
 
-def render_slide(index, total, title, body):
+def render_slide(index, total, title, body, label=None):
+    """One `##` section as a slide. `label` replaces the section title in the slide head."""
     blocks = parse_blocks(body)
     headline = title
     if blocks and blocks[0][0] == "p" and len(blocks[0][1]) <= 160:
         headline = blocks[0][1]
         blocks = blocks[1:]
     parts = "\n".join(render_block(b) for b in blocks)
+    head = inline(label) if label is not None else inline(title)
     return (
         f'<section class="slide" id="s{index}">\n'
-        f'<div class="slide-head"><span class="no">{index:02d} / {total:02d}</span><span>{inline(title)}</span></div>\n'
+        f'<div class="slide-head"><span class="no">{index:02d} / {total:02d}</span><span>{head}</span></div>\n'
         f"<h2>{inline(headline)}</h2>\n{parts}\n</section>"
     )
-
-
-def missing_diagrams(block_text):
-    """Name the required pictures a block lacks: the main logic flow and the data-model change."""
-    mermaid = "\n".join(re.findall(r"```mermaid\s*\n(.*?)```", block_text, re.S))
-    missing = []
-    if not re.search(r"^\s*(flowchart|graph|sequenceDiagram|stateDiagram)", mermaid, re.M):
-        missing.append("main logic flowchart (mermaid flowchart or sequenceDiagram)")
-    if not re.search(r"^\s*erDiagram", mermaid, re.M) and "ERD 변화 없음" not in block_text:
-        missing.append("ERD change (mermaid erDiagram, or a line starting with 'ERD 변화 없음')")
-    return missing
 
 
 def render_meta(line):
@@ -306,9 +298,6 @@ def main(argv):
     eyebrow, short = KINDS[kind]
     if issue:
         eyebrow += f" · #{issue.group(1)}"
-
-    for warning in missing_diagrams(block):
-        print(f"render-brief: warning: the {kind} block has no {warning}", file=sys.stderr)
 
     total = len(sections)
     slides = "\n\n".join(render_slide(i, total, t, b) for i, (t, b) in enumerate(sections, start=1))

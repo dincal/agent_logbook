@@ -64,25 +64,11 @@ has_line "$plan" '<!-- brief:skip -->' && exit 0
 case "$(field '.hook_event_name // empty' 'd.get("hook_event_name")')" in
   PreToolUse)
     if ! has_line "$plan" '<!-- brief:begin -->'; then
-      respond deny '플랜에 브리핑 블록이 없습니다. logbook templates/plan.md 형식으로 <!-- brief:begin --> ... <!-- brief:end --> 블록(요약, 왜, 흐름 그림, 주요 결정, 리스크와 판단 필요, 실행과 검증)을 넣어 다시 제출하세요. 한 문장으로 설명되는 작은 수정이면 <!-- brief:skip --> 한 줄을 넣으세요.'
+      respond deny '플랜에 브리핑 블록이 없습니다. logbook의 templates/plan.md 형식대로 <!-- brief:begin -->과 <!-- brief:end --> 사이에 브리핑(요약과 요청, 배경, 하는 일, 주요 결정, 위험과 판단 필요, 일정과 검증)을 넣어 다시 제출하세요. 한 문장으로 설명되는 작은 수정이면 <!-- brief:skip --> 한 줄만 넣으면 됩니다.'
       exit 0
     fi
     if ! has_line "$plan" '<!-- brief:end -->'; then
       respond deny '브리핑 블록의 끝 표식(<!-- brief:end -->)이 없습니다. 블록을 닫고 다시 제출하세요.'
-      exit 0
-    fi
-    # The briefing always shows the main logic flow and the data-model change.
-    block="$(printf '%s\n' "$plan" | awk '/^[[:space:]]*<!-- brief:begin -->[[:space:]]*$/ {f = 1; next} /^[[:space:]]*<!-- brief:end -->[[:space:]]*$/ {f = 0} f')"
-    fenced="$(printf '%s\n' "$block" | awk '/^[[:space:]]*```mermaid/ {m = 1; next} m && /^[[:space:]]*```/ {m = 0} m')"
-    missing=""
-    if ! printf '%s\n' "$fenced" | grep -qE '^[[:space:]]*(flowchart|graph|sequenceDiagram|stateDiagram)'; then
-      missing="주요 로직 흐름도(Mermaid flowchart 또는 sequenceDiagram)"
-    fi
-    if ! printf '%s\n' "$fenced" | grep -qE '^[[:space:]]*erDiagram' && ! printf '%s\n' "$block" | grep -q 'ERD 변화 없음'; then
-      missing="${missing:+$missing, }ERD 변화(바뀐 엔티티만 그린 Mermaid erDiagram, 바뀌지 않으면 '> ERD 변화 없음: 이유' 한 줄)"
-    fi
-    if [ -n "$missing" ]; then
-      respond deny "브리핑 블록에 ${missing}이 없습니다. 추가해 다시 제출하세요."
       exit 0
     fi
     out="$root/.logbook/briefs/plan-preview.html"
@@ -105,7 +91,7 @@ case "$(field '.hook_event_name // empty' 'd.get("hook_event_name")')" in
     exit 0
     ;;
   PostToolUse)
-    respond context '플랜이 승인됐습니다. 코드를 고치기 전에 /brief 절차를 마치세요: 이슈와 작업 브랜치가 없으면 만들고, 플랜 파일을 docs/plans/<이슈번호>-<slug>.md로 옮긴 뒤, 브리핑 HTML을 게시하고 이슈에 링크합니다.'
+    respond context '플랜이 승인됐습니다. 코드를 고치기 전에 /brief 절차를 마치세요. 이슈와 작업 브랜치가 없으면 만들고, 플랜 파일을 docs/plans/<이슈번호>-<slug>.md로 옮긴 뒤, 브리핑 HTML을 게시하고 이슈에 링크합니다. 화면을 새로 만들거나 크게 바꾸는 계획이면 코드를 고치기 전에 시안을 만들어 승인을 받습니다.'
     exit 0
     ;;
 esac

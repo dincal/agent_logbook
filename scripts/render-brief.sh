@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-# Render the brief or debrief block of a logbook plan doc into a CTO-style HTML deck.
+# Render the brief or debrief block of a logbook plan doc into an HTML slide deck.
 set -euo pipefail
 
 if [ $# -ne 3 ]; then

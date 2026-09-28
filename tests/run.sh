@@ -1,5 +1,6 @@
 #!/usr/bin/env bash
-# logbook tests: rulebook script, render-brief, plan-preview hook, debrief-gate hook, plugin files.
+# logbook tests: rulebook script, render-brief, plan-preview hook, debrief-gate hook,
+# system-check, legacy-scan, render-system, plugin files.
 # Exit code 0 only when every check passes.
 set -uo pipefail
 
@@ -9,11 +10,13 @@ TMP="$(mktemp -d)"
 trap 'rm -rf "$TMP"' EXIT
 PASS=0
 FAIL=0
-BLOCK_LINE='<!-- logbook:begin v1 -->'
+BLOCK_LINE='<!-- logbook:begin v2 -->'
 
 ok() { PASS=$((PASS + 1)); printf 'PASS  %s\n' "$1"; }
 bad() { FAIL=$((FAIL + 1)); printf 'FAIL  %s\n' "$1"; [ -n "${2:-}" ] && printf '%s\n' "$2" | sed 's/^/      /'; return 0; }
 expect() { local name="$1"; shift; if "$@" >/dev/null 2>&1; then ok "$name"; else bad "$name"; fi; }
+# True when tab-separated output $1 has a row whose first two fields are $2 and $3.
+has_row() { printf '%s\n' "$1" | awk -F'\t' -v a="$2" -v b="$3" '$1 == a && $2 == b {f = 1} END {exit !f}'; }
 mode_of() { stat -f '%Lp' "$1" 2>/dev/null || stat -c '%a' "$1"; }
 
 # ---------------------------------------------------------------- rulebook
@@ -134,14 +137,12 @@ expect "render-brief: no template placeholders left" bash -c "! grep -q '{{' '$T
 out="$("$ROOT/scripts/render-brief.sh" "$DOC" debrief "$TMP/debrief.html" 2>&1)"; rc=$?
 printf '      %s\n' "$out"
 if [ $rc -eq 0 ]; then ok "render-brief: debrief block renders"; else bad "render-brief: debrief block renders" "$out"; fi
-warn="$("$ROOT/scripts/render-brief.sh" "$DOC" brief "$TMP/brief2.html" 2>&1 >/dev/null)"
-expect "render-brief: the plan doc has its flowchart and ERD statement (no warning)" test -z "$warn"
 printf '# w\n\n<!-- brief:begin -->\n## a\n\nb\n<!-- brief:end -->\n' > "$TMP/nodiagram.md"
 warn="$("$ROOT/scripts/render-brief.sh" "$TMP/nodiagram.md" brief "$TMP/nodiagram.html" 2>&1 >/dev/null)"; rc=$?
-if [ $rc -eq 0 ] && printf '%s' "$warn" | grep -q 'flowchart' && printf '%s' "$warn" | grep -q 'ERD'; then
-  ok "render-brief: warns when the flowchart and the ERD change are missing, still renders"
+if [ $rc -eq 0 ] && [ -z "$warn" ] && [ -s "$TMP/nodiagram.html" ]; then
+  ok "render-brief: a block without a flowchart or an ERD renders with no warning"
 else
-  bad "render-brief: warns when the flowchart and the ERD change are missing, still renders" "$warn"
+  bad "render-brief: a block without a flowchart or an ERD renders with no warning" "rc=$rc $warn"
 fi
 printf '# x\n\nno block here\n' > "$TMP/noblock.md"
 if "$ROOT/scripts/render-brief.sh" "$TMP/noblock.md" brief "$TMP/noblock.html" >/dev/null 2>&1; then
@@ -238,25 +239,18 @@ if [ $rc -eq 0 ] && printf '%s' "$res" | jq -e '.systemMessage | test("미리보
 else
   bad "plan-preview: a render failure is reported, not swallowed" "$res"
 fi
-res="$(pre_input $'<!-- brief:begin -->\n## 요약\n\n결론.\n<!-- brief:end -->\n' | hook "$P")"
-if printf '%s' "$res" | jq -e '.hookSpecificOutput.permissionDecision == "deny" and (.hookSpecificOutput.permissionDecisionReason | test("주요 로직 흐름도") and test("ERD 변화"))' >/dev/null 2>&1; then
-  ok "plan-preview: a briefing without the logic flowchart and the ERD change is denied"
+rm -f "$P/.logbook/briefs/plan-preview.html"
+res="$(pre_input $'<!-- brief:begin -->\n## 요약\n\n결론.\n<!-- brief:end -->\n' | hook "$P")"; rc=$?
+if [ $rc -eq 0 ] && [ -z "$res" ] && [ -s "$P/.logbook/briefs/plan-preview.html" ]; then
+  ok "plan-preview: a briefing without a flowchart or an ERD passes and gets a preview"
 else
-  bad "plan-preview: a briefing without the logic flowchart and the ERD change is denied" "$res"
+  bad "plan-preview: a briefing without a flowchart or an ERD passes and gets a preview" "rc=$rc $res"
 fi
-res="$(pre_input $'<!-- brief:begin -->\n## 흐름\n\n결론.\n\n```mermaid\nflowchart LR\n  A --> B\n```\n<!-- brief:end -->\n' | hook "$P")"
-if printf '%s' "$res" | jq -e '(.hookSpecificOutput.permissionDecisionReason | test("ERD 변화")) and (.hookSpecificOutput.permissionDecisionReason | test("주요 로직") | not)' >/dev/null 2>&1; then
-  ok "plan-preview: a flowchart alone still owes the ERD change"
+res="$(pre_input $'# Plan\n\n1. do it\n' | hook "$P")"
+if printf '%s' "$res" | jq -e '.hookSpecificOutput.permissionDecisionReason | test("요약과 요청") and (test("흐름 그림") | not)' >/dev/null 2>&1; then
+  ok "plan-preview: the deny message lists the briefing's parts without demanding pictures"
 else
-  bad "plan-preview: a flowchart alone still owes the ERD change" "$res"
-fi
-res="$(pre_input $'<!-- brief:begin -->\n## 흐름\n\n결론.\n\n```mermaid\nsequenceDiagram\n  A->>B: call\n```\n\n> ERD 변화 없음: 데이터 모델을 건드리지 않는다\n<!-- brief:end -->\n' | hook "$P")"
-expect "plan-preview: a sequence diagram plus an 'ERD 변화 없음' line passes" test -z "$res"
-res="$(pre_input $'<!-- brief:begin -->\n## 흐름\n\n결론.\n\n```mermaid\nflowchart LR\n  A --> B\n```\n\nerDiagram 은 아직 없다\n<!-- brief:end -->\n' | hook "$P")"
-if printf '%s' "$res" | jq -e '.hookSpecificOutput.permissionDecisionReason | test("ERD 변화")' >/dev/null 2>&1; then
-  ok "plan-preview: the word erDiagram outside a mermaid fence does not count"
-else
-  bad "plan-preview: the word erDiagram outside a mermaid fence does not count" "$res"
+  bad "plan-preview: the deny message lists the briefing's parts without demanding pictures" "$res"
 fi
 cp "$DOC" "$TMP/plan-file.md"
 rm -f "$P/.logbook/briefs/plan-preview.html"
@@ -336,23 +330,184 @@ expect "debrief-gate: debriefed HEAD is cached" test -f "$G/.logbook/state/debri
 res="$(stop_input false | gate nomarker)"
 expect "debrief-gate: cached HEAD skips the gh call" test -z "$res"
 
+# ---------------------------------------------------------------- system-check
+echo "== system-check =="
+S="$TMP/syscheck"
+mkdir -p "$S/docs/system" "$S/src/api" "$S/db"
+git -C "$S" init -q -b main
+scommit() { git -C "$S" add -A && git -C "$S" -c user.email=t@example.com -c user.name=t commit -q -m "$1"; }
+sc() { (cd "$S" && "$ROOT/scripts/system-check.sh" "$@"); }
+printf 'def order():\n    return 0\n' > "$S/src/api/orders.py"
+printf 'CREATE TABLE users (id int);\nCREATE TABLE orders (id int);\n' > "$S/db/schema.sql"
+printf '.logbook/\n' > "$S/.gitignore"
+cat > "$S/docs/system/flows.md" <<'EOF'
+<!-- logbook:system sources="src/api/**" -->
+# 주요 흐름
+
+## 주문
+
+주문을 받습니다. 기록은 `.logbook/state/`에 남습니다.
+
+- 시작점: `src/api/orders.py`의 `order`
+EOF
+cat > "$S/docs/system/data-model.md" <<'EOF'
+<!-- logbook:system sources="db/**" tables="2" -->
+# 데이터 모델
+
+## 전체 ERD
+
+테이블 두 개입니다.
+
+```mermaid
+erDiagram
+  USERS ||--o{ ORDERS : "주문한다"
+  ORDERS {
+    string status "대기"
+  }
+```
+EOF
+scommit init
+out="$(sc)"; rc=$?
+if [ $rc -eq 0 ] && printf '%s' "$out" | grep -q '문서 2개, 뒤처진 문서 0, 경고 0'; then
+  ok "system-check: docs committed with their code are in sync (an ignored local path is not a missing file)"
+else
+  bad "system-check: docs committed with their code are in sync (an ignored local path is not a missing file)" "$out"
+fi
+printf 'def order():\n    return 1\n' > "$S/src/api/orders.py"
+out="$(sc)"
+if has_row "$out" "뒤처짐" "flows.md" && has_row "$out" "정상" "data-model.md"; then ok "system-check: an uncommitted code change leaves only its doc behind"; else bad "system-check: an uncommitted code change leaves only its doc behind" "$out"; fi
+scommit "code only"
+out="$(sc)"
+if has_row "$out" "뒤처짐" "flows.md"; then ok "system-check: a committed code change without a doc update is behind"; else bad "system-check: a committed code change without a doc update is behind" "$out"; fi
+sc --strict >/dev/null; rc=$?
+expect "system-check: --strict exits 1 when a doc is behind" test $rc -eq 1
+printf '\n- 실패하면: 오류를 보여 줍니다.\n' >> "$S/docs/system/flows.md"
+out="$(sc)"
+if has_row "$out" "정상" "flows.md"; then ok "system-check: a doc being edited counts as updated"; else bad "system-check: a doc being edited counts as updated" "$out"; fi
+scommit "doc update"
+git -C "$S" checkout -q -b feat/1-x
+printf 'def order():\n    return 2\n' > "$S/src/api/orders.py"
+scommit "branch code"
+out="$(sc --range main...HEAD)"
+if has_row "$out" "뒤처짐" "flows.md"; then ok "system-check: --range flags code changed in the PR without its doc"; else bad "system-check: --range flags code changed in the PR without its doc" "$out"; fi
+printf '\n- 쓰는 데이터: ORDERS\n' >> "$S/docs/system/flows.md"
+scommit "branch doc"
+out="$(sc --range main...HEAD)"
+if has_row "$out" "정상" "flows.md"; then ok "system-check: --range accepts a PR that updates the doc too"; else bad "system-check: --range accepts a PR that updates the doc too" "$out"; fi
+git -C "$S" checkout -q main && git -C "$S" merge -q --squash feat/1-x >/dev/null 2>&1 && scommit "squash"
+out="$(sc)"
+expect "system-check: nothing is behind after a squash merge" bash -c "printf '%s' \"\$1\" | grep -q '뒤처진 문서 0'" _ "$out"
+printf '<!-- logbook:system sources="lib/**" -->\n# 한눈에\n\n## 한눈에 보기\n\n설명입니다. 설정은 `config/app.yml`에 있습니다.\n' > "$S/docs/system/overview.md"
+printf '# 기술 스택\n\n## 구성\n\n서버 하나입니다.\n' > "$S/docs/system/stack.md"
+sed -i.bak 's/tables="2"/tables="3"/' "$S/docs/system/data-model.md" && /bin/rm -f "$S/docs/system/data-model.md.bak"
+out="$(sc)"
+printf '%s\n' "$out" | sed 's/^/      /'
+expect "system-check: warns about a path pattern that matches no file" bash -c "printf '%s' \"\$1\" | grep -q \"경로 패턴 'lib/\*\*'\"" _ "$out"
+expect "system-check: warns about a file the doc names but the repo lacks" bash -c "printf '%s' \"\$1\" | grep -q '없는 파일을 가리킵니다: config/app.yml'" _ "$out"
+expect "system-check: warns about a doc without its marker" bash -c "printf '%s' \"\$1\" | grep -q '첫 줄 주석'" _ "$out"
+expect "system-check: a doc without its marker gets that one warning, not a second about sources" bash -c "! printf '%s' \"\$1\" | grep 'stack.md' | grep -q 'sources(이 문서가'" _ "$out"
+expect "system-check: warns when the ERD's table count differs from tables=" bash -c "printf '%s' \"\$1\" | grep -q 'ERD에 나온 테이블은 2개인데, 첫 줄 주석의 tables는 3'" _ "$out"
+printf '<!-- logbook:system sources="" -->\n# 용어\n\n## 용어\n\n설명입니다.\n' > "$S/docs/system/glossary.md"
+out="$(sc)"
+if has_row "$out" "경고" "glossary.md" && printf '%s' "$out" | grep -q 'sources(이 문서가 설명하는 코드 경로)가 없어서'; then ok "system-check: warns about a marker without sources, which could never be checked"; else bad "system-check: warns about a marker without sources, which could never be checked" "$out"; fi
+E="$TMP/syscheck-empty"
+mkdir -p "$E"
+git -C "$E" init -q -b main
+out="$(cd "$E" && "$ROOT/scripts/system-check.sh")"; rc=$?
+expect "system-check: without docs/system it points to /sync and exits 0" bash -c "[ $rc -eq 0 ] && printf '%s' \"\$1\" | grep -q '/sync'" _ "$out"
+(cd "$E" && "$ROOT/scripts/system-check.sh" --strict >/dev/null); rc=$?
+expect "system-check: without docs/system --strict exits 1" test $rc -eq 1
+
+# ---------------------------------------------------------------- legacy-scan
+echo "== legacy-scan =="
+LG="$TMP/legacy"
+mkdir -p "$LG/.agent-conventions" "$LG/.paperclip/state" "$LG/docs/flows" "$LG/docs/plans" "$LG/docs/system" "$LG/src"
+git -C "$LG" init -q -b main
+printf '# P\n\n## 1. 문서 맵 (Document Map)\n\n표\n\n## 빌드\n\nnpm run build\n' > "$LG/AGENTS.md"
+ln -s AGENTS.md "$LG/CLAUDE.md"
+ln -s AGENTS.md "$LG/GEMINI.md"
+printf 'rules\n' > "$LG/.agent-conventions/diagram-convention.md"
+printf '{}\n' > "$LG/.paperclip/state/run.json"
+printf '# Paperclip local runtime artifacts\n.paperclip/\nnode_modules/\n' > "$LG/.gitignore"
+printf 'erd\n' > "$LG/docs/erd.md"
+printf 'flow\n' > "$LG/docs/flows/orders.md"
+printf 'plan\n' > "$LG/docs/plans/3-orders.md"
+printf 'map\n' > "$LG/docs/system/overview.md"
+printf "export const out = '.paperclip/e2e';\n" > "$LG/src/config.ts"
+printf 'notes\n' > "$LG/NOTES.md"
+printf 'readme\n' > "$LG/README.md"
+git -C "$LG" add -A && git -C "$LG" -c user.email=t@example.com -c user.name=t commit -q -m init
+out="$("$ROOT/scripts/legacy-scan.sh" --dir "$LG")"
+printf '%s\n' "$out" | sed 's/^/      /'
+if has_row "$out" "옛 도구 파일" ".paperclip" && has_row "$out" "옛 도구 파일" ".agent-conventions"; then ok "legacy-scan: finds earlier tools' folders, ignored or tracked"; else bad "legacy-scan: finds earlier tools' folders, ignored or tracked" "$out"; fi
+if has_row "$out" "옛 규칙" "AGENTS.md:3" && ! has_row "$out" "옛 규칙" "AGENTS.md:7"; then ok "legacy-scan: flags paperclip's rule sections and keeps the project's own"; else bad "legacy-scan: flags paperclip's rule sections and keeps the project's own" "$out"; fi
+if has_row "$out" "옛 도구 언급" "src/config.ts"; then ok "legacy-scan: finds code that still points at paperclip paths"; else bad "legacy-scan: finds code that still points at paperclip paths" "$out"; fi
+if has_row "$out" "옛 무시 목록" ".gitignore:1" && has_row "$out" "옛 무시 목록" ".gitignore:2" && ! has_row "$out" "옛 무시 목록" ".gitignore:3"; then ok "legacy-scan: flags only the old .gitignore lines"; else bad "legacy-scan: flags only the old .gitignore lines" "$out"; fi
+if has_row "$out" "다른 규칙 링크" "GEMINI.md" && ! printf '%s' "$out" | grep -q 'CLAUDE.md'; then ok "legacy-scan: flags a GEMINI.md link but not the CLAUDE.md link"; else bad "legacy-scan: flags a GEMINI.md link but not the CLAUDE.md link" "$out"; fi
+if has_row "$out" "자리 밖 문서" "docs/erd.md" && has_row "$out" "자리 밖 문서" "docs/flows/orders.md" && has_row "$out" "자리 밖 문서" "NOTES.md"; then ok "legacy-scan: flags documents outside logbook's places"; else bad "legacy-scan: flags documents outside logbook's places" "$out"; fi
+expect "legacy-scan: leaves plans, project docs and README alone" bash -c "! printf '%s' \"\$1\" | grep -qE 'docs/plans/3-orders.md|docs/system/overview.md|README.md'" _ "$out"
+CL="$TMP/legacy-clean"
+mkdir -p "$CL/docs/plans" "$CL/docs/system"
+git -C "$CL" init -q -b main
+printf '# C\n\n%s\n## 작업 방식 (logbook)\n\n- **이슈부터 만든다.**\n<!-- logbook:end -->\n' "$BLOCK_LINE" > "$CL/AGENTS.md"
+printf '@AGENTS.md\n' > "$CL/CLAUDE.md"
+printf 'readme\n' > "$CL/README.md"
+printf 'plan\n' > "$CL/docs/plans/1-start.md"
+printf 'map\n' > "$CL/docs/system/overview.md"
+git -C "$CL" add -A && git -C "$CL" -c user.email=t@example.com -c user.name=t commit -q -m init
+out="$("$ROOT/scripts/legacy-scan.sh" --dir "$CL")"
+expect "legacy-scan: prints nothing for a repository that fits logbook" test -z "$out"
+
+# ---------------------------------------------------------------- render-system
+echo "== render-system =="
+SYS="$ROOT/docs/system"
+out="$("$ROOT/scripts/render-system.sh" "$SYS" "$TMP/handbook.html" 2>&1)"; rc=$?
+printf '      %s\n' "$out"
+if [ $rc -eq 0 ] && [ -s "$TMP/handbook.html" ]; then ok "render-system: this repository's docs/system renders"; else bad "render-system: this repository's docs/system renders" "$out"; fi
+sections="$(cat "$SYS"/*.md | awk '/^```/ {fence = !fence} !fence && /^## / {c++} END {print c + 0}')"
+slides="$(grep -c '<section class="slide"' "$TMP/handbook.html")"
+printf '      ## sections: %s, slides: %s\n' "$sections" "$slides"
+expect "render-system: a contents slide plus one slide per ## section" test "$slides" -eq "$((sections + 1))"
+expect "render-system: the page is titled after the project" grep -q '<title>logbook 프로젝트 문서</title>' "$TMP/handbook.html"
+expect "render-system: the cover shows the commit it was rendered from" grep -q '기준: ' "$TMP/handbook.html"
+expect "render-system: slide heads name the doc and the section" grep -q '기술 스택 · 구성과 기술 스택' "$TMP/handbook.html"
+expect "render-system: no template placeholders left" bash -c "! grep -q '{{' '$TMP/handbook.html'"
+
 # ---------------------------------------------------------------- plugin files
 echo "== plugin files =="
 expect "hooks.json is valid JSON" jq -e '.hooks.PreToolUse and .hooks.PostToolUse and .hooks.Stop' "$ROOT/hooks/hooks.json"
-for skill in rulebook brief mission debrief; do
+for skill in rulebook brief mission debrief sync; do
   f="$ROOT/skills/$skill/SKILL.md"
   if [ ! -f "$f" ]; then bad "skill $skill exists"; continue; fi
   lines="$(wc -l < "$f" | tr -d ' ')"
   shout="$(grep -cE '\b(MUST|CRITICAL|NEVER|ALWAYS)\b' "$f")"
-  if [ "$lines" -le 150 ] && [ "$shout" -eq 0 ] && grep -q "^name: $skill\$" "$f"; then
-    ok "skill $skill: $lines lines, no shouting, name matches"
+  if [ "$lines" -le 150 ] && [ "$shout" -eq 0 ] && grep -q "^name: $skill\$" "$f" && grep -q 'templates/writing.md' "$f"; then
+    ok "skill $skill: $lines lines, no shouting, name matches, follows the writing guide"
   else
-    bad "skill $skill: $lines lines, shouting=$shout"
+    bad "skill $skill: $lines lines, shouting=$shout, writing guide referenced: $(grep -c 'templates/writing.md' "$f")"
   fi
 done
 expect "reviewer agent is read-only" grep -q '^tools: Read, Grep, Glob$' "$ROOT/agents/reviewer.md"
 expect "reviewer agent runs on Sonnet at medium effort" bash -c "grep -qx 'model: sonnet' '$ROOT/agents/reviewer.md' && grep -qx 'effort: medium' '$ROOT/agents/reviewer.md'"
 expect "diagram kit reference exists" test -s "$ROOT/templates/diagram-kit.md"
+expect "reviewer agent checks docs/system against the code" grep -q 'docs/system/' "$ROOT/agents/reviewer.md"
+W="$ROOT/templates/writing.md"
+expect "writing guide sets the reader: a computer-science graduate new to the project" grep -q "computer-science bachelor's degree" "$W"
+expect "writing guide carries the picture rules" bash -c "grep -q 'whatever a picture can show' '$W' && grep -q 'Do not force an ERD or a flowchart' '$W' && grep -q 'every table' '$W'"
+K="$ROOT/templates/diagram-kit.md"
+expect "diagram kit: pictures wherever they fit, no quota, no forced ERD" bash -c "grep -q 'no quota' '$K' && grep -q 'never go into an ERD' '$K' && grep -q 'every table' '$K'"
+B="$ROOT/templates/agents-block.md"
+expect "rule block v2 asks whenever a choice changes the user scenario" bash -c "grep -qx '$BLOCK_LINE' '$B' && grep -q '흐름이 달라지는 부분은 묻는다' '$B' && grep -q '사소한 것은 묻지 않고' '$B'"
+expect "rule block v2 sets the reader and the picture rules" bash -c "grep -q '컴퓨터공학 학부' '$B' && grep -q 'ERD와 흐름도는 억지로 그리지 않는다' '$B' && grep -q '모든 테이블' '$B'"
+expect "rule block v2 points at docs/system, /sync and /design" bash -c "grep -q 'docs/system/' '$B' && grep -q '/sync' '$B' && grep -q '/design' '$B'"
+expect "rule block v2 no longer demands a flowchart and an ERD in every briefing" bash -c "! grep -q 'ERD 변화(없으면' '$B'"
+T="$ROOT/templates/plan.md"
+expect "plan template: conditional slides for logic, database and screens, no ERD filler" bash -c "grep -q '^## 주요 로직 흐름 (주요 로직이' '$T' && grep -q '^## 데이터베이스 변경 (DB 스키마가' '$T' && grep -q '^## 화면 시안 (' '$T' && ! grep -q 'ERD 변화 없음' '$T'"
+expect "goal template: approved screens and project docs" bash -c "grep -q 'docs/designs/' '$ROOT/templates/goal.md' && grep -q 'docs/system/' '$ROOT/templates/goal.md'"
+for doc in overview stack flows data-model; do
+  expect "system template $doc starts with its marker" bash -c "head -1 '$ROOT/templates/system/$doc.md' | grep -q '^<!-- logbook:system sources='"
+done
+expect "system template data-model declares the table count" bash -c "head -1 '$ROOT/templates/system/data-model.md' | grep -q 'tables='"
 
 echo
 echo "$PASS passed, $FAIL failed"
