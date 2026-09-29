@@ -156,11 +156,11 @@
     <h2>logbook은 에이전트가 개발을 맡고, 사람은 정해야 할 것만 정하는 개발 흐름입니다</h2>
     <p class="sub">요청이 들어오면 에이전트가 이슈를 만들고 코드와 자료를 조사합니다. 사용 흐름이 달라지는 선택은 사람에게 묻고, 계획은 슬라이드로 보고해 착수 승인을 받습니다. PR을 연 뒤에는 증거와 별도 리뷰를 담은 결과 보고로 머지를 고르게 합니다.</p>
     <div class="tiles">
-      <div class="tile"><div class="num">5</div><div class="what">명령(스킬)</div><div class="how">rulebook · brief · mission · debrief · sync</div></div>
+      <div class="tile"><div class="num">6</div><div class="what">명령(스킬)</div><div class="how">rulebook · discuss · brief · mission · debrief · sync</div></div>
       <div class="tile"><div class="num">2</div><div class="what">자동 검사(hook)</div><div class="how">플랜 미리보기 · 결과 보고 확인</div></div>
-      <div class="tile"><div class="num">4</div><div class="what">사람이 정하는 때</div><div class="how">흐름이 달라지는 선택 · 화면 시안 · 착수 · 머지</div></div>
+      <div class="tile"><div class="num">5</div><div class="what">사람이 정하는 때</div><div class="how">토론 끝맺음 · 흐름이 달라지는 선택 · 화면 시안 · 착수 · 머지</div></div>
     </div>
-    <div class="callout"><strong>규칙의 자리</strong> 작업 규칙은 프로젝트의 <code>AGENTS.md</code>에 설치됩니다. 명령을 부르지 않아도 모든 요청이 같은 흐름을 따릅니다.</div>
+    <div class="callout"><strong>규칙의 자리</strong> 작업 규칙은 프로젝트의 <code>AGENTS.md</code>에 설치됩니다. 명령을 부르지 않아도 모든 요청이 같은 흐름을 따릅니다. 할 일이 아니라 의견을 묻는 말에는 이슈를 만들지 않고 <code>/discuss</code>로 토론합니다.</div>
   </section>
 
   <!-- 02 -->
@@ -197,6 +197,7 @@ codex plugin add logbook@agent-logbook</pre></div>
   <section class="slide" id="flow">
     <div class="slide-head"><span class="no">03 / 12</span><span>흐름</span></div>
     <h2>요청이 어디서 들어오든 같은 흐름을 탑니다</h2>
+    <p class="sub">의견만 묻는 말은 이 흐름에 들어오기 전에 <code>/discuss</code>로 토론하고, 넘기기로 고르면 여기서부터 이어집니다.</p>
     <div class="diagram">
 <pre class="mermaid">
 flowchart LR
@@ -222,6 +223,7 @@ flowchart LR
         <thead><tr><th>들어오는 길</th><th>브리핑 시점</th><th>착수 승인</th></tr></thead>
         <tbody>
           <tr><td>직접 요청</td><td>조사와 질문 뒤, 구현 전</td><td>"진행" 답변</td></tr>
+          <tr><td><code>/logbook:discuss</code>에서 넘김</td><td>토론 요약을 받은 <code>/brief</code>가 남은 질문만 물은 뒤</td><td>"진행" 답변</td></tr>
           <tr><td>플랜 모드</td><td>플랜을 낼 때 브라우저로 미리보기</td><td>플랜 승인</td></tr>
           <tr><td><code>/logbook:mission</code></td><td>목표 문장을 만들 때</td><td>출력된 <code>/goal</code> 실행</td></tr>
         </tbody>
@@ -233,13 +235,19 @@ flowchart LR
   <!-- 04 -->
   <section class="slide" id="skills">
     <div class="slide-head"><span class="no">04 / 12</span><span>명령</span></div>
-    <h2>명령 다섯 개가 흐름의 각 단계를 맡습니다</h2>
+    <h2>명령 여섯 개가 흐름의 각 단계를 맡습니다</h2>
     <div class="cards">
       <div class="card">
         <div class="name">/logbook:rulebook</div>
         <div class="when">프로젝트당 한 번</div>
         <p>작업 규칙을 설치합니다. 다시 실행하면 규칙 블록만 갱신하고, 바뀐 게 없으면 "변경 없음"을 출력합니다. 기존 프로젝트면 <code>/sync</code>를 이어서 실행하라고 알려 줍니다.</p>
         <dl><dt>결과</dt><dd>AGENTS.md 블록, CLAUDE.md, 라벨, <code>docs/plans/</code></dd></dl>
+      </div>
+      <div class="card">
+        <div class="name">/logbook:discuss</div>
+        <div class="when">스펙을 정하기 전</div>
+        <p>아이디어를 에이전트와 따져 봅니다. 에이전트는 코드와 웹을 읽기만 하며 근거를 대고, 동의하거나 자신 있게 반론합니다. 파일, 이슈, 브랜치는 건드리지 않습니다. 끝나면 요약을 보이고 <code>/brief</code>·<code>/mission</code>으로 넘기기, backlog 이슈로 남기기, 남기지 않기 중 권장안과 함께 고르게 합니다. 명령 없이 의견만 물어도 같은 방식으로 답합니다.</p>
+        <dl><dt>예</dt><dd><code>/logbook:discuss 로그인에 속도 제한이 필요할까?</code></dd></dl>
       </div>
       <div class="card">
         <div class="name">/logbook:brief</div>
@@ -407,7 +415,7 @@ flowchart LR
       <table>
         <thead><tr><th>산출물</th><th>위치</th><th>만드는 곳</th><th>시점</th></tr></thead>
         <tbody>
-          <tr><td>이슈 카드</td><td>GitHub Issues, <code>status:*</code> 라벨</td><td>brief · mission · sync</td><td>구현 전</td></tr>
+          <tr><td>이슈 카드</td><td>GitHub Issues, <code>status:*</code> 라벨</td><td>discuss(backlog) · brief · mission · sync</td><td>토론 끝, 구현 전</td></tr>
           <tr><td>상세 문서</td><td><code>docs/plans/&lt;번호&gt;-&lt;slug&gt;.md</code></td><td>brief · mission · debrief</td><td>구현 전에 쓰고 PR 뒤에 채움</td></tr>
           <tr><td>프로젝트 문서</td><td><code>docs/system/</code></td><td>sync, 구현하는 PR</td><td>코드가 바뀔 때마다</td></tr>
           <tr><td>화면 시안 사본</td><td><code>docs/designs/&lt;번호&gt;-&lt;slug&gt;/</code></td><td>brief · mission</td><td>시안 승인 뒤</td></tr>
@@ -429,7 +437,7 @@ flowchart LR
         <thead><tr><th>기능</th><th>Claude Code</th><th>Codex</th><th>Antigravity · OpenCode</th></tr></thead>
         <tbody>
           <tr><td>AGENTS.md 규칙</td><td class="yes">지원</td><td class="yes">지원</td><td class="yes">지원</td></tr>
-          <tr><td>명령 5개</td><td class="yes">플러그인</td><td class="yes">같은 매니페스트로 설치</td><td class="part">스킬 폴더 링크</td></tr>
+          <tr><td>명령 6개</td><td class="yes">플러그인</td><td class="yes">같은 매니페스트로 설치</td><td class="part">스킬 폴더 링크</td></tr>
           <tr><td>브리핑·결과 보고·핸드북 링크</td><td class="yes">Artifact</td><td class="part">로컬 HTML</td><td class="part">로컬 HTML</td></tr>
           <tr><td>화면 시안</td><td class="yes"><code>/design</code> 캔버스(2.1.265 이상)</td><td class="part">HTML 시안</td><td class="part">HTML 시안</td></tr>
           <tr><td>hook</td><td class="yes">2개</td><td class="part"><code>/hooks</code>에서 신뢰 등록 뒤 실행</td><td class="no">없음</td></tr>

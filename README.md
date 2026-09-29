@@ -32,6 +32,7 @@ Antigravity·OpenCode(안내만): `skills/` 아래 폴더를 각 하네스의 �
 | 명령 | 쓰는 때 | 하는 일 |
 |---|---|---|
 | `/logbook:rulebook` | 프로젝트당 한 번 | AGENTS.md 규칙 블록, CLAUDE.md import, 이슈 라벨, 플랜 폴더 설치. 기존 프로젝트면 `/sync`를 안내 |
+| `/logbook:discuss` | 스펙을 정하기 전 | 코드와 웹을 읽기만 하며 아이디어를 토론. 끝에 `/brief`·`/mission`으로 넘기기, backlog 이슈, 남기지 않기 중 선택 |
 | `/logbook:brief` | 구현 전 | 조사, 흐름이 달라지는 선택 질문, 화면 시안 승인, 상세 문서와 브리핑 슬라이드, 이슈 링크 |
 | `/logbook:mission` | `/goal`을 맡길 때 | 플랜 모드처럼 계획과 시안을 승인받고 바로 실행할 `/goal` 문장 출력 |
 | `/logbook:debrief` | PR 직후 | 기준별 검증 증거, 프로젝트 문서와 코드 대조, 독립 리뷰, 결과 보고 슬라이드, 머지·재리뷰 선택지 |

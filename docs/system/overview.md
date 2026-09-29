@@ -7,7 +7,7 @@
 
 logbook은 Claude Code에 설치하는 플러그인입니다. 개발은 에이전트가 맡고, 사람은 구현 전 브리핑과 구현 후 결과 보고만 검토합니다.
 
-- **5** 명령(스킬): rulebook · brief · mission · debrief · sync
+- **6** 명령(스킬): rulebook · discuss · brief · mission · debrief · sync
 - **2** 자동 검사(hook): 플랜 미리보기 · 결과 보고 확인
 - **4** 하위 에이전트(세션이 따로 띄우는 에이전트): 리뷰어와 구현 트랙을 맡는 builder 세 등급
 - **3** 사람이 보는 페이지: 브리핑 · 결과 보고 · 프로젝트 핸드북

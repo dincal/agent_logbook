@@ -1,7 +1,7 @@
 {
   "name": "logbook",
-  "version": "0.3.1",
-  "description": "Claude Code-first workflow: the agent researches, asks about every open choice that changes the user scenario, and reports twice with HTML slides (a briefing before implementation and a debriefing after the PR). It keeps project docs (tech stack, main flows, full ERD) in sync with the code, gets changed screens approved as mockups, tracks work on GitHub Issues, and writes /goal missions for unattended runs.",
+  "version": "0.4.0",
+  "description": "Claude Code-first workflow: the agent discusses ideas read-only before a spec exists, researches, asks about every open choice that changes the user scenario, and reports twice with HTML slides (a briefing before implementation and a debriefing after the PR). It keeps project docs (tech stack, main flows, full ERD) in sync with the code, gets changed screens approved as mockups, tracks work on GitHub Issues, and writes /goal missions for unattended runs.",
   "author": {
     "name": "dincal",
     "email": "dincal9@gmail.com"
@@ -9,6 +9,7 @@
   "repository": "https://github.com/dincal/agent_logbook",
   "keywords": [
     "workflow",
+    "discussion",
     "briefing",
     "debriefing",
     "goal",

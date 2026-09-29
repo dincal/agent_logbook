@@ -10,7 +10,7 @@ TMP="$(mktemp -d)"
 trap 'rm -rf "$TMP"' EXIT
 PASS=0
 FAIL=0
-BLOCK_LINE='<!-- logbook:begin v4 -->'
+BLOCK_LINE='<!-- logbook:begin v5 -->'
 
 ok() { PASS=$((PASS + 1)); printf 'PASS  %s\n' "$1"; }
 bad() { FAIL=$((FAIL + 1)); printf 'FAIL  %s\n' "$1"; [ -n "${2:-}" ] && printf '%s\n' "$2" | sed 's/^/      /'; return 0; }
@@ -516,7 +516,7 @@ if [ $rc -eq 4 ] && printf '%s' "$err" | grep -q 'overview.md에 HTML이 있습�
 # ---------------------------------------------------------------- plugin files
 echo "== plugin files =="
 expect "hooks.json is valid JSON" jq -e '.hooks.PreToolUse and .hooks.PostToolUse and .hooks.Stop' "$ROOT/hooks/hooks.json"
-for skill in rulebook brief mission debrief sync; do
+for skill in rulebook discuss brief mission debrief sync; do
   f="$ROOT/skills/$skill/SKILL.md"
   if [ ! -f "$f" ]; then bad "skill $skill exists"; continue; fi
   lines="$(wc -l < "$f" | tr -d ' ')"
@@ -540,6 +540,15 @@ expect "no worker agent" test ! -e "$ROOT/agents/worker.md"
 expect "brief and sync send Explore on Sonnet" bash -c "grep -q 'Explore subagents.*model: sonnet' '$ROOT/skills/brief/SKILL.md' && grep -q 'Explore subagents (on Claude Code, pass \`model: sonnet\`)' '$ROOT/skills/sync/SKILL.md'"
 expect "debrief names the reviewer's model and records builder tracks" bash -c "grep -q 'runs on Opus at high effort' '$ROOT/skills/debrief/SKILL.md' && grep -q 'When builder agents implemented tracks' '$ROOT/skills/debrief/SKILL.md'"
 expect "brief flags an unreasonable answer once and records it" bash -c "grep -q 'looks unreasonable against the evidence' '$ROOT/skills/brief/SKILL.md' && grep -q '알린 우려' '$ROOT/skills/brief/SKILL.md'"
+D="$ROOT/skills/discuss/SKILL.md"
+expect "discuss changes nothing until the user picks an ending" bash -c "grep -q 'Nothing in the project changes until the user picks an ending' '$D' && grep -q 'No file edits, no commits, no branches' '$D' && grep -q 'No issues, labels or comments' '$D' && grep -q 'no plan mode' '$D'"
+expect "discuss leaves /debrief alone and cites issues as full links for /brief" bash -c "grep -q 'No \`/debrief\`, even when a Stop hook asks' '$D' && grep -q 'never as a bare' '$D' && grep -q 'without an account there, use the default login' '$D'"
+expect "rule block v5 has the agent load the discuss skill" grep -q '`/discuss` 스킬을 불러 그 절차대로 토론한다' "$ROOT/templates/agents-block.md"
+expect "discuss researches read-only with Explore on Sonnet and the web" bash -c "grep -q 'Research actively, read-only' '$D' && grep -q 'Explore subagents.*model: sonnet' '$D' && grep -q 'search the web' '$D'"
+expect "discuss argues like a colleague and pushes back with evidence" bash -c "grep -q 'push back with confidence' '$D' && grep -q 'Do not argue for the sake of arguing' '$D' && grep -q 'strongest argument against' '$D'"
+expect "discuss ends with a summary and three endings, one recommended" bash -c "grep -q '결론' '$D' && grep -q '합의한 것' '$D' && grep -q '남은 질문' '$D' && grep -q 'Recommend one of three endings' '$D' && grep -q '바로 진행' '$D' && grep -q 'backlog 이슈로 남기기' '$D' && grep -q '남기지 않기' '$D'"
+expect "discuss keeps later ideas as status:backlog issues that /brief picks up" bash -c "grep -q 'labelled \`status:backlog\`' '$D' && grep -q '/logbook:brief #<issue>' '$D' && grep -q 'moves to \`status:todo\`' '$ROOT/skills/brief/SKILL.md'"
+expect "brief takes a /discuss summary's decisions as the user's own" grep -q 'carries a `/discuss` summary, its decisions are the user' "$ROOT/skills/brief/SKILL.md"
 expect "diagram kit reference exists" test -s "$ROOT/templates/diagram-kit.md"
 expect "reviewer agent checks docs/system against the code" grep -q 'docs/system/' "$ROOT/agents/reviewer.md"
 W="$ROOT/templates/writing.md"
@@ -562,14 +571,15 @@ if [ -z "$html_hits" ]; then ok "templates and this repository's markdown carry 
 expect "flows template has a model-call table" grep -q '| 모델 호출 | 모델(설정) |' "$ROOT/templates/system/flows.md"
 expect "reviewer agent checks model calls and HTML in markdown" bash -c "grep -q 'LLM' '$ROOT/agents/reviewer.md' && grep -q 'hold no HTML' '$ROOT/agents/reviewer.md'"
 B="$ROOT/templates/agents-block.md"
-expect "rule block v4 asks whenever a choice changes the user scenario" bash -c "grep -qx '$BLOCK_LINE' '$B' && grep -q '흐름이 달라지는 부분은 묻는다' '$B' && grep -q '사소한 것은 묻지 않고' '$B'"
-expect "rule block v4 sets the reader and the picture rules" bash -c "grep -q '컴퓨터공학 학부' '$B' && grep -q 'ERD와 흐름도는 억지로 그리지 않는다' '$B' && grep -q '모든 테이블' '$B'"
-expect "rule block v4 points at docs/system, /sync and /design" bash -c "grep -q 'docs/system/' '$B' && grep -q '/sync' '$B' && grep -q '/design' '$B'"
-expect "rule block v4 no longer demands a flowchart and an ERD in every briefing" bash -c "! grep -q 'ERD 변화(없으면' '$B'"
-expect "rule block v4 keeps HTML out of markdown and details model calls" bash -c "grep -q 'md 파일에는 HTML을 넣지 않고' '$B' && grep -q 'AI 모델을 부르는 단계' '$B'"
-expect "rule block v4 flags unreasonable decisions once and follows the user" bash -c "grep -q '비합리적인 결정은 알린다' '$B' && grep -q '그대로 가겠다고 하면 따르고' '$B' && grep -q '알린 우려' '$B'"
-expect "rule block v4 splits implementation only when it pays, with three builder tiers" bash -c "grep -q '구현은 이득이 있을 때만 나눈다' '$B' && grep -q 'logbook:builder-fast' '$B' && grep -q 'logbook:builder\`' '$B' && grep -q 'logbook:builder-deep' '$B' && grep -q '세션이 이어받는다' '$B'"
-expect "rule block v4 scopes a track's check command to its own files" grep -q '그 트랙의 파일만 검사하는 것으로 준다' "$B"
+expect "rule block v5 asks whenever a choice changes the user scenario" bash -c "grep -qx '$BLOCK_LINE' '$B' && grep -q '흐름이 달라지는 부분은 묻는다' '$B' && grep -q '사소한 것은 묻지 않고' '$B'"
+expect "rule block v5 sets the reader and the picture rules" bash -c "grep -q '컴퓨터공학 학부' '$B' && grep -q 'ERD와 흐름도는 억지로 그리지 않는다' '$B' && grep -q '모든 테이블' '$B'"
+expect "rule block v5 points at docs/system, /sync and /design" bash -c "grep -q 'docs/system/' '$B' && grep -q '/sync' '$B' && grep -q '/design' '$B'"
+expect "rule block v5 no longer demands a flowchart and an ERD in every briefing" bash -c "! grep -q 'ERD 변화(없으면' '$B'"
+expect "rule block v5 keeps HTML out of markdown and details model calls" bash -c "grep -q 'md 파일에는 HTML을 넣지 않고' '$B' && grep -q 'AI 모델을 부르는 단계' '$B'"
+expect "rule block v5 flags unreasonable decisions once and follows the user" bash -c "grep -q '비합리적인 결정은 알린다' '$B' && grep -q '그대로 가겠다고 하면 따르고' '$B' && grep -q '알린 우려' '$B'"
+expect "rule block v5 splits implementation only when it pays, with three builder tiers" bash -c "grep -q '구현은 이득이 있을 때만 나눈다' '$B' && grep -q 'logbook:builder-fast' '$B' && grep -q 'logbook:builder\`' '$B' && grep -q 'logbook:builder-deep' '$B' && grep -q '세션이 이어받는다' '$B'"
+expect "rule block v5 scopes a track's check command to its own files" grep -q '그 트랙의 파일만 검사하는 것으로 준다' "$B"
+expect "rule block v5 answers a request for an opinion with a discussion" bash -c "grep -q '의견을 묻는 말에는 토론으로 답한다' '$B' && grep -q '이슈와 브랜치를 만들지 않고' '$B' && grep -q '애매하면 어느 쪽인지 한 줄로 묻는다' '$B' && grep -q 'backlog 이슈로 남기기' '$B'"
 expect "this repository's AGENTS.md carries the current rule block" bash -c "diff <(sed -n '/^<!-- logbook:begin/,/^<!-- logbook:end/p' '$ROOT/AGENTS.md' | grep -v '^트래커') <(grep -v '^트래커' '$B')"
 T="$ROOT/templates/plan.md"
 expect "plan template records concerns raised about the user's decisions" grep -q '^알린 우려:' "$T"

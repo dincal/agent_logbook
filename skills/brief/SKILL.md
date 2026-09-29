@@ -18,6 +18,7 @@ A change that one sentence fully describes (a typo, a rename, a small config twe
 
 1. **Issue and branch.**
    - Use the issue number in `$ARGUMENTS` when given. Otherwise create one labelled `status:todo` in the repo named on the AGENTS.md tracker line.
+   - An issue given in `status:backlog` (one `/discuss` left for later, for instance) moves to `status:todo`.
    - Run gh with the account on that line: `GH_TOKEN="$(gh auth token --user <account>)" gh ...`. Without an account there, use the default login.
    - Slug: a short kebab-case summary. Branch: `<type>/<issue>-<slug>` (feat, fix, refactor, docs or chore), cut from the base branch.
 2. **Research.**
@@ -28,6 +29,7 @@ A change that one sentence fully describes (a typo, a rename, a small config twe
 3. **Questions.**
    - Ask about every choice the request leaves open that changes the user scenario: what a command does, the steps the user goes through, what they approve and when, what happens to their files and data. Do not settle such a choice yourself, even when you have a good default.
    - Skip trivial things: wording, internal implementation, choices with one sensible answer. Decide those yourself and list them in the briefing as your own calls.
+   - When `$ARGUMENTS` or the issue carries a `/discuss` summary, its decisions are the user's own: list them under 주요 결정 with the alternatives set aside, and ask only about what it leaves open.
    - Ask 1 to 4 questions at a time, each with options and a recommended default, and ask again in further rounds when answers open new choices. Use the question tool, or numbered options in prose where there is none.
    - When an answer or instruction looks unreasonable against the evidence (it contradicts what research found, costs far more than it gains, carries a risk the user may not have seen, or works against their own stated goal), say so once before acting: the concern, the evidence, and a better option. If they keep it, follow it and list it under 주요 결정 as 알린 우려. Leave matters of taste and weak worries alone, and say plainly when nothing looked unreasonable.
 4. **Screen mockup.** When the change adds a screen or visibly reshapes one:
