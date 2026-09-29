@@ -68,3 +68,4 @@ logbook은 역할마다 모델을 정해 두고, 본 작업은 사용자가 고�
 | 브리핑 렌더 | `scripts/render-brief.sh <계획 문서> brief <출력 파일>` |
 | 핸드북 렌더 | `scripts/render-system.sh docs/system <출력 파일>` |
 | 문서와 코드 대조 | `scripts/system-check.sh` |
+| 개발 환경 준비 | git, `gh`(GitHub CLI), `claude`(Claude Code CLI), bash, python3가 있으면 됩니다. hook은 jq가 없으면 python3로 대신하지만, `tests/run.sh`는 jq를 직접 부르므로 테스트를 돌리려면 jq도 필요합니다 |

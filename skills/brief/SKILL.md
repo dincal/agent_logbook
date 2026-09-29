@@ -12,13 +12,14 @@ Paths below use `${CLAUDE_PLUGIN_ROOT}`. On harnesses that do not substitute it,
 
 ## When to skip
 
-A change that one sentence fully describes (a typo, a rename, a small config tweak) gets no briefing. Create or reuse the issue and a branch, implement, open the PR, and let `/debrief` add the short evidence list.
+A change that one sentence fully describes (a typo, a rename, a small config tweak) gets no briefing and no issue, and so does a follow-up doc update with no related branch or issue to ride on. Cut a `<type>/<slug>` branch from the base branch, implement, open a PR without an issue, and let `/debrief` finish it. When `$ARGUMENTS` names an issue, keep it: read its comments as step 1 says, use `<type>/<issue>-<slug>` and put `Closes #<issue>` in the PR body.
 
 ## Steps
 
 1. **Issue and branch.**
    - Use the issue number in `$ARGUMENTS` when given. Otherwise create one labelled `status:todo` in the repo named on the AGENTS.md tracker line.
    - An issue given in `status:backlog` (one `/discuss` left for later, for instance) moves to `status:todo`.
+   - Read the given issue's comments too: follow-up work deferred to this issue, such as a doc update, is left there as a comment and belongs in this change.
    - Run gh with the account on that line: `GH_TOKEN="$(gh auth token --user <account>)" gh ...`. Without an account there, use the default login.
    - Slug: a short kebab-case summary. Branch: `<type>/<issue>-<slug>` (feat, fix, refactor, docs or chore), cut from the base branch.
 2. **Research.**
@@ -66,7 +67,8 @@ A change that one sentence fully describes (a typo, a rename, a small config twe
 ## Plan mode
 
 - Write the plan file itself in the plan.md format, brief block included. The logbook hook renders it in the browser when the approval screen appears, and denies a plan without a complete block.
-- For a one-sentence change, put a `<!-- brief:skip -->` line in the plan instead.
+- When the plan starts from an existing issue, read its comments before writing, as step 1 says.
+- For a change that "When to skip" covers, put a `<!-- brief:skip -->` line in the plan instead. After approval, follow "When to skip" rather than the steps below, and leave the plan file out of the commit.
 - Plan mode is read-only, so step 4 cannot run there; list the screens to mock up in the plan. After approval and before editing code: do step 1 if the issue or branch does not exist yet, run step 4 when the plan has screens, move the plan file to `docs/plans/<issue>-<slug>.md`, then do steps 7 and 8.
 
 ## Language

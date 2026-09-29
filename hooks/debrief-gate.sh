@@ -87,7 +87,7 @@ case "$(json_key "$pr" body)" in
 esac
 
 url="$(json_key "$pr" url)"
-reason="PR ${url}에 디브리핑이 없습니다. /debrief를 실행해 수용 기준별 증거와 결과 HTML을 PR과 이슈에 붙이세요."
+reason="PR ${url}에 디브리핑이 없습니다. /debrief를 실행해 수용 기준별 증거를 PR 본문에 남기세요. 계획 문서가 있는 PR은 결과 HTML도 PR과 이슈에 붙입니다."
 if have_jq; then
   jq -cn --arg r "$reason" '{decision: "block", reason: $r}'
 else

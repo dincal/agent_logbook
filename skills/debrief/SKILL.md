@@ -12,7 +12,7 @@ Paths below use `${CLAUDE_PLUGIN_ROOT}`. On harnesses that do not substitute it,
 
 ## Steps
 
-1. **Find the pieces.** The PR (`$ARGUMENTS`, otherwise the current branch's PR), its issue (`Closes #n`) and `docs/plans/<issue>-<slug>.md`. Run gh with the account on the AGENTS.md tracker line. Read the last `<!-- logbook:reviewed sha=<sha> round=<n> -->` marker in the PR body, if any.
+1. **Find the pieces.** The PR (`$ARGUMENTS`, otherwise the current branch's PR), its issue (`Closes #n`) and `docs/plans/<issue>-<slug>.md`. When no plan doc exists for the PR (a small change with or without an issue, a follow-up doc update, a `/sync` fix of stale docs), take the path under "Changes without a plan doc" at the end. Run gh with the account on the AGENTS.md tracker line. Read the last `<!-- logbook:reviewed sha=<sha> round=<n> -->` marker in the PR body, if any.
 2. **Evidence.**
    - For each acceptance criterion, run the command that proves it, or reuse output from this session. Record ✅ or ❌ with the command and a short excerpt of its output.
    - A criterion nobody checked stays ❌. Reading the code that should satisfy it does not count as evidence.
@@ -46,13 +46,13 @@ Paths below use `${CLAUDE_PLUGIN_ROOT}`. On harnesses that do not substitute it,
    - behavior changed (code, hooks, scripts, prompts such as SKILL.md, configuration) and fewer than two rounds ran: needed;
    - two rounds already ran: not needed; the remaining changes go to 리뷰 포인트 for the human.
 8. **Decide.** Write one line with the verdict (재리뷰 필요 or 불필요) and its reason, one line with the option you recommend and why, then ask with exactly one option marked (권장). Use the question tool, or numbered options in prose where there is none.
-   - 머지: squash merge and delete the branch, move the issue to `status:done`, comment on the issue. When the PR changed `docs/system/`, render the handbook from the updated base branch (`render-system.sh`) and republish it to the URL in `docs/system/overview.md`.
+   - 머지: squash merge and delete the branch, move the issue to `status:done` and comment on it when there is one. When the PR changed `docs/system/`, render the handbook from the updated base branch (`render-system.sh`) and republish it to the URL in `docs/system/overview.md`.
    - 재리뷰: run step 3 on the diff since the last reviewed SHA, then return to step 7.
    - 남은 지적 고치기: fix the listed findings, redo step 2, then return to step 7.
    - PR 열어두기: stop and report.
    - Recommend 재리뷰 when step 7 says needed; otherwise 머지 when every criterion is ✅ and no confirmed serious finding is open; otherwise 남은 지적 고치기.
    - In an unattended run such as `/goal`, skip the question: end with the verdict, the recommendation and the four options as text.
 
-## Small changes
+## Changes without a plan doc
 
-Skip the HTML and the review. Add a short evidence list and the marker to the PR body, comment on the issue, then offer the options with 머지 recommended when the evidence is ✅.
+Skip the plan doc and the HTML (steps 4 and 5). A change one sentence describes also skips the review. Anything bigger, such as a follow-up doc update or a `/sync` fix, runs step 3 and step 7 as usual. Add a short evidence list, one line per review round, and the markers to the PR body, comment on the issue when there is one, then decide as in step 8 with 머지 recommended when the evidence is ✅ and no confirmed serious finding is open.

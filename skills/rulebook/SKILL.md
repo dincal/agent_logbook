@@ -7,7 +7,7 @@ disable-model-invocation: true
 
 # rulebook
 
-Set up this repository so every development request follows the logbook flow: an issue first, a briefing before implementation, a debriefing after the PR, and a question wherever an open choice changes the user scenario.
+Set up this repository so every development request follows the logbook flow: an issue for work others need to know about, a briefing before implementation, a debriefing after the PR, and a question wherever an open choice changes the user scenario.
 
 ## What changes
 

@@ -41,6 +41,7 @@ flowchart LR
 | 무인 실행은 Claude Code의 `/goal`에 맡긴다 | logbook은 목표 문장만 만들고, 끝났는지는 `/goal`의 평가 모델이 판단합니다 | [v0.1 계획](https://github.com/dincal/agent_logbook/blob/main/docs/plans/1-logbook-v0-1.md) |
 | 흐름이 달라지는 선택은 사람에게 묻는다 | 에이전트가 스펙을 임의로 정하지 않도록, 사용 흐름이 달라지는 부분은 질문으로 정합니다 | [#3 계획](https://github.com/dincal/agent_logbook/blob/main/docs/plans/3-system-docs-and-design.md) |
 | md 문서에는 HTML을 넣지 않는다 | 계획 문서와 프로젝트 문서는 md 뷰어에서도 읽히도록 mermaid, 표, 목록만 씁니다. 슬라이드의 숫자 타일 같은 HTML은 렌더러가 만들고, HTML이 든 md는 렌더러가 거부합니다 | [#7 이슈](https://github.com/dincal/agent_logbook/issues/7) |
+| 이슈는 남길 일에만 만든다 | 다른 개발자가 알아야 하거나 꼭 남길 작업만 이슈가 됩니다. 작은 수정은 이슈 없이 PR만 열고, 따라오는 문서 갱신은 관련 작업의 PR에 얹으며, 저장소를 고치지 않는 로컬 작업은 채팅으로만 보고합니다 | [#13 계획](https://github.com/dincal/agent_logbook/blob/main/docs/plans/13-issue-worthy-only.md) |
 | 위험: md 뷰어가 mermaid를 그려야 그림이 보인다 | GitHub와 흔한 편집기는 mermaid를 그리지만, 지원하지 않는 뷰어에서는 그림이 코드로 보입니다. 슬라이드에서는 늘 그림으로 보입니다 | `templates/diagram-kit.md` |
 | 위험: Artifact와 `/design`은 조건이 있다 | claude.ai 로그인, Anthropic API, 대화형 세션이 필요합니다. `claude -p` 같은 무인 실행에서는 게시하지 못합니다 | [#3 계획](https://github.com/dincal/agent_logbook/blob/main/docs/plans/3-system-docs-and-design.md) |
 

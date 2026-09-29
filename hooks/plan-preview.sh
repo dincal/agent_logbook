@@ -64,7 +64,7 @@ has_line "$plan" '<!-- brief:skip -->' && exit 0
 case "$(field '.hook_event_name // empty' 'd.get("hook_event_name")')" in
   PreToolUse)
     if ! has_line "$plan" '<!-- brief:begin -->'; then
-      respond deny '플랜에 브리핑 블록이 없습니다. logbook의 templates/plan.md 형식대로 <!-- brief:begin -->과 <!-- brief:end --> 사이에 브리핑(요약과 요청, 배경, 하는 일, 주요 결정, 위험과 판단 필요, 일정과 검증)을 넣어 다시 제출하세요. 한 문장으로 설명되는 작은 수정이면 <!-- brief:skip --> 한 줄만 넣으면 됩니다.'
+      respond deny '플랜에 브리핑 블록이 없습니다. logbook의 templates/plan.md 형식대로 <!-- brief:begin -->과 <!-- brief:end --> 사이에 브리핑(요약과 요청, 배경, 하는 일, 주요 결정, 위험과 판단 필요, 일정과 검증)을 넣어 다시 제출하세요. 한 문장으로 설명되는 작은 수정이나 이슈로 남기지 않는 문서 갱신이면 <!-- brief:skip --> 한 줄만 넣으면 됩니다.'
       exit 0
     fi
     if ! has_line "$plan" '<!-- brief:end -->'; then
