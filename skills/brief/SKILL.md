@@ -43,7 +43,8 @@ A change that one sentence fully describes (a typo, a rename, a small config twe
    - Every acceptance criterion names the command or observation that proves it. When the change alters what `docs/system/` describes, name those docs and add a criterion proved by `${CLAUDE_PLUGIN_ROOT}/scripts/system-check.sh --range <base>...HEAD`.
    - Details that do not fit the slides go under `## 상세`.
 6. **Pictures.** Follow `${CLAUDE_PLUGIN_ROOT}/templates/diagram-kit.md`:
-   - Show with a picture whatever content a picture can show: numbers as tiles, steps as a track, before and after as a comparison, parts as cards. No quota either way.
+   - Show with a picture whatever content a picture can show. The plan doc holds no HTML: draw with `mermaid`, write numbers as a list of bold numbers (the slides show them as tiles), and compare with tables. No quota either way.
+   - When the change adds or alters a call to an LLM or another AI model, its picture names the model and gives the gist of the prompt: what goes in, what the model is asked, what comes back.
    - Never force an ERD or a flowchart. An ERD holds database tables only; a flowchart shows logic that matters to the reader.
    - Always include the main logic flow the change adds or alters, and an ERD of any database schema change.
 7. **Render and publish.**

@@ -32,7 +32,7 @@ Paths below use `${CLAUDE_PLUGIN_ROOT}`. On harnesses that do not substitute it,
    - 검증 증거: a table of 기준, 결과 and 증거.
    - 리뷰 포인트: at most five `file:line` spots worth a human look, and one line per review round (findings, fixed, refuted, left).
    - 남은 위험과 후속 과제.
-   - Show with pictures whatever pictures can show, such as tiles for the numbers and a track for plan versus actual, without forcing an ERD or a flowchart (`${CLAUDE_PLUGIN_ROOT}/templates/diagram-kit.md`).
+   - Show with pictures whatever pictures can show, such as a list of bold numbers (tiles on the slide) and a `mermaid` flow for plan versus actual, without forcing an ERD or a flowchart and without HTML in the doc (`${CLAUDE_PLUGIN_ROOT}/templates/diagram-kit.md`). A model call added or changed shows its model and prompt gist.
    - Update 진행 기록 and the doc status line.
 5. **Render and publish.** `${CLAUDE_PLUGIN_ROOT}/scripts/render-brief.sh <doc> debrief .logbook/briefs/<issue>-debrief.html`, then publish it as an Artifact on Claude Code. Elsewhere, use the local path as the link.
 6. **Link.**

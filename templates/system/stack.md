@@ -19,11 +19,19 @@ flowchart LR
 
 {어디에서 어떻게 실행되는지 한 문장}
 
-```html
-<div class="tracks">
-  <div class="track"><div class="who">배포</div><div class="steps"><span class="step">{로컬}</span><span class="arrow">→</span><span class="step">{스테이징}</span><span class="arrow">→</span><span class="step">{운영}</span></div><div class="count">{배포 방법}</div></div>
-</div>
+```mermaid
+flowchart LR
+  L["{로컬}"] -->|"{배포 방법}"| S["{스테이징}"]
+  S --> P["{운영}"]
 ```
+
+## AI 모델 (AI 모델을 부를 때)
+
+{어떤 AI 모델을 어디에 쓰는지 한 문장. 모델을 부르지 않으면 이 절을 지운다}
+
+| 모델 | 고르는 설정(기본값) | 쓰는 곳 | 부르는 방법 |
+|---|---|---|---|
+| {모델 이름} | `{설정 이름}`(`{기본값}`) | {흐름 이름과 단계} | {SDK, API, 하위 프로세스} |
 
 ## 개발 도구
 

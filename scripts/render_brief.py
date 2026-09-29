@@ -3,9 +3,9 @@
 
 Standard library only. Each `##` section inside the block becomes one slide; the
 section's first short paragraph becomes the slide headline. Fenced `mermaid`
-blocks become diagrams, and fenced `html` or `svg` blocks pass through as
-free-form diagrams after scripts and event handlers are stripped. Pictures are
-optional: a deck carries only the ones its author judged worth drawing.
+blocks become diagrams, and a list whose items all start with a bold number
+becomes tiles. The markdown itself carries no HTML, so it reads the same in any
+markdown viewer: a document with HTML blocks or tags is refused (exit 4).
 """
 import html
 import pathlib
@@ -30,34 +30,62 @@ def extract_block(text, kind):
     return match.group(1) if match else None
 
 
-ACTIVE_TAGS = "script|style|iframe|frame|frameset|object|embed|applet|link|meta|base|form"
-URL_ATTR = re.compile(r"""(\s)(href|src|xlink:href|action|formaction)(\s*=\s*)("[^"]*"|'[^']*'|[^\s>]+)""", re.I)
+HTML_NAMES = {
+    "a", "abbr", "article", "aside", "audio", "b", "blockquote", "br", "button", "canvas", "caption",
+    "center", "circle", "code", "dd", "defs", "details", "div", "dl", "dt", "ellipse", "em", "embed",
+    "figcaption", "figure", "font", "footer", "form", "g", "h1", "h2", "h3", "h4", "h5", "h6",
+    "header", "hr", "i", "iframe", "img", "input", "kbd", "label", "li", "line", "link", "main",
+    "mark", "meta", "nav", "object", "ol", "option", "p", "path", "picture", "polygon", "polyline",
+    "pre", "rect", "s", "script", "section", "select", "small", "source", "span", "strong", "style",
+    "sub", "summary", "sup", "svg", "table", "tbody", "td", "text", "textarea", "tfoot", "th",
+    "thead", "tr", "u", "ul", "video",
+}
+HTML_TAG = re.compile(r"<\s*/?\s*([A-Za-z][A-Za-z0-9-]*)\b[^<>]*>")
 
 
-def neutralize_url(match):
-    """Replace a script URL even when it hides behind spaces, tabs or character references."""
-    raw = match.group(4)
-    value = raw[1:-1] if raw[:1] in "\"'" else raw
-    probe = re.sub(r"[\x00-\x20]+", "", html.unescape(value)).lower()
-    if probe.startswith(("javascript:", "vbscript:", "data:text/html")):
-        return f'{match.group(1)}{match.group(2)}="#"'
-    return match.group(0)
+def html_in_markdown(text):
+    """Return (line number, snippet) for HTML that a markdown viewer would show or drop.
 
-
-def sanitize_html(fragment):
-    """Keep author-drawn HTML/SVG but drop active content: scripts, embeds, handlers, script URLs.
-
-    Runs until nothing changes, so a tag rebuilt by an earlier removal
-    (for example `<scr<script>ipt>`) is removed on the next pass.
+    Counts `html`/`svg` code blocks and HTML tags in prose, tables and mermaid blocks.
+    HTML comments are markers that viewers hide, and tags inside inline code or
+    inside other code blocks are examples, so neither counts.
     """
-    previous = None
-    while previous != fragment:
-        previous = fragment
-        fragment = re.sub(rf"<\s*({ACTIVE_TAGS})\b[^>]*>.*?<\s*/\s*\1\s*>", "", fragment, flags=re.I | re.S)
-        fragment = re.sub(rf"<\s*/?\s*({ACTIVE_TAGS})\b[^>]*>", "", fragment, flags=re.I)
-        fragment = re.sub(r"\s+on[a-z]+\s*=\s*(\"[^\"]*\"|'[^']*'|[^\s>]+)", "", fragment, flags=re.I)
-        fragment = URL_ATTR.sub(neutralize_url, fragment)
-    return fragment
+    found, fence, in_comment = [], None, False
+    for number, line in enumerate(text.splitlines(), start=1):
+        stripped = line.strip()
+        if fence is None and not in_comment and stripped.startswith("```"):
+            fence = stripped[3:].strip().lower()
+            if fence in ("html", "svg", "xml"):
+                found.append((number, stripped))
+            continue
+        if fence is not None:
+            if stripped.startswith("```"):
+                fence = None
+                continue
+            if fence != "mermaid":
+                continue
+        scan = re.sub(r"`[^`]*`", "", line)
+        if in_comment:
+            if "-->" not in scan:
+                continue
+            scan, in_comment = scan.split("-->", 1)[1], False
+        scan = re.sub(r"<!--.*?-->", "", scan)
+        if "<!--" in scan:
+            scan, in_comment = scan.split("<!--", 1)[0], True
+        tag = next((m for m in HTML_TAG.finditer(scan) if m.group(1).lower() in HTML_NAMES), None)
+        if tag:
+            found.append((number, tag.group(0)))
+    return found
+
+
+def html_problem(name, found):
+    """One line naming where the HTML is and what to use instead."""
+    where = ", ".join(f"{number}줄 {snippet}" for number, snippet in found[:5])
+    more = f" 외 {len(found) - 5}곳" if len(found) > 5 else ""
+    return (
+        f"{name}에 HTML이 있습니다({where}{more}). md 파일에는 HTML을 넣지 않습니다. "
+        "그림은 mermaid로, 숫자 요약은 굵은 숫자로 시작하는 목록으로, 비교는 표로 바꾸세요"
+    )
 
 
 def inline(text):
@@ -192,6 +220,36 @@ def render_list(ordered, items):
     return f'<{tag} class="md">{"".join(out)}</{tag}>'
 
 
+TILE_ITEM = re.compile(r"^\*\*(?P<num>[^*]{1,20})\*\*\s*(?P<rest>.*)$")
+
+
+def tile_items(items):
+    """Tiles for a flat list of two or more items that each start with a bold number, else None."""
+    if len(items) < 2 or any(depth for depth, _ in items):
+        return None
+    tiles = []
+    for _, text in items:
+        match = TILE_ITEM.match(text)
+        if not match or not re.search(r"\d", match.group("num")):
+            return None
+        what, _, how = match.group("rest").strip().partition(":")
+        if not how and "：" in what:
+            what, _, how = what.partition("：")
+        tiles.append((match.group("num").strip(), what.strip(), how.strip()))
+    return tiles
+
+
+def render_tiles(tiles):
+    cells = []
+    for num, what, how in tiles:
+        num_html = re.sub(r"\s*(/|→)\s*", r" <em>\1</em> ", html.escape(num, quote=False))
+        cells.append(
+            f'<div class="tile"><div class="num">{num_html}</div>'
+            f'<div class="what">{inline(what)}</div><div class="how">{inline(how)}</div></div>'
+        )
+    return f'<div class="tiles">{"".join(cells)}</div>'
+
+
 def render_block(block):
     kind = block[0]
     if kind == "p":
@@ -202,8 +260,6 @@ def render_block(block):
         lang, body = block[1], block[2]
         if lang == "mermaid":
             return f'<div class="diagram"><pre class="mermaid">{html.escape(body, quote=False)}</pre></div>'
-        if lang in ("html", "svg"):
-            return f'<div class="freeform">{sanitize_html(body)}</div>'
         return (
             '<div class="code"><button class="copy" type="button">복사</button>'
             f"<pre><code>{html.escape(body, quote=False)}</code></pre></div>"
@@ -226,7 +282,8 @@ def render_block(block):
             css += " ok" if rest.startswith("없음") else " warn"
         return f'<div class="{css}"><strong>{inline(label)}</strong> {inline(rest)}</div>'
     if kind == "list":
-        return render_list(block[1], block[2])
+        tiles = None if block[1] else tile_items(block[2])
+        return render_tiles(tiles) if tiles else render_list(block[1], block[2])
     return ""
 
 
@@ -283,6 +340,9 @@ def main(argv):
     if not doc.is_file():
         fail(f"no such file: {doc}", 2)
     text = doc.read_text(encoding="utf-8")
+    found = html_in_markdown(text)
+    if found:
+        fail(html_problem(doc.name, found), 4)
     block = extract_block(text, kind)
     if block is None:
         fail(f"no <!-- {kind}:begin --> ... <!-- {kind}:end --> block in {doc}", 3)

@@ -7,13 +7,9 @@
 
 logbook은 Claude Code에 설치하는 플러그인입니다. 개발은 에이전트가 맡고, 사람은 구현 전 브리핑과 구현 후 결과 보고만 검토합니다.
 
-```html
-<div class="tiles">
-  <div class="tile"><div class="num">5</div><div class="what">명령(스킬)</div><div class="how">rulebook · brief · mission · debrief · sync</div></div>
-  <div class="tile"><div class="num">2</div><div class="what">자동 검사(hook)</div><div class="how">플랜 미리보기 · 결과 보고 확인</div></div>
-  <div class="tile"><div class="num">3</div><div class="what">사람이 보는 페이지</div><div class="how">브리핑 · 결과 보고 · 프로젝트 핸드북</div></div>
-</div>
-```
+- **5** 명령(스킬): rulebook · brief · mission · debrief · sync
+- **2** 자동 검사(hook): 플랜 미리보기 · 결과 보고 확인
+- **3** 사람이 보는 페이지: 브리핑 · 결과 보고 · 프로젝트 핸드북
 
 - 데이터베이스는 쓰지 않습니다. 작업 기록은 GitHub 이슈와 PR, 저장소의 문서(`docs/plans/`, `docs/system/`), 로컬 폴더 `.logbook/`에 남습니다.
 
@@ -43,7 +39,8 @@ flowchart LR
 | 보고는 HTML 슬라이드로, Artifact 링크로 공유한다 | 긴 문서 대신 짧은 슬라이드로 보고하고, 링크를 GitHub 이슈와 PR에 겁니다 | [v0.1 계획](https://github.com/dincal/agent_logbook/blob/main/docs/plans/1-logbook-v0-1.md) |
 | 무인 실행은 Claude Code의 `/goal`에 맡긴다 | logbook은 목표 문장만 만들고, 끝났는지는 `/goal`의 평가 모델이 판단합니다 | [v0.1 계획](https://github.com/dincal/agent_logbook/blob/main/docs/plans/1-logbook-v0-1.md) |
 | 흐름이 달라지는 선택은 사람에게 묻는다 | 에이전트가 스펙을 임의로 정하지 않도록, 사용 흐름이 달라지는 부분은 질문으로 정합니다 | [#3 계획](https://github.com/dincal/agent_logbook/blob/main/docs/plans/3-system-docs-and-design.md) |
-| 위험: 브리핑 HTML 정리는 정규식 방식이다 | 스크립트와 이벤트 처리기를 지우지만 완전한 HTML 정리 도구는 아닙니다. 믿을 수 없는 문서를 렌더링하게 되면 허용 목록 방식으로 바꿔야 합니다 | `scripts/render_brief.py` |
+| md 문서에는 HTML을 넣지 않는다 | 계획 문서와 프로젝트 문서는 md 뷰어에서도 읽히도록 mermaid, 표, 목록만 씁니다. 슬라이드의 숫자 타일 같은 HTML은 렌더러가 만들고, HTML이 든 md는 렌더러가 거부합니다 | [#7 이슈](https://github.com/dincal/agent_logbook/issues/7) |
+| 위험: md 뷰어가 mermaid를 그려야 그림이 보인다 | GitHub와 흔한 편집기는 mermaid를 그리지만, 지원하지 않는 뷰어에서는 그림이 코드로 보입니다. 슬라이드에서는 늘 그림으로 보입니다 | `templates/diagram-kit.md` |
 | 위험: Artifact와 `/design`은 조건이 있다 | claude.ai 로그인, Anthropic API, 대화형 세션이 필요합니다. `claude -p` 같은 무인 실행에서는 게시하지 못합니다 | [#3 계획](https://github.com/dincal/agent_logbook/blob/main/docs/plans/3-system-docs-and-design.md) |
 
 ## 용어

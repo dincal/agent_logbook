@@ -1,4 +1,4 @@
-<!-- logbook:system sources=".claude-plugin/** hooks/** scripts/** templates/** tests/**" checked="2026-09-28" -->
+<!-- logbook:system sources=".claude-plugin/** hooks/** scripts/** templates/** tests/** agents/**" checked="2026-09-29" -->
 # 기술 스택
 
 ## 구성과 기술 스택
@@ -28,15 +28,27 @@ flowchart LR
 
 logbook은 GitHub 저장소를 플러그인 마켓플레이스로 등록해 설치하고, 사용자의 PC에서 Claude Code가 불러 씁니다.
 
-```html
-<div class="tracks">
-  <div class="track"><div class="who">배포</div><div class="steps"><span class="step">PR 머지</span><span class="arrow">→</span><span class="step">마켓플레이스 갱신</span><span class="arrow">→</span><span class="step">플러그인 갱신</span><span class="arrow">→</span><span class="step done">새 세션에서 사용</span></div><div class="count">사용자 PC</div></div>
-</div>
+```mermaid
+flowchart LR
+  A["PR 머지"] --> B["마켓플레이스 갱신"]
+  B --> C["플러그인 갱신"]
+  C --> D["새 세션에서 사용"]
 ```
 
 - 마켓플레이스 갱신은 `claude plugin marketplace update agent-logbook`, 플러그인 갱신은 `claude plugin update logbook@agent-logbook`입니다.
 - 쓰는 PC에는 git, GitHub CLI(`gh`), python3가 있어야 합니다. jq는 있으면 쓰고, 없으면 python3로 대신합니다.
 - Artifact와 `/design`은 claude.ai에 로그인한 Claude Code에서만 됩니다. 다른 곳에서는 로컬 HTML 파일을 씁니다.
+
+## AI 모델
+
+logbook이 직접 고르는 모델은 리뷰어의 Sonnet 하나이고, 나머지는 Claude Code가 정한 모델을 씁니다.
+
+| 모델 | 고르는 설정(기본값) | 쓰는 곳 | 부르는 방법 |
+|---|---|---|---|
+| Sonnet, medium effort | `agents/reviewer.md`의 `model`과 `effort` | 구현 후 결과 보고의 별도 리뷰 | Claude Code 하위 에이전트. 다른 하네스에서는 세션 모델 |
+| Explore 에이전트의 모델 | Claude Code가 정함 | `/brief`와 `/sync`의 코드 조사 | Claude Code 하위 에이전트 |
+| 세션 모델 | 사용자가 Claude Code에서 고른 모델 | 모든 명령의 본 작업(조사 정리, 계획, 구현, 문서 작성) | Claude Code 세션 |
+| `/goal`의 평가 모델 | Claude Code가 정함 | `/mission`으로 시작한 무인 실행이 끝났는지 판단 | Claude Code의 `/goal` |
 
 ## 개발 도구
 

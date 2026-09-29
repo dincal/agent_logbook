@@ -23,7 +23,9 @@ Paths below use `${CLAUDE_PLUGIN_ROOT}`. On harnesses that do not substitute it,
 
 - Write by `${CLAUDE_PLUGIN_ROOT}/templates/writing.md` and draw by `${CLAUDE_PLUGIN_ROOT}/templates/diagram-kit.md`. Each `##` section becomes one handbook slide, and its first paragraph is one sentence that states the conclusion.
 - Only facts the code confirms. Old documents are hints: keep a claim only after checking it in the code. Mark what the code cannot tell (product intent, quality goals) as `확인 필요` and ask.
-- Code references appear only on a flow's `시작점` line, as a file path plus a function or class name, without line numbers.
+- The docs hold no HTML, so they read well in any markdown viewer: pictures are `mermaid` diagrams, tables and lists.
+- Each call to an LLM or another AI model is a point to explain in detail: the flow's picture names the model and gives the gist of the prompt (what goes in, what the model is asked, what comes back), and a table under it adds the setting that picks the model, where the prompt lives, how the answer is checked and what happens on failure. stack.md lists the models.
+- Code references appear only on a flow's `시작점` line and in the model-call table, as a file path plus a function, class or setting name, without line numbers.
 - Each doc starts with `<!-- logbook:system sources="<git path patterns>" -->` naming the code it describes. data-model.md adds `tables="<n>"`, the number of tables the schema defines.
 - The ERD shows every table in the database. List the tables from the schema's source of truth (ORM models or schema files, not the migration history). When there are many, split the ERD by domain into several sections so that each table appears at least once. When the project already generates an ERD (prisma-erd-generator, paracelsus, tbls and the like), start from its output.
 - Without a database there is no data-model.md; overview.md says in one line where the data lives.

@@ -74,7 +74,9 @@ case "$(field '.hook_event_name // empty' 'd.get("hook_event_name")')" in
     out="$root/.logbook/briefs/plan-preview.html"
     tmp="$(mktemp "${TMPDIR:-/tmp}/logbook-plan.XXXXXX")" || exit 0
     printf '%s\n' "$plan" > "$tmp"
-    if err="$("$PLUGIN_ROOT/scripts/render-brief.sh" "$tmp" brief "$out" 2>&1 >/dev/null)"; then
+    err="$("$PLUGIN_ROOT/scripts/render-brief.sh" "$tmp" brief "$out" 2>&1 >/dev/null)"
+    status=$?
+    if [ "$status" -eq 0 ]; then
       # The local file opens without the Artifact skeleton, so give it a doctype.
       { printf '<!doctype html>\n'; cat "$out"; } > "$tmp" && cat "$tmp" > "$out"
       if [ -z "${LOGBOOK_NO_OPEN:-}" ]; then
@@ -84,6 +86,10 @@ case "$(field '.hook_event_name // empty' 'd.get("hook_event_name")')" in
           xdg-open "$out" >/dev/null 2>&1 || true
         fi
       fi
+    elif [ "$status" -eq 4 ]; then
+      # Exit 4: the plan carries HTML, which markdown viewers show as raw code.
+      reason="$(printf '%s' "$err" | sed 's/^render-brief: [^ ]*에 HTML이/플랜에 HTML이/')"
+      respond deny "$reason 고친 뒤 다시 제출하세요."
     else
       respond message "logbook: 브리핑 미리보기를 만들지 못했습니다. ${err}"
     fi

@@ -7,13 +7,9 @@
 
 {누구에게 무엇을 해 주는 시스템인지 한 문장}
 
-```html
-<div class="tiles">
-  <div class="tile"><div class="num">{N}</div><div class="what">주요 흐름</div><div class="how">{흐름 이름}</div></div>
-  <div class="tile"><div class="num">{N}</div><div class="what">DB 테이블</div><div class="how">{DB 종류. DB가 없으면 이 타일을 지운다}</div></div>
-  <div class="tile"><div class="num">{N}</div><div class="what">바깥 서비스</div><div class="how">{서비스 이름}</div></div>
-</div>
-```
+- **{N}** 주요 흐름: {흐름 이름}
+- **{N}** DB 테이블: {DB 종류. DB가 없으면 이 줄을 지운다}
+- **{N}** 바깥 서비스: {서비스와 AI 모델 이름}
 
 ## 시스템 지도
 

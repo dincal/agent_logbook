@@ -10,7 +10,8 @@ behind the code when that code changed after the doc did. By default the
 baseline is the last commit that touched the doc, and uncommitted edits count.
 `--range A...B` checks a pull request instead: code a doc describes changed in
 the range while the doc did not. `tables` is the number of database tables the
-schema defines; the ERD in data-model.md must show that many tables.
+schema defines; the ERD in data-model.md must show that many tables. A doc that
+carries HTML gets a warning, since markdown viewers show it as raw code.
 
 Standard library only. Prints one line per finding and a summary line.
 """
@@ -20,6 +21,9 @@ import pathlib
 import re
 import subprocess
 import sys
+
+sys.path.insert(0, str(pathlib.Path(__file__).resolve().parent))
+from render_brief import html_in_markdown  # noqa: E402
 
 ORDER = ["overview.md", "stack.md", "flows.md", "data-model.md"]
 MARKER = re.compile(r"<!--\s*logbook:system\b(?P<attrs>.*?)-->", re.S)
@@ -119,6 +123,10 @@ def check_doc(args, root, rel, doc_paths):
             warnings.append(f"경로 패턴 '{pattern}'에 맞는 파일이 없습니다")
     for path in missing_paths(text, root):
         warnings.append(f"없는 파일을 가리킵니다: {path}")
+    found = html_in_markdown(text)
+    if found:
+        where = ", ".join(f"{number}줄 {snippet}" for number, snippet in found[:3])
+        warnings.append(f"HTML이 들어 있습니다({where}). md에는 HTML 대신 mermaid, 표, 목록을 씁니다")
     if rel.endswith("/data-model.md"):
         tables = erd_tables(text)
         declared = marker.get("tables", "")

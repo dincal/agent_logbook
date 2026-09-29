@@ -2,8 +2,8 @@
 """Render the project docs in docs/system/ into one HTML slide deck (the handbook).
 
 Each doc's `##` sections become slides after a table-of-contents slide. The
-slide renderer, sanitizer and template are the ones render_brief.py uses.
-Standard library only.
+slide renderer and template are the ones render_brief.py uses, and like it this
+refuses docs that carry HTML (exit 4). Standard library only.
 """
 import html
 import pathlib
@@ -12,7 +12,16 @@ import subprocess
 import sys
 
 sys.path.insert(0, str(pathlib.Path(__file__).resolve().parent))
-from render_brief import TEMPLATE, fail, inline, render_meta, render_slide, split_sections  # noqa: E402
+from render_brief import (  # noqa: E402
+    TEMPLATE,
+    fail,
+    html_in_markdown,
+    html_problem,
+    inline,
+    render_meta,
+    render_slide,
+    split_sections,
+)
 
 ORDER = ["overview.md", "stack.md", "flows.md", "data-model.md"]
 
@@ -48,12 +57,18 @@ def main(argv):
     if not names:
         fail(f"no .md docs in {folder}", 3)
 
-    docs = []
+    docs, problems = [], []
     for name in names:
         text = (folder / name).read_text(encoding="utf-8")
+        found = html_in_markdown(text)
+        if found:
+            problems.append(html_problem(name, found))
+            continue
         sections = split_sections(text)
         if sections:
             docs.append((name, text, title_of(text, name), sections))
+    if problems:
+        fail(" / ".join(problems), 4)
     if not docs:
         fail(f"the docs in {folder} have no ## sections", 3)
 

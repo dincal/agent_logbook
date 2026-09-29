@@ -10,7 +10,7 @@ TMP="$(mktemp -d)"
 trap 'rm -rf "$TMP"' EXIT
 PASS=0
 FAIL=0
-BLOCK_LINE='<!-- logbook:begin v2 -->'
+BLOCK_LINE='<!-- logbook:begin v3 -->'
 
 ok() { PASS=$((PASS + 1)); printf 'PASS  %s\n' "$1"; }
 bad() { FAIL=$((FAIL + 1)); printf 'FAIL  %s\n' "$1"; [ -n "${2:-}" ] && printf '%s\n' "$2" | sed 's/^/      /'; return 0; }
@@ -133,7 +133,7 @@ expect "render-brief: one slide per ## section" test "$slides" -eq "$sections"
 expect "render-brief: mermaid kept as pre.mermaid" grep -q '<pre class="mermaid">' "$TMP/brief.html"
 expect "render-brief: tables rendered" grep -q '<table>' "$TMP/brief.html"
 expect "render-brief: page has a title and a charset" bash -c "grep -q '<title>logbook v0.1 구축 브리핑</title>' '$TMP/brief.html' && grep -q '<meta charset=\"utf-8\">' '$TMP/brief.html'"
-expect "render-brief: no template placeholders left" bash -c "! grep -q '{{' '$TMP/brief.html'"
+expect "render-brief: no template placeholders left" bash -c "! grep -qE '\\{\\{[A-Z_]+\\}\\}' '$TMP/brief.html'"
 out="$("$ROOT/scripts/render-brief.sh" "$DOC" debrief "$TMP/debrief.html" 2>&1)"; rc=$?
 printf '      %s\n' "$out"
 if [ $rc -eq 0 ]; then ok "render-brief: debrief block renders"; else bad "render-brief: debrief block renders" "$out"; fi
@@ -173,14 +173,25 @@ See https://github.com/acme/demo/pull/2에서 확인.
 
 ## Drawing
 
-```html
-<div class="tiles"><div class="tile" onclick="alert(1)"><div class="num">4</div></div></div>
-<script>alert(1)</script>
-<scr<script>ipt>alert(2)</script>
-<a href="javascript:alert(3)">x</a>
-<a href="javascript: alert(5)">spaced</a>
-<a href="java&#x09;script:alert(6)">encoded</a>
-<svg viewBox="0 0 10 10"><script>alert(4)</script><rect width="10" height="10" style="fill: var(--accent)"/></svg>
+<!-- a marker comment is hidden by viewers and allowed -->
+
+- **9** 지운 파일: 옛 문서 4개
+- **5 / 5** 완료 조건: 명령 결과로 확인
+- **11 → 4** 스킬
+
+- **3** 숫자로 시작하는 항목
+- 숫자가 없는 항목
+
+`<Callout>` 같은 태그는 인라인 코드 안에서 글자로 남습니다.
+
+```tsx
+export const Box = () => <div className="box" />;
+```
+
+```mermaid
+flowchart LR
+  A["문의"] -->|"넣음"| M{{"`**claude-haiku-4-5**
+  세 갈래로 나눠 달라`"}}
 ```
 <!-- brief:end -->
 EOF
@@ -189,10 +200,27 @@ expect "render-brief: a quote in a link URL cannot open an attribute" bash -c "!
 expect "render-brief: bare URL stops before attached Korean text" grep -q 'href="https://github.com/acme/demo/pull/2">https://github.com/acme/demo/pull/2</a>에서' "$TMP/edge.html"
 expect "render-brief: sub-bullets nest instead of taking a number" grep -q '<li>first<ul class="md sub"><li>detail</li></ul></li><li>second</li>' "$TMP/edge.html"
 expect "render-brief: ## inside a code fence does not split slides" test "$(grep -c '<section class="slide"' "$TMP/edge.html")" -eq 3
-expect "render-brief: html blocks pass through as free-form drawings" grep -q '<div class="freeform"><div class="tiles">' "$TMP/edge.html"
-drawing="$(sed -n '/<div class="freeform">/,/<\/section>/p' "$TMP/edge.html")"
-expect "render-brief: scripts, handlers and script URLs are stripped from drawings" bash -c "! printf '%s' \"\$1\" | grep -qiE '<script|alert|onclick=|javascript:'" _ "$drawing"
-expect "render-brief: harmless SVG survives sanitizing" bash -c "printf '%s' \"\$1\" | grep -q '<rect width=\"10\" height=\"10\" style=\"fill: var(--accent)\"/>'" _ "$drawing"
+expect "render-brief: a list of bold numbers becomes tiles" grep -q '<div class="tiles"><div class="tile"><div class="num">9</div><div class="what">지운 파일</div><div class="how">옛 문서 4개</div></div>' "$TMP/edge.html"
+expect "render-brief: a slash or an arrow in a tile number is highlighted" bash -c "grep -q '5 <em>/</em> 5' '$TMP/edge.html' && grep -q '11 <em>→</em> 4' '$TMP/edge.html'"
+expect "render-brief: a list that is not all bold numbers stays a list" grep -q '<li>숫자가 없는 항목</li>' "$TMP/edge.html"
+expect "render-brief: tags in inline code and in other code blocks stay text" bash -c "grep -q '<code>&lt;Callout&gt;</code>' '$TMP/edge.html' && grep -q 'export const Box = () =&gt; &lt;div' '$TMP/edge.html'"
+html_doc() { printf '# H\n\n<!-- brief:begin -->\n## 요약\n\n결론.\n\n%s\n<!-- brief:end -->\n' "$1" > "$TMP/html.md"; }
+html_doc $'```html\n<div class="tiles"></div>\n```'
+err="$("$ROOT/scripts/render-brief.sh" "$TMP/html.md" brief "$TMP/html.html" 2>&1 >/dev/null)"; rc=$?
+if [ $rc -eq 4 ] && printf '%s' "$err" | grep -q '8줄 ```html' && printf '%s' "$err" | grep -q 'mermaid'; then
+  ok "render-brief: an html block is refused (exit 4) with its line and what to use instead"
+else
+  bad "render-brief: an html block is refused (exit 4) with its line and what to use instead" "rc=$rc $err"
+fi
+html_doc '<div class="tiles">4</div>'
+"$ROOT/scripts/render-brief.sh" "$TMP/html.md" brief "$TMP/html.html" >/dev/null 2>&1; rc=$?
+expect "render-brief: a raw tag in prose is refused" test $rc -eq 4
+html_doc $'```mermaid\nflowchart LR\n  A["a<br/>b"] --> B\n```'
+"$ROOT/scripts/render-brief.sh" "$TMP/html.md" brief "$TMP/html.html" >/dev/null 2>&1; rc=$?
+expect "render-brief: a <br> inside a mermaid label is refused" test $rc -eq 4
+html_doc $'<!--\n여러 줄 주석 안의 <div>는 보이지 않습니다\n-->\n\n| 조각 | 설명 |\n|---|---|\n| 웹 | `<main>` 영역 |'
+"$ROOT/scripts/render-brief.sh" "$TMP/html.md" brief "$TMP/html.html" >/dev/null 2>&1; rc=$?
+expect "render-brief: HTML comments and inline code in tables are allowed" test $rc -eq 0
 
 # ---------------------------------------------------------------- plan-preview hook
 echo "== plan-preview hook =="
@@ -245,6 +273,12 @@ if [ $rc -eq 0 ] && [ -z "$res" ] && [ -s "$P/.logbook/briefs/plan-preview.html"
   ok "plan-preview: a briefing without a flowchart or an ERD passes and gets a preview"
 else
   bad "plan-preview: a briefing without a flowchart or an ERD passes and gets a preview" "rc=$rc $res"
+fi
+res="$(pre_input $'<!-- brief:begin -->\n## 요약\n\n결론.\n\n<div class="tiles">4</div>\n<!-- brief:end -->\n' | hook "$P")"
+if printf '%s' "$res" | jq -e '.hookSpecificOutput.permissionDecision == "deny" and (.hookSpecificOutput.permissionDecisionReason | test("HTML") and test("6줄"))' >/dev/null 2>&1; then
+  ok "plan-preview: a plan with HTML is sent back, naming the line"
+else
+  bad "plan-preview: a plan with HTML is sent back, naming the line" "$res"
 fi
 res="$(pre_input $'# Plan\n\n1. do it\n' | hook "$P")"
 if printf '%s' "$res" | jq -e '.hookSpecificOutput.permissionDecisionReason | test("요약과 요청") and (test("흐름 그림") | not)' >/dev/null 2>&1; then
@@ -397,7 +431,7 @@ if has_row "$out" "정상" "flows.md"; then ok "system-check: --range accepts a 
 git -C "$S" checkout -q main && git -C "$S" merge -q --squash feat/1-x >/dev/null 2>&1 && scommit "squash"
 out="$(sc)"
 expect "system-check: nothing is behind after a squash merge" bash -c "printf '%s' \"\$1\" | grep -q '뒤처진 문서 0'" _ "$out"
-printf '<!-- logbook:system sources="lib/**" -->\n# 한눈에\n\n## 한눈에 보기\n\n설명입니다. 설정은 `config/app.yml`에 있습니다.\n' > "$S/docs/system/overview.md"
+printf '<!-- logbook:system sources="lib/**" -->\n# 한눈에\n\n## 한눈에 보기\n\n설명입니다. 설정은 `config/app.yml`에 있습니다.\n\n<div class="tiles">4</div>\n' > "$S/docs/system/overview.md"
 printf '# 기술 스택\n\n## 구성\n\n서버 하나입니다.\n' > "$S/docs/system/stack.md"
 sed -i.bak 's/tables="2"/tables="3"/' "$S/docs/system/data-model.md" && /bin/rm -f "$S/docs/system/data-model.md.bak"
 out="$(sc)"
@@ -406,6 +440,7 @@ expect "system-check: warns about a path pattern that matches no file" bash -c "
 expect "system-check: warns about a file the doc names but the repo lacks" bash -c "printf '%s' \"\$1\" | grep -q '없는 파일을 가리킵니다: config/app.yml'" _ "$out"
 expect "system-check: warns about a doc without its marker" bash -c "printf '%s' \"\$1\" | grep -q '첫 줄 주석'" _ "$out"
 expect "system-check: a doc without its marker gets that one warning, not a second about sources" bash -c "! printf '%s' \"\$1\" | grep 'stack.md' | grep -q 'sources(이 문서가'" _ "$out"
+expect "system-check: warns about HTML in a doc, naming the line" bash -c "printf '%s' \"\$1\" | grep -q 'HTML이 들어 있습니다(8줄'" _ "$out"
 expect "system-check: warns when the ERD's table count differs from tables=" bash -c "printf '%s' \"\$1\" | grep -q 'ERD에 나온 테이블은 2개인데, 첫 줄 주석의 tables는 3'" _ "$out"
 printf '<!-- logbook:system sources="" -->\n# 용어\n\n## 용어\n\n설명입니다.\n' > "$S/docs/system/glossary.md"
 out="$(sc)"
@@ -471,7 +506,12 @@ expect "render-system: a contents slide plus one slide per ## section" test "$sl
 expect "render-system: the page is titled after the project" grep -q '<title>logbook 프로젝트 문서</title>' "$TMP/handbook.html"
 expect "render-system: the cover shows the commit it was rendered from" grep -q '기준: ' "$TMP/handbook.html"
 expect "render-system: slide heads name the doc and the section" grep -q '기술 스택 · 구성과 기술 스택' "$TMP/handbook.html"
-expect "render-system: no template placeholders left" bash -c "! grep -q '{{' '$TMP/handbook.html'"
+expect "render-system: no template placeholders left" bash -c "! grep -qE '\\{\\{[A-Z_]+\\}\\}' '$TMP/handbook.html'"
+HS="$TMP/html-system"
+mkdir -p "$HS"
+printf '<!-- logbook:system sources="x" -->\n# 한눈에\n\n## 한눈에 보기\n\n요약.\n\n```svg\n<svg></svg>\n```\n' > "$HS/overview.md"
+err="$("$ROOT/scripts/render-system.sh" "$HS" "$TMP/html-system.html" 2>&1 >/dev/null)"; rc=$?
+if [ $rc -eq 4 ] && printf '%s' "$err" | grep -q 'overview.md에 HTML이 있습니다'; then ok "render-system: a doc with HTML is refused (exit 4)"; else bad "render-system: a doc with HTML is refused (exit 4)" "rc=$rc $err"; fi
 
 # ---------------------------------------------------------------- plugin files
 echo "== plugin files =="
@@ -494,13 +534,28 @@ expect "reviewer agent checks docs/system against the code" grep -q 'docs/system
 W="$ROOT/templates/writing.md"
 expect "writing guide sets the reader: a computer-science graduate new to the project" grep -q "computer-science bachelor's degree" "$W"
 expect "writing guide carries the picture rules" bash -c "grep -q 'whatever a picture can show' '$W' && grep -q 'Do not force an ERD or a flowchart' '$W' && grep -q 'every table' '$W'"
+expect "writing guide: markdown holds no HTML, and model calls show the model and the prompt" bash -c "grep -q 'Markdown files hold no HTML' '$W' && grep -q 'names the model and gives the gist of the prompt' '$W'"
 K="$ROOT/templates/diagram-kit.md"
 expect "diagram kit: pictures wherever they fit, no quota, no forced ERD" bash -c "grep -q 'no quota' '$K' && grep -q 'never go into an ERD' '$K' && grep -q 'every table' '$K'"
+expect "diagram kit: markdown only, bold numbers become tiles, model calls get a hexagon and a table" bash -c "grep -q 'holds no HTML' '$K' && grep -q 'bold number' '$K' && grep -q '^## Model calls' '$K' && grep -q 'hexagon' '$K'"
+md_files="$(cd "$ROOT" && ls templates/*.md templates/system/*.md docs/system/*.md docs/plans/*.md README.md CHANGELOG.md)"
+html_hits="$(cd "$ROOT/scripts" && printf '%s\n' "$md_files" | python3 -c "
+import sys, pathlib
+from render_brief import html_in_markdown
+root = pathlib.Path('$ROOT')
+for name in sys.stdin.read().split():
+    for number, snippet in html_in_markdown((root / name).read_text(encoding='utf-8')):
+        print(f'{name}:{number} {snippet}')
+")"
+if [ -z "$html_hits" ]; then ok "templates and this repository's markdown carry no HTML"; else bad "templates and this repository's markdown carry no HTML" "$html_hits"; fi
+expect "flows template has a model-call table" grep -q '| 모델 호출 | 모델(설정) |' "$ROOT/templates/system/flows.md"
+expect "reviewer agent checks model calls and HTML in markdown" bash -c "grep -q 'LLM' '$ROOT/agents/reviewer.md' && grep -q 'hold no HTML' '$ROOT/agents/reviewer.md'"
 B="$ROOT/templates/agents-block.md"
-expect "rule block v2 asks whenever a choice changes the user scenario" bash -c "grep -qx '$BLOCK_LINE' '$B' && grep -q '흐름이 달라지는 부분은 묻는다' '$B' && grep -q '사소한 것은 묻지 않고' '$B'"
-expect "rule block v2 sets the reader and the picture rules" bash -c "grep -q '컴퓨터공학 학부' '$B' && grep -q 'ERD와 흐름도는 억지로 그리지 않는다' '$B' && grep -q '모든 테이블' '$B'"
-expect "rule block v2 points at docs/system, /sync and /design" bash -c "grep -q 'docs/system/' '$B' && grep -q '/sync' '$B' && grep -q '/design' '$B'"
-expect "rule block v2 no longer demands a flowchart and an ERD in every briefing" bash -c "! grep -q 'ERD 변화(없으면' '$B'"
+expect "rule block v3 asks whenever a choice changes the user scenario" bash -c "grep -qx '$BLOCK_LINE' '$B' && grep -q '흐름이 달라지는 부분은 묻는다' '$B' && grep -q '사소한 것은 묻지 않고' '$B'"
+expect "rule block v3 sets the reader and the picture rules" bash -c "grep -q '컴퓨터공학 학부' '$B' && grep -q 'ERD와 흐름도는 억지로 그리지 않는다' '$B' && grep -q '모든 테이블' '$B'"
+expect "rule block v3 points at docs/system, /sync and /design" bash -c "grep -q 'docs/system/' '$B' && grep -q '/sync' '$B' && grep -q '/design' '$B'"
+expect "rule block v3 no longer demands a flowchart and an ERD in every briefing" bash -c "! grep -q 'ERD 변화(없으면' '$B'"
+expect "rule block v3 keeps HTML out of markdown and details model calls" bash -c "grep -q 'md 파일에는 HTML을 넣지 않고' '$B' && grep -q 'AI 모델을 부르는 단계' '$B'"
 T="$ROOT/templates/plan.md"
 expect "plan template: conditional slides for logic, database and screens, no ERD filler" bash -c "grep -q '^## 주요 로직 흐름 (주요 로직이' '$T' && grep -q '^## 데이터베이스 변경 (DB 스키마가' '$T' && grep -q '^## 화면 시안 (' '$T' && ! grep -q 'ERD 변화 없음' '$T'"
 expect "goal template: approved screens and project docs" bash -c "grep -q 'docs/designs/' '$ROOT/templates/goal.md' && grep -q 'docs/system/' '$ROOT/templates/goal.md'"

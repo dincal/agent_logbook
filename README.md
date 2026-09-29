@@ -49,7 +49,7 @@ Antigravity·OpenCode(안내만): `skills/` 아래 폴더를 각 하네스의 �
 | `docs/designs/<이슈 번호>-<slug>/` | 승인된 화면 시안의 사본 |
 | `docs/manual/` | 사용 설명서(있을 때) |
 
-모든 문서는 컴퓨터공학 학부를 졸업했지만 이 프로젝트는 모르는 사람이 읽기 쉽게 씁니다. 기준은 [templates/writing.md](templates/writing.md)와 [templates/diagram-kit.md](templates/diagram-kit.md)에 있습니다.
+모든 문서는 컴퓨터공학 학부를 졸업했지만 이 프로젝트는 모르는 사람이 읽기 쉽게 씁니다. md 파일에는 HTML을 넣지 않고 그림은 mermaid로 그리며, AI 모델 호출은 모델과 프롬프트 요지를 그림에 적습니다. 기준은 [templates/writing.md](templates/writing.md)와 [templates/diagram-kit.md](templates/diagram-kit.md)에 있습니다.
 
 ## 개발
 
