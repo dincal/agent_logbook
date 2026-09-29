@@ -21,10 +21,11 @@ A change that one sentence fully describes (a typo, a rename, a small config twe
    - An issue given in `status:backlog` (one `/discuss` left for later, for instance) moves to `status:todo`.
    - Read the given issue's comments too: follow-up work deferred to this issue, such as a doc update, is left there as a comment and belongs in this change.
    - Run gh with the account on that line: `GH_TOKEN="$(gh auth token --user <account>)" gh ...`. Without an account there, use the default login.
+   - An issue labelled `epic` is planned with `/mission`, which sets up the epic branch and one `/goal` run for all its steps. Say so in one line and hand over.
    - Slug: a short kebab-case summary. Branch: `<type>/<issue>-<slug>` (feat, fix, refactor, docs or chore), cut from the base branch.
 2. **Research.**
    - Start from `docs/system/` when it exists; it describes the system as it is. Note which of those docs the change will alter.
-   - Code: send parallel Explore subagents to areas that do not depend on each other (on Claude Code, pass `model: sonnet`: they read and report, and you check their findings), and read the files the change touches yourself.
+   - Code: research areas that do not depend on each other in parallel, with Explore subagents on Sonnet or a Workflow as `${CLAUDE_PLUGIN_ROOT}/templates/parallel.md` says. They read and report, you check their findings, and you read the files the change touches yourself.
    - Sources: search the web, or run `/deep-research`, when the change brings a new library, an external API or an unfamiliar pattern.
    - Keep evidence as `file:line` references and links.
 3. **Questions.**
@@ -44,6 +45,7 @@ A change that one sentence fully describes (a typo, a rename, a small config twe
    - The first paragraph of each section is that slide's headline: one sentence that states the conclusion.
    - 주요 결정 separates what the user decided, with the alternatives they rejected, from your own calls.
    - Close with `> 판단 필요: 없음`, or at most two items only the human can decide: irreversible choices, product direction, scope.
+   - When implementation will be split into tracks, 일정과 검증 names the tracks, their builder tier and whether they run as subagents or a Workflow.
    - Every acceptance criterion names the command or observation that proves it. When the change alters what `docs/system/` describes, name those docs and add a criterion proved by `${CLAUDE_PLUGIN_ROOT}/scripts/system-check.sh --range <base>...HEAD`.
    - Details that do not fit the slides go under `## 상세`.
 6. **Pictures.** Follow `${CLAUDE_PLUGIN_ROOT}/templates/diagram-kit.md`:
@@ -59,7 +61,7 @@ A change that one sentence fully describes (a typo, a rename, a small config twe
    - Comment on the issue with a three-line summary, the briefing link and the 판단 필요 items.
    - Commit the plan doc on the work branch and push it.
 9. **Approval.**
-   - Walk-in request: ask "진행 / 수정 / 중단" and wait. Once approved, move the issue to `status:in-progress` and implement, splitting the work into parallel builder tracks only where the AGENTS.md rule says it pays.
+   - Walk-in request: ask "진행 / 수정 / 중단" and wait. Once approved, move the issue to `status:in-progress` and implement, splitting the work into parallel builder tracks only where the AGENTS.md rule says it pays, launched as `${CLAUDE_PLUGIN_ROOT}/templates/parallel.md` says.
    - Right after a plan-mode approval: move the issue to `status:in-progress` and implement.
    - Called by `/mission`: stop after step 8 and hand back. Do not implement, and leave the issue in `status:todo`; the `/goal` run moves it.
    - Called by `/sync`: ask as for a walk-in request, then hand back to `/sync`, which carries out the approved plan.

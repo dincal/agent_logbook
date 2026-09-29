@@ -26,7 +26,7 @@ When the user says "go ahead" or "build it" mid-discussion, do not start editing
 Research actively, read-only, so every claim that matters rests on evidence.
 
 - Start from `docs/system/` when it exists; it describes the system as it is.
-- When a claim touches the code, check it. Send Explore subagents to the areas in question (on Claude Code, pass `model: sonnet`: they read and report, and you check their findings), and read yourself the files a conclusion rests on.
+- When a claim touches the code, check it. Send Explore agents on Sonnet to the areas in question, as subagents or a Workflow by `${CLAUDE_PLUGIN_ROOT}/templates/parallel.md`. They read and report, you check their findings, and you read yourself the files a conclusion rests on.
 - When a claim touches a library, an external API, another tool or common practice, search the web.
 - Cite evidence as `file:line` references and links. Say plainly when you found nothing.
 

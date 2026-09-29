@@ -260,13 +260,13 @@ flowchart LR
       <div class="card">
         <div class="name">/logbook:mission</div>
         <div class="when">/goal을 맡길 때</div>
-        <p>플랜 모드처럼 계획을 승인받고, 화면 시안까지 승인받은 뒤 바로 붙여 넣을 <code>/goal</code> 문장을 냅니다. 구현은 하지 않습니다.</p>
-        <dl><dt>예</dt><dd><code>/logbook:mission #42</code></dd></dl>
+        <p>플랜 모드처럼 계획을 승인받고, 화면 시안까지 승인받은 뒤 바로 붙여 넣을 <code>/goal</code> 문장을 냅니다. 구현은 하지 않습니다. 에픽이면 에픽 브랜치를 만들고, 단계 전체를 한 세션에서 도는 <code>/goal</code> 문장 하나를 냅니다.</p>
+        <dl><dt>예</dt><dd><code>/logbook:mission #42</code> · <code>/logbook:mission #3</code>(에픽)</dd></dl>
       </div>
       <div class="card">
         <div class="name">/logbook:debrief</div>
         <div class="when">PR 직후</div>
-        <p>완료 조건마다 증거를 모으고, 프로젝트 문서를 코드와 대조하고, 별도 리뷰어의 검토를 받아 결과 보고를 올립니다. 끝나면 머지·재리뷰·남은 지적 고치기·PR 열어두기 중 권장안을 이유와 함께 제시합니다.</p>
+        <p>완료 조건마다 증거를 모으고, 프로젝트 문서를 코드와 대조하고, 별도 리뷰어의 검토를 받아 결과 보고를 올립니다. 끝나면 머지·재리뷰·남은 지적 고치기·PR 열어두기 중 권장안을 이유와 함께 제시합니다. 에픽의 단계 PR은 슬라이드 없이 PR 본문에 증거를 남기고, 조건을 채우면 묻지 않고 에픽 브랜치에 합칩니다.</p>
         <dl><dt>예</dt><dd><code>/logbook:debrief</code> · <code>/logbook:debrief 57</code></dd></dl>
       </div>
       <div class="card">
@@ -276,7 +276,7 @@ flowchart LR
         <dl><dt>예</dt><dd><code>/logbook:sync</code> · <code>/logbook:sync full</code></dd></dl>
       </div>
     </div>
-    <p class="sub">Claude Code에서 리뷰어는 Opus 모델에 high effort, 코드 조사는 Sonnet 모델로 돕니다. 구현은 이득이 있을 때만 트랙으로 나눠 builder 에이전트(builder-fast는 Sonnet, builder와 builder-deep은 세션 모델)에 동시에 맡깁니다. 다른 하네스에서는 모두 세션 모델이 직접 합니다.</p>
+    <p class="sub">Claude Code에서 리뷰어는 Opus 모델에 high effort, 코드 조사는 Sonnet 모델로 돕니다. 구현은 이득이 있을 때만 트랙으로 나눠 builder 에이전트(builder-fast는 Sonnet, builder와 builder-deep은 세션 모델)에 동시에 맡깁니다. 트랙과 조사는 서브에이전트로 띄우고, 셋 이상이거나 긴 작업이면 Workflow(여러 에이전트를 스크립트로 띄우는 Claude Code 도구)로 띄웁니다. 어느 쪽이든 모델 등급은 같습니다. 다른 하네스에서는 모두 세션 모델이 직접 합니다.</p>
   </section>
 
   <!-- 05 -->
@@ -406,6 +406,7 @@ flowchart LR
     <ul class="plain">
       <li><code>/goal</code>의 평가 모델은 대화만 읽습니다. 조건마다 명령과 출력을 대화에 남기게 합니다.</li>
       <li>목표 문장은 4,000자까지입니다. 자세한 내용은 상세 문서에 두고 문장에는 경로만 적습니다.</li>
+      <li>에픽(<code>epic</code> 라벨, 여러 단계로 나뉜 긴 작업)은 <code>epic/&lt;번호&gt;-&lt;slug&gt;</code> 브랜치에서 한 세션이 단계를 차례로 진행합니다. 단계 PR은 에픽 브랜치를 향하고, 완료 조건이 모두 ✅이고 확인된 심각한 지적이 없으면 에이전트가 합칩니다. 아니면 그 단계에서 멈춥니다. 사람은 에픽 브리핑과 마지막 에픽 PR의 결과 보고만 봅니다.</li>
     </ul>
   </section>
 
