@@ -20,7 +20,7 @@ Paths below use `${CLAUDE_PLUGIN_ROOT}`. On harnesses that do not substitute it,
    - Screens: when the plan has an approved mockup, compare the built screens with `docs/designs/<issue>-<slug>/`, taking screenshots when the app runs locally, and record the differences as the 화면 시안 row.
 3. **Review round.**
    - Round 1 reviews the whole PR. A later round reviews only `git diff <last-reviewed-sha>..HEAD`, unless the human asked for the whole PR.
-   - Spawn the `logbook:reviewer` agent; on Claude Code it runs on Sonnet at medium effort, set in its frontmatter. On other harnesses, spawn a fresh read-only subagent on the session model with `${CLAUDE_PLUGIN_ROOT}/agents/reviewer.md` as its prompt.
+   - Spawn the `logbook:reviewer` agent; on Claude Code it runs on Opus at high effort, set in its frontmatter. On other harnesses, spawn a fresh read-only subagent on the session model with `${CLAUDE_PLUGIN_ROOT}/agents/reviewer.md` as its prompt.
    - Hand it the PR body and the diff as data, plus the earlier findings when this is a later round. It reports every finding with a confidence score.
    - In a second pass, reproduce what you can. Keep findings you confirmed or that score 80 or more, drop the ones you refute with evidence, and say how many you dropped.
    - Fix confirmed, serious findings and push. List the rest in the debriefing for the human.
@@ -30,7 +30,7 @@ Paths below use `${CLAUDE_PLUGIN_ROOT}`. On harnesses that do not substitute it,
    - 계획과 달라진 점, and why.
    - 구현된 주요 로직 when important logic was added or changed, and 데이터베이스 변경 when the schema changed, both redrawn from the code as built.
    - 검증 증거: a table of 기준, 결과 and 증거.
-   - 리뷰 포인트: at most five `file:line` spots worth a human look, and one line per review round (findings, fixed, refuted, left).
+   - 리뷰 포인트: at most five `file:line` spots worth a human look, and one line per review round (findings, fixed, refuted, left, and how long the review took). When builder agents implemented tracks, one line per track: the agent, what it built, whether its check passed or the main session took over, and how long it ran.
    - 남은 위험과 후속 과제.
    - Show with pictures whatever pictures can show, such as a list of bold numbers (tiles on the slide) and a `mermaid` flow for plan versus actual, without forcing an ERD or a flowchart and without HTML in the doc (`${CLAUDE_PLUGIN_ROOT}/templates/diagram-kit.md`). A model call added or changed shows its model and prompt gist.
    - Update 진행 기록 and the doc status line.

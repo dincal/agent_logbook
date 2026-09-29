@@ -9,6 +9,7 @@ logbook은 Claude Code에 설치하는 플러그인입니다. 개발은 에이�
 
 - **5** 명령(스킬): rulebook · brief · mission · debrief · sync
 - **2** 자동 검사(hook): 플랜 미리보기 · 결과 보고 확인
+- **4** 하위 에이전트(세션이 따로 띄우는 에이전트): 리뷰어와 구현 트랙을 맡는 builder 세 등급
 - **3** 사람이 보는 페이지: 브리핑 · 결과 보고 · 프로젝트 핸드북
 
 - 데이터베이스는 쓰지 않습니다. 작업 기록은 GitHub 이슈와 PR, 저장소의 문서(`docs/plans/`, `docs/system/`), 로컬 폴더 `.logbook/`에 남습니다.
@@ -45,7 +46,7 @@ flowchart LR
 
 ## 용어
 
-logbook에서 쓰는 말 여덟 개입니다.
+logbook에서 쓰는 말 열 개입니다.
 
 | 용어 | 쉬운 설명 | 코드에서 부르는 이름 |
 |---|---|---|
@@ -57,3 +58,5 @@ logbook에서 쓰는 말 여덟 개입니다.
 | 규칙 블록 | 프로젝트의 AGENTS.md에 설치되는 logbook 작업 규칙 | `templates/agents-block.md` |
 | 시안 | 화면을 구현하기 전에 승인받는 화면 그림. Claude Code의 `/design` 캔버스로 만듭니다 | `docs/designs/<번호>-<slug>/` |
 | 옛 흔적 | 예전 에이전트 도구(paperclip 등)가 남긴 파일과 규칙 | `scripts/legacy-scan.sh` |
+| 트랙 | 구현을 나눴을 때 한 에이전트가 맡는 독립된 부분. 다른 트랙과 파일이 겹치지 않습니다 | 규칙 블록의 "구현은 이득이 있을 때만 나눈다" |
+| builder | 트랙 하나를 맡아 구현하는 하위 에이전트. 모델과 effort에 따라 세 등급(builder-fast, builder, builder-deep)이 있습니다 | `agents/builder*.md` |

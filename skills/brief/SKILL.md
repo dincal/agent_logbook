@@ -22,13 +22,14 @@ A change that one sentence fully describes (a typo, a rename, a small config twe
    - Slug: a short kebab-case summary. Branch: `<type>/<issue>-<slug>` (feat, fix, refactor, docs or chore), cut from the base branch.
 2. **Research.**
    - Start from `docs/system/` when it exists; it describes the system as it is. Note which of those docs the change will alter.
-   - Code: send parallel Explore subagents to areas that do not depend on each other, and read the files the change touches yourself.
+   - Code: send parallel Explore subagents to areas that do not depend on each other (on Claude Code, pass `model: sonnet`: they read and report, and you check their findings), and read the files the change touches yourself.
    - Sources: search the web, or run `/deep-research`, when the change brings a new library, an external API or an unfamiliar pattern.
    - Keep evidence as `file:line` references and links.
 3. **Questions.**
    - Ask about every choice the request leaves open that changes the user scenario: what a command does, the steps the user goes through, what they approve and when, what happens to their files and data. Do not settle such a choice yourself, even when you have a good default.
    - Skip trivial things: wording, internal implementation, choices with one sensible answer. Decide those yourself and list them in the briefing as your own calls.
    - Ask 1 to 4 questions at a time, each with options and a recommended default, and ask again in further rounds when answers open new choices. Use the question tool, or numbered options in prose where there is none.
+   - When an answer or instruction looks unreasonable against the evidence (it contradicts what research found, costs far more than it gains, carries a risk the user may not have seen, or works against their own stated goal), say so once before acting: the concern, the evidence, and a better option. If they keep it, follow it and list it under 주요 결정 as 알린 우려. Leave matters of taste and weak worries alone, and say plainly when nothing looked unreasonable.
 4. **Screen mockup.** When the change adds a screen or visibly reshapes one:
    - On Claude Code with artifacts, draft a Design canvas, the same canvas `/design` makes: `Artifact` quickstart with intent `design`, then create one from the Design type. Draw one artboard per screen and state (default, empty, error), after reading the project's design tokens and components.
    - Elsewhere, write a static HTML mockup to `docs/designs/<issue>-<slug>/index.html` and open it in the browser.
@@ -55,7 +56,7 @@ A change that one sentence fully describes (a typo, a rename, a small config twe
    - Comment on the issue with a three-line summary, the briefing link and the 판단 필요 items.
    - Commit the plan doc on the work branch and push it.
 9. **Approval.**
-   - Walk-in request: ask "진행 / 수정 / 중단" and wait. Once approved, move the issue to `status:in-progress` and implement.
+   - Walk-in request: ask "진행 / 수정 / 중단" and wait. Once approved, move the issue to `status:in-progress` and implement, splitting the work into parallel builder tracks only where the AGENTS.md rule says it pays.
    - Right after a plan-mode approval: move the issue to `status:in-progress` and implement.
    - Called by `/mission`: stop after step 8 and hand back. Do not implement, and leave the issue in `status:todo`; the `/goal` run moves it.
    - Called by `/sync`: ask as for a walk-in request, then hand back to `/sync`, which carries out the approved plan.

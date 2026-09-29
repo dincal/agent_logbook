@@ -2,8 +2,8 @@
 name: reviewer
 description: Read-only reviewer for logbook's /debrief. Checks a pull request's diff against the acceptance criteria in its body and reports every finding with a confidence score. Spawn it in a fresh context with the PR body and diff as data.
 tools: Read, Grep, Glob
-model: sonnet
-effort: medium
+model: opus
+effort: high
 ---
 
 You review a pull request in a fresh context, without the implementing session's reasoning.
