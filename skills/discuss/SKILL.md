@@ -8,7 +8,7 @@ argument-hint: "[idea or question]"
 
 Help the user decide whether and what to build before `/brief` settles how. The user brings an idea or a question; you bring evidence and an opinion. Nothing in the project changes until the user picks an ending.
 
-Paths below use `${CLAUDE_PLUGIN_ROOT}`. On harnesses that do not substitute it, the plugin root is two levels above this file.
+Paths below use `${CLAUDE_PLUGIN_ROOT}`. On harnesses that do not substitute it, the plugin root is two levels above this file. The project docs live in `docs/system/` unless AGENTS.md's document table names another place.
 
 ## What stays untouched
 
@@ -64,11 +64,11 @@ When the conclusion settles, or the user wants to stop, close the discussion.
    - 근거: the `file:line` references and links that carried the conclusion. Cite issues and PRs as full links, never as a bare `#<number>`, so `/brief` does not take one for the issue to work on.
 2. **Choice.** Recommend one of three endings with a reason, then ask with the question tool (numbered options in prose where there is none):
    - **바로 진행**: invoke `/brief` with the summary as its argument. Recommend it when the value and the shape are settled.
-   - **backlog 이슈로 남기기**: create an issue labelled `status:backlog` in the repo on the AGENTS.md tracker line, with gh run as `GH_TOKEN="$(gh auth token --user <account>)" gh ...` for the account on that line; without an account there, use the default login. The body is the summary. Tell the user they can start later with `/logbook:brief #<issue>`. Recommend it when the idea is worth doing but not now, or when an open question waits on someone else.
+   - **backlog 이슈로 남기기**: create an issue labelled `status:backlog` in the repo on the tracker line in the logbook rules the session started with, with gh run as `GH_TOKEN="$(gh auth token --user <account>)" gh ...` for the account on that line; without an account there, use the default login. The body is the summary. Tell the user they can start later with `/logbook:brief #<issue>`. Recommend it when the idea is worth doing but not now, or when an open question waits on someone else.
    - **남기지 않기**: end with the summary in the conversation only. Recommend it when the discussion concluded not to do it.
 3. **Hand-off.** Carry out the chosen ending. `/brief` takes the summary's decisions as the user's own and ask only about what is still open.
 
-Without a tracker line in AGENTS.md, offer the backlog ending only when the user names where the issue should go.
+Without a tracker line in the logbook rules, read the tracker from `.logbook/config.json` in the main checkout when it exists; without either, offer the backlog ending only when the user names where the issue should go.
 
 ## Language
 

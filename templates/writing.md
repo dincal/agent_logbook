@@ -1,6 +1,6 @@
 # Writing guide
 
-Everything logbook writes follows this guide: briefing and debriefing slides, plan documents, the project docs in `docs/system/`, issue and PR text and comments, and commit messages.
+Everything logbook writes follows this guide: briefing and debriefing slides, plan documents, the project docs (`docs/system/` unless AGENTS.md's document table names another place), issue and PR text and comments, and commit messages.
 
 ## The reader
 

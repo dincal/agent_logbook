@@ -4,6 +4,7 @@
 # Any infrastructure problem (no git, no gh, timeout) lets the turn end.
 set -u
 
+. "${CLAUDE_PLUGIN_ROOT:-$(cd "$(dirname "$0")/.." && pwd)}/hooks/lib.sh"
 INPUT="$(cat)"
 
 have_jq() { [ -z "${LOGBOOK_FORCE_PYTHON:-}" ] && command -v jq >/dev/null 2>&1; }
@@ -43,12 +44,11 @@ cwd="$(field '.cwd // empty' 'd.get("cwd")')"
 [ -n "$cwd" ] && cd "$cwd" 2>/dev/null
 git rev-parse --is-inside-work-tree >/dev/null 2>&1 || exit 0
 branch="$(git symbolic-ref --quiet --short HEAD 2>/dev/null)" || exit 0
-root="$(git rev-parse --show-toplevel)"
+top="$(git rev-parse --show-toplevel)"
+root="$(logbook_main_root "$top")" || exit 0
+logbook_enabled "$root" "$top" || exit 0
 
-agents_md="$root/AGENTS.md"
-if [ ! -f "$root/.logbook/config.json" ] && ! grep -q '^<!-- logbook:begin' "$agents_md" 2>/dev/null; then
-  exit 0
-fi
+agents_md="$top/AGENTS.md"
 
 base="" account=""
 if [ -f "$root/.logbook/config.json" ]; then
@@ -56,10 +56,10 @@ if [ -f "$root/.logbook/config.json" ]; then
   base="$(json_key "$config" base)"
   account="$(json_key "$config" account)"
 fi
-# Fresh clones have no local config; the committed tracker line carries the same values.
-if [ -f "$agents_md" ]; then
-  [ -n "$base" ] || base="$(sed -n 's/.*기본 브랜치 `\([^`]*\)`.*/\1/p' "$agents_md" | head -n 1)"
-  [ -n "$account" ] || account="$(sed -n 's/.*gh 계정 `\([^`]*\)`.*/\1/p' "$agents_md" | head -n 1)"
+# Before /rulebook migrates it, an old rule block carries the tracker line.
+if logbook_old_block "$top"; then
+  [ -n "$base" ] || base="$(sed -n '/^트래커:/s/.*기본 브랜치 `\([^`]*\)`.*/\1/p' "$agents_md" | head -n 1)"
+  [ -n "$account" ] || account="$(sed -n '/^트래커:/s/.*gh 계정 `\([^`]*\)`.*/\1/p' "$agents_md" | head -n 1)"
 fi
 [ -n "$base" ] || base="$(git symbolic-ref --quiet --short refs/remotes/origin/HEAD 2>/dev/null | sed 's#^origin/##')"
 [ -n "$base" ] || base=main

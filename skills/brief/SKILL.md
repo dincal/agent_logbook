@@ -8,7 +8,7 @@ argument-hint: "[request | #issue | #epic]"
 
 Turn a request into a plan the user approved, with a briefing they can review in two minutes, then carry it out. The user decides everything that changes how they will work; you decide the rest and say so. After approval the user only cares that what the briefing settled gets done.
 
-Paths below use `${CLAUDE_PLUGIN_ROOT}`. On harnesses that do not substitute it, the plugin root is two levels above this file.
+Paths below use `${CLAUDE_PLUGIN_ROOT}`. On harnesses that do not substitute it, the plugin root is two levels above this file. Document places below (`docs/plans/`, `docs/system/`, `docs/designs/`) are the defaults. When AGENTS.md has a document table, use the places it names instead, and pass them to the scripts (`system-check.sh --dir`, the folder argument of `render-system.sh`).
 
 ## When to skip
 
@@ -17,7 +17,7 @@ A change that one sentence fully describes (a typo, a rename, a small config twe
 ## Steps
 
 1. **Issue and branch.**
-   - Use the issue number in `$ARGUMENTS` when given. Otherwise create one labelled `status:todo` in the repo named on the AGENTS.md tracker line.
+   - Use the issue number in `$ARGUMENTS` when given. Otherwise create one labelled `status:todo` in the repo named on the tracker line in the logbook rules the session started with (the SessionStart hook adds them from `.logbook/config.json`). When the session got no logbook rules (for instance `/rulebook` ran in this session), read repo, base and account from `.logbook/config.json` in the main checkout instead.
    - An issue given in `status:backlog` (one `/discuss` left for later, for instance) moves to `status:todo`.
    - Read the given issue's comments too: follow-up work deferred to this issue, such as a doc update, is left there as a comment and belongs in this change.
    - Run gh with the account on that line: `GH_TOKEN="$(gh auth token --user <account>)" gh ...`. Without an account there, use the default login.
@@ -65,7 +65,7 @@ A change that one sentence fully describes (a typo, a rename, a small config twe
    - Called by `/sync`: ask "진행 / 수정 / 중단" and wait, then hand back to `/sync`, which carries out the approved plan itself under the "While carrying it out" rules below.
    - Walk-in request: ask "진행 / 수정 / 중단" and wait. Right after a plan-mode approval, the approval is already given.
    - Once approved, move the issue to `status:in-progress` and carry the plan out to the end without asking for approval again: implement, open the PR with `Closes #<issue>` and run `/debrief`. For an epic, do After approval and then Run under Epics.
-   - Split the work into parallel builder tracks only where the AGENTS.md rule says it pays, launched as subagents or a Workflow as `${CLAUDE_PLUGIN_ROOT}/templates/parallel.md` says.
+   - Split the work into parallel builder tracks only where the logbook rule says it pays, launched as subagents or a Workflow as `${CLAUDE_PLUGIN_ROOT}/templates/parallel.md` says.
    - While carrying it out: do not weaken or delete tests; stop and ask before a schema change or data deletion the plan does not cover; record anything decided differently from the plan, with the reason, in the plan doc's 결정 기록; update `docs/system/` in the same PR when the change alters what it describes.
 
 ## Epics

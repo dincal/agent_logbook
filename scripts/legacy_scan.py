@@ -1,6 +1,8 @@
 #!/usr/bin/env python3
 """List what does not fit logbook's layout in a repository: traces of earlier agent
-tools (paperclip, autopilot) and documents outside the places logbook keeps them.
+tools (paperclip, autopilot) and documents outside the project's document places.
+The places come from the document table in AGENTS.md, passed as options by /sync;
+without them the defaults (docs/system, docs/plans, docs/designs, docs/manual) apply.
 
 Prints one tab-separated line per item: kind, path, note. Prints nothing when the
 repository fits. Standard library only; reads, never writes.
@@ -29,7 +31,7 @@ OLD_IGNORE = re.compile(
     r"\.claude/(specs|state|plans|designs)|\.agents/(specs|state)",
     re.I,
 )
-DOC_PLACES = re.compile(r"^docs/(plans/(\d+-[^/]+\.md|\.gitkeep)|system/|designs/|manual/)")
+DEFAULT_PLACES = {"system": "docs/system", "plans": "docs/plans", "designs": "docs/designs", "manual": "docs/manual"}
 ROOT_DOCS = {"readme.md", "changelog.md", "agents.md", "claude.md", "license.md", "contributing.md",
              "security.md", "code_of_conduct.md"}
 
@@ -69,8 +71,25 @@ def rule_files():
     return files
 
 
-def scan():
+def normalize(place):
+    """A place as git spells paths: no leading ./ and no trailing slash."""
+    while place.startswith("./"):
+        place = place[2:]
+    return place.strip("/")
+
+
+def place_pattern(places):
+    """Paths inside the document places: plan docs named <issue>-<slug>.md, and the other
+    places themselves (a file such as docs/manual/index.html) or anything under them."""
+    plans = re.escape(places["plans"])
+    others = "|".join(re.escape(places[k]) for k in ("system", "designs", "manual"))
+    return re.compile(rf"^(?:{plans}/(?:\d+-[^/]+\.md|\.gitkeep)$|(?:{others})(?:/|$))")
+
+
+def scan(places=DEFAULT_PLACES):
     items = []
+    in_place = place_pattern(places)
+    plans_prefix = places["plans"] + "/"
     for path in LEGACY_PATHS:
         if os.path.lexists(path):
             items.append(("옛 도구 파일", path, tracking(path)))
@@ -103,7 +122,7 @@ def scan():
     grep = git("grep", "-I", "-i", "-c", "-E", MENTION)
     for line in lines_of(grep):
         path, _, count = line.rpartition(":")
-        if under_legacy(path) or path == ".gitignore" or path.startswith("docs/plans/"):
+        if under_legacy(path) or path == ".gitignore" or path.startswith(plans_prefix):
             continue
         items.append(("옛 도구 언급", path, f"{count}줄"))
 
@@ -120,12 +139,14 @@ def scan():
                 links.add(entry.name)
                 items.append(("다른 규칙 링크", entry.name, f"{target}를 가리키는 링크"))
 
-    docs = lines_of(git("ls-files", "--", "docs")) + lines_of(git("ls-files", "--others", "--exclude-standard", "--", "docs"))
+    # Look in docs/ and in the folders that hold the places, such as documentation/ for documentation/system.
+    folders = sorted({"docs"} | {p.rsplit("/", 1)[0] for p in places.values() if "/" in p})
+    docs = lines_of(git("ls-files", "--", *folders)) + lines_of(git("ls-files", "--others", "--exclude-standard", "--", *folders))
     for path in dict.fromkeys(docs):
-        if not DOC_PLACES.match(path) and not under_legacy(path):
+        if not in_place.match(path) and not under_legacy(path):
             items.append(("자리 밖 문서", path, tracking(path)))
     for path in lines_of(git("ls-files", "--", "*.md")):
-        if "/" not in path and path.lower() not in ROOT_DOCS and path not in links:
+        if "/" not in path and path.lower() not in ROOT_DOCS and path not in links and not in_place.match(path):
             items.append(("자리 밖 문서", path, tracking(path)))
     return items
 
@@ -133,7 +154,10 @@ def scan():
 def main():
     parser = argparse.ArgumentParser(description="logbook 규약에 맞지 않는 옛 도구의 흔적과 자리 밖 문서를 찾습니다.")
     parser.add_argument("--dir", help="검사할 저장소(기본: 지금 폴더의 저장소)")
+    for key, default in DEFAULT_PLACES.items():
+        parser.add_argument(f"--{key}", default=default, help=f"AGENTS.md 문서 표의 위치(기본 {default})")
     args = parser.parse_args()
+    places = {key: normalize(getattr(args, key)) for key in DEFAULT_PLACES}
     if args.dir:
         os.chdir(args.dir)
     top = git("rev-parse", "--show-toplevel")
@@ -141,7 +165,7 @@ def main():
         print("legacy-scan: git 저장소 안에서 실행하세요.", file=sys.stderr)
         sys.exit(2)
     os.chdir(top.stdout.strip())
-    for kind, path, note in scan():
+    for kind, path, note in scan(places):
         print(f"{kind}\t{path}\t{note}")
 
 

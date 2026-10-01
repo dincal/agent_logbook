@@ -1,19 +1,24 @@
 #!/usr/bin/env bash
-# Install or update logbook's working rules in a project. Idempotent: a second run changes nothing.
+# Set up a repository for logbook, once per clone. Idempotent: a second run changes nothing.
+# The working rules themselves are not written here: the plugin's SessionStart hook adds
+# them to every session. A rule block left by logbook before 0.7 is migrated: removed, with
+# its document rules kept as a plain AGENTS.md paragraph.
 set -euo pipefail
 
 usage() {
   cat <<'EOF'
 Usage: rulebook.sh (--dry-run | --apply) [--dir DIR] [--repo OWNER/NAME] [--base BRANCH]
-                   [--account GH_USER] [--no-labels]
+                   [--account GH_USER] [--plans DIR] [--no-labels]
 
-Writes the logbook rule block into AGENTS.md, an @AGENTS.md import into CLAUDE.md,
-plansDirectory into .claude/settings.json, .logbook/ into .gitignore, docs/plans/,
-.logbook/config.json, and the tracker labels on GitHub.
+Writes .logbook/config.json (the marker the logbook hooks look for), the tracker labels
+on GitHub, plansDirectory into .claude/settings.json, .logbook/ into .gitignore, the plans
+folder, and an @AGENTS.md import into CLAUDE.md when AGENTS.md exists. Replaces a rule
+block from logbook before 0.7 with the document rules paragraph. --plans is the change
+record folder named in AGENTS.md's document table (default docs/plans).
 EOF
 }
 
-MODE="" DIR="" REPO="" BASE="" ACCOUNT="" LABELS=1
+MODE="" DIR="" REPO="" BASE="" ACCOUNT="" PLANS="docs/plans" LABELS=1
 while [ $# -gt 0 ]; do
   case "$1" in
     --dry-run) MODE=dry ;;
@@ -22,6 +27,7 @@ while [ $# -gt 0 ]; do
     --repo) REPO="${2:?--repo needs a value}"; shift ;;
     --base) BASE="${2:?--base needs a value}"; shift ;;
     --account) ACCOUNT="${2:?--account needs a value}"; shift ;;
+    --plans) PLANS="${2:?--plans needs a value}"; PLANS="${PLANS%/}"; shift ;;
     --no-labels) LABELS=0 ;;
     -h|--help) usage; exit 0 ;;
     *) echo "rulebook: unknown option $1" >&2; usage >&2; exit 2 ;;
@@ -31,9 +37,22 @@ done
 [ -n "$MODE" ] || { usage >&2; exit 2; }
 
 PLUGIN_ROOT="$(cd "$(dirname "$0")/.." && pwd)"
-TEMPLATE="$PLUGIN_ROOT/templates/agents-block.md"
+DOCS_RULES="$PLUGIN_ROOT/templates/docs-rules.md"
 DIR="${DIR:-$(git rev-parse --show-toplevel 2>/dev/null || pwd)}"
-cd "$DIR"
+CDPATH= cd -- "$DIR"
+
+# .logbook/ is git-ignored, so in a linked worktree the config belongs to the main checkout,
+# where the hooks look for it. Everything else is a tracked file of this working tree.
+CONFIG=.logbook/config.json
+if common="$(git rev-parse --git-common-dir 2>/dev/null)" && common="$(CDPATH= cd -- "$common" && pwd -P)"; then
+  case "$common" in
+    */.git) [ "$(dirname "$common")" = "$(pwd -P)" ] || CONFIG="$(dirname "$common")/.logbook/config.json" ;;
+  esac
+fi
+# In that case the main checkout may not have this branch's .gitignore yet, so ignore
+# .logbook/ there through the untracked .git/info/exclude.
+EXCLUDE=""
+[ "$CONFIG" = .logbook/config.json ] || EXCLUDE="$common/info/exclude"
 
 if [ -z "$REPO" ]; then
   origin="$(git remote get-url origin 2>/dev/null || true)"
@@ -68,40 +87,38 @@ write_if_changed() {
   note "$action" "$path"
 }
 
-render_block() {
-  local block
-  block="$(cat "$TEMPLATE")"
-  block="${block//\{repo\}/${REPO:-owner/repo}}"
-  block="${block//\{base\}/$BASE}"
-  if [ -n "$ACCOUNT" ]; then
-    block="${block//\{account\}/$ACCOUNT}"
-  else
-    block="${block// · gh 계정 \`\{account\}\`/}"
-  fi
-  printf '%s' "$block"
+# The document rules paragraph, with the default places and the plans folder given.
+render_docs_rules() {
+  local text
+  text="$(cat "$DOCS_RULES")"
+  text="${text//\{system\}/docs/system/}"
+  text="${text//\{plans\}/$PLANS/}"
+  text="${text//\{designs\}/docs/designs/}"
+  text="${text//\{manual\}/docs/manual/}"
+  printf '%s' "$text"
 }
 
-upsert_agents_block() {
-  local file=AGENTS.md block new="" before="" after="" state=0 line
-  block="$(render_block)"
-  if [ -f "$file" ] && grep -q '^<!-- logbook:begin' "$file"; then
-    while IFS= read -r line || [ -n "$line" ]; do
-      case "$state" in
-        0) case "$line" in "<!-- logbook:begin"*) state=1 ;; *) before+="$line"$'\n' ;; esac ;;
-        1) case "$line" in "<!-- logbook:end -->"*) state=2 ;; esac ;;
-        2) after+="$line"$'\n' ;;
-      esac
-    done < "$file"
-    if [ "$state" != 2 ]; then
-      echo "rulebook: $file has '<!-- logbook:begin' but no '<!-- logbook:end -->' line; fix the markers and rerun" >&2
-      exit 1
-    fi
-    new="${before}${block}"$'\n'"${after}"
-  elif [ -f "$file" ]; then
-    new="$(cat "$file")"$'\n\n'"${block}"$'\n'
-  else
-    new="# ${REPO##*/}"$'\n\n'"${block}"$'\n'
+# Replace a rule block from logbook before 0.7 with the document rules paragraph. When a file
+# somehow holds several blocks, the first becomes the paragraph and the others are dropped.
+# Without a block, AGENTS.md is left alone: /sync writes the paragraph in a new project.
+migrate_agents_block() {
+  local file=AGENTS.md new="" before="" after="" state=0 line
+  if ! { [ -f "$file" ] && grep -q '^<!-- logbook:begin' "$file"; }; then
+    note unchanged "$file (no logbook rule block)"
+    return 0
   fi
+  while IFS= read -r line || [ -n "$line" ]; do
+    case "$state" in
+      0) case "$line" in "<!-- logbook:begin"*) state=1 ;; *) before+="$line"$'\n' ;; esac ;;
+      1|3) case "$line" in "<!-- logbook:end -->"*) state=2 ;; esac ;;
+      2) case "$line" in "<!-- logbook:begin"*) state=3 ;; *) after+="$line"$'\n' ;; esac ;;
+    esac
+  done < "$file"
+  if [ "$state" != 2 ]; then
+    echo "rulebook: $file has '<!-- logbook:begin' but no '<!-- logbook:end -->' line; fix the markers and rerun" >&2
+    exit 1
+  fi
+  new="${before}$(render_docs_rules)"$'\n'"${after}"
   write_if_changed "$file" "$new"
 }
 
@@ -120,6 +137,10 @@ ensure_claude_import() {
     esac
     return 0
   fi
+  if [ ! -e AGENTS.md ]; then
+    note skipped "$file (no AGENTS.md yet; /sync writes it)"
+    return 0
+  fi
   if [ -f "$file" ]; then
     if grep -qE '^@(\./)?AGENTS\.md[[:space:]]*$' "$file"; then
       note unchanged "$file"
@@ -133,17 +154,17 @@ ensure_claude_import() {
 
 json_set_plans_dir() {
   if command -v jq >/dev/null 2>&1; then
-    jq '.plansDirectory = "docs/plans"' "$1"
+    jq --arg p "$PLANS" '.plansDirectory = $p' "$1"
   else
-    python3 -c 'import json,sys; d=json.load(open(sys.argv[1])); d["plansDirectory"]="docs/plans"; print(json.dumps(d, indent=2, ensure_ascii=False))' "$1"
+    python3 -c 'import json,sys; d=json.load(open(sys.argv[1])); d["plansDirectory"]=sys.argv[2]; print(json.dumps(d, indent=2, ensure_ascii=False))' "$1" "$PLANS"
   fi
 }
 
 json_has_plans_dir() {
   if command -v jq >/dev/null 2>&1; then
-    jq -e '.plansDirectory == "docs/plans"' "$1" >/dev/null 2>&1
+    jq -e --arg p "$PLANS" '.plansDirectory == $p' "$1" >/dev/null 2>&1
   else
-    python3 -c 'import json,sys; sys.exit(0 if json.load(open(sys.argv[1])).get("plansDirectory")=="docs/plans" else 1)' "$1" 2>/dev/null
+    python3 -c 'import json,sys; sys.exit(0 if json.load(open(sys.argv[1])).get("plansDirectory")==sys.argv[2] else 1)' "$1" "$PLANS" 2>/dev/null
   fi
 }
 
@@ -157,7 +178,7 @@ ensure_plans_setting() {
     new="$(json_set_plans_dir "$file")" || { echo "rulebook: cannot parse $file" >&2; exit 1; }
     write_if_changed "$file" "$new"$'\n'
   else
-    write_if_changed "$file" $'{\n  "plansDirectory": "docs/plans"\n}\n'
+    write_if_changed "$file" "{"$'\n'"  \"plansDirectory\": \"$PLANS\""$'\n'"}"$'\n'
   fi
 }
 
@@ -175,11 +196,11 @@ ensure_gitignore() {
 }
 
 ensure_plans_dir() {
-  if [ -d docs/plans ] && [ -n "$(ls -A docs/plans 2>/dev/null)" ]; then
-    note unchanged "docs/plans/"
+  if [ -d "$PLANS" ] && [ -n "$(ls -A "$PLANS" 2>/dev/null)" ]; then
+    note unchanged "$PLANS/"
     return 0
   fi
-  write_if_changed docs/plans/.gitkeep ""
+  write_if_changed "$PLANS/.gitkeep" ""
 }
 
 config_json() {
@@ -191,7 +212,10 @@ config_json() {
 }
 
 write_config() {
-  write_if_changed .logbook/config.json "$(config_json)"$'\n'
+  write_if_changed "$CONFIG" "$(config_json)"$'\n'
+  if [ -n "$EXCLUDE" ] && ! grep -qxF '.logbook/' "$EXCLUDE" 2>/dev/null; then
+    write_if_changed "$EXCLUDE" "$(cat "$EXCLUDE" 2>/dev/null)"$'\n'".logbook/"$'\n'
+  fi
 }
 
 gh_run() {
@@ -228,8 +252,8 @@ epic|3E4B9E|Epic / Large initiative
 EOF
 }
 
-echo "logbook rulebook ($MODE): dir=$DIR repo=${REPO:-none} base=$BASE account=${ACCOUNT:-default}"
-upsert_agents_block
+echo "logbook rulebook ($MODE): dir=$DIR repo=${REPO:-none} base=$BASE account=${ACCOUNT:-default} plans=$PLANS"
+migrate_agents_block
 ensure_claude_import
 ensure_plans_setting
 ensure_gitignore

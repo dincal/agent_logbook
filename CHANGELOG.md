@@ -1,5 +1,25 @@
 # 변경 이력
 
+## [0.7.0] - 2026-10-01
+
+작업 규칙을 프로젝트에 복사하지 않고 플러그인이 세션마다 넣게 했습니다. 플러그인을 올린 뒤 프로젝트마다 `/rulebook`을 다시 실행할 필요가 없습니다.
+
+### 바뀜
+
+- SessionStart hook(`hooks/session-rules.sh`)을 더했습니다. `.logbook/config.json`이 있는 저장소에서 세션을 시작하거나 다시 열거나 비우거나 압축할 때마다 `templates/session-rules.md`의 규칙과 트래커 정보(repo, 기본 브랜치, gh 계정)를 넣습니다. worktree에서는 원래 저장소의 설정을 읽고, 다른 hook 두 개도 같은 방식으로 바꿨습니다.
+- `/rulebook`은 clone마다 한 번 logbook을 켜는 명령이 됐습니다. AGENTS.md에 규칙 블록을 쓰지 않고, 0.7 이전의 블록이 있으면 지우면서 그 안의 문서 규칙을 같은 자리에 일반 문단(`templates/docs-rules.md`)으로 옮깁니다. `--plans`로 변경 기록 위치를 받습니다.
+- 문서 규칙(문서와 위치 표, 코드와 함께 고치는 약속)은 logbook과 상관없는 프로젝트의 약속으로 AGENTS.md에 둡니다. 스킬과 스크립트는 그 표의 위치를 따르고, 표가 없으면 기본 위치(`docs/system/`, `docs/plans/`, `docs/designs/`, `docs/manual/`)를 씁니다. `legacy-scan.sh`는 `--system`, `--plans`, `--designs`, `--manual`을 받습니다.
+- `/sync`는 문서 구조가 AGENTS.md에 없거나 문서가 그 틀을 따르지 않으면 구조를 먼저 묻고, 문서 규칙 문단을 쓴 뒤 문서를 만듭니다. 틀을 따르면 지금처럼 뒤처진 문서만 고칩니다.
+- `/brief`, `/debrief`, `/discuss`는 트래커 정보를 AGENTS.md가 아니라 hook이 넣은 규칙에서 읽습니다.
+
+### 지움
+
+- AGENTS.md 규칙 블록과 그 버전 번호(v8까지). 원문은 `templates/session-rules.md`로 옮겼습니다.
+
+### 옮기는 법
+
+- 0.7 이전에 설치한 프로젝트에서 `/logbook:rulebook`을 한 번 실행합니다. 옮기기 전에도 새 규칙은 들어가고, 옛 블록이 남아 있다는 안내가 함께 붙습니다.
+
 ## [0.6.0] - 2026-10-01
 
 `/mission`을 없애고 `/brief` 하나가 작업 하나와 에픽을 모두 계획하게 했습니다. `/goal` 문장을 만드는 기능도 없앴습니다.

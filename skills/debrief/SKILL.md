@@ -8,11 +8,11 @@ argument-hint: "[PR number]"
 
 Show what was delivered against what was planned, with evidence, in a form the user can review quickly, then let the human choose the next step.
 
-Paths below use `${CLAUDE_PLUGIN_ROOT}`. On harnesses that do not substitute it, the plugin root is two levels above this file.
+Paths below use `${CLAUDE_PLUGIN_ROOT}`. On harnesses that do not substitute it, the plugin root is two levels above this file. Document places below (`docs/plans/`, `docs/system/`, `docs/designs/`) are the defaults. When AGENTS.md has a document table, use the places it names instead, and pass them to the scripts (`system-check.sh --dir`, the folder argument of `render-system.sh`).
 
 ## Steps
 
-1. **Find the pieces.** The PR (`$ARGUMENTS`, otherwise the current branch's PR) with its `baseRefName` and `headRefName`, its issue (`Closes #n`; for an epic step, the child issue number in its branch `<type>/<child>-<slug>`) and `docs/plans/<issue>-<slug>.md`. A PR whose base starts with `epic/` is an epic step and one whose head starts with `epic/` is an epic; both follow "Epic steps and epics" at the end. When no plan doc exists for the PR (a small change with or without an issue, a follow-up doc update, a `/sync` fix of stale docs), take the path under "Changes without a plan doc" at the end. Run gh with the account on the AGENTS.md tracker line. Read the last `<!-- logbook:reviewed sha=<sha> round=<n> -->` marker in the PR body, if any.
+1. **Find the pieces.** The PR (`$ARGUMENTS`, otherwise the current branch's PR) with its `baseRefName` and `headRefName`, its issue (`Closes #n`; for an epic step, the child issue number in its branch `<type>/<child>-<slug>`) and `docs/plans/<issue>-<slug>.md`. A PR whose base starts with `epic/` is an epic step and one whose head starts with `epic/` is an epic; both follow "Epic steps and epics" at the end. When no plan doc exists for the PR (a small change with or without an issue, a follow-up doc update, a `/sync` fix of stale docs), take the path under "Changes without a plan doc" at the end. Run gh with the account on the tracker line in the logbook rules the session started with. When the session got no logbook rules (for instance `/rulebook` ran in this session), read repo, base and account from `.logbook/config.json` in the main checkout instead. Read the last `<!-- logbook:reviewed sha=<sha> round=<n> -->` marker in the PR body, if any.
 2. **Evidence.**
    - For each acceptance criterion, run the command that proves it, or reuse output from this session. Record ✅ or ❌ with the command and a short excerpt of its output.
    - A criterion nobody checked stays ❌. Reading the code that should satisfy it does not count as evidence.

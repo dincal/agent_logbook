@@ -5,6 +5,7 @@
 set -u
 
 PLUGIN_ROOT="${CLAUDE_PLUGIN_ROOT:-$(cd "$(dirname "$0")/.." && pwd)}"
+. "$PLUGIN_ROOT/hooks/lib.sh"
 INPUT="$(cat)"
 
 have_jq() { [ -z "${LOGBOOK_FORCE_PYTHON:-}" ] && command -v jq >/dev/null 2>&1; }
@@ -48,10 +49,10 @@ has_line() { printf '%s\n' "$1" | grep -qE "^[[:space:]]*$2[[:space:]]*\$"; }
 project="${CLAUDE_PROJECT_DIR:-}"
 [ -n "$project" ] || project="$(field '.cwd // empty' 'd.get("cwd")')"
 [ -n "$project" ] || project="$PWD"
-root="$(git -C "$project" rev-parse --show-toplevel 2>/dev/null || printf '%s' "$project")"
-if [ ! -f "$root/.logbook/config.json" ] && ! grep -q '^<!-- logbook:begin' "$root/AGENTS.md" 2>/dev/null; then
-  exit 0
-fi
+# Outside git, the project folder itself is both the working tree and the main checkout.
+top="$(git -C "$project" rev-parse --show-toplevel 2>/dev/null)" || top="$project"
+root="$(logbook_main_root "$project")" || root="$top"
+logbook_enabled "$root" "$top" || exit 0
 
 plan="$(field '.tool_input.plan // .tool_response.plan // empty' '(d.get("tool_input") or {}).get("plan") or (d.get("tool_response") or {}).get("plan")')"
 if [ -z "$plan" ]; then
@@ -97,7 +98,7 @@ case "$(field '.hook_event_name // empty' 'd.get("hook_event_name")')" in
     exit 0
     ;;
   PostToolUse)
-    respond context '플랜이 승인됐습니다. 코드를 고치기 전에 /brief 절차를 마치세요. 이슈와 작업 브랜치가 없으면 만들고, 플랜 파일을 docs/plans/<이슈번호>-<slug>.md로 옮긴 뒤, 브리핑 HTML을 게시하고 이슈에 링크합니다. 화면을 새로 만들거나 크게 바꾸는 계획이면 코드를 고치기 전에 시안을 만들어 승인을 받습니다. 에픽이면 단계 이슈와 단계 계획 문서를 만들어 에픽 브랜치에 커밋합니다. 그다음 다시 승인을 묻지 않고 PR과 결과 보고까지, 에픽이면 에픽 PR까지 진행합니다.'
+    respond context '플랜이 승인됐습니다. 코드를 고치기 전에 /brief 절차를 마치세요. 이슈와 작업 브랜치가 없으면 만들고, 플랜 파일을 변경 기록 위치(AGENTS.md 문서 표, 기본 docs/plans/)의 <이슈번호>-<slug>.md로 옮긴 뒤, 브리핑 HTML을 게시하고 이슈에 링크합니다. 화면을 새로 만들거나 크게 바꾸는 계획이면 코드를 고치기 전에 시안을 만들어 승인을 받습니다. 에픽이면 단계 이슈와 단계 계획 문서를 만들어 에픽 브랜치에 커밋합니다. 그다음 다시 승인을 묻지 않고 PR과 결과 보고까지, 에픽이면 에픽 PR까지 진행합니다.'
     exit 0
     ;;
 esac

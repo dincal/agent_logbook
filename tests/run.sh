@@ -10,7 +10,7 @@ TMP="$(mktemp -d)"
 trap 'rm -rf "$TMP"' EXIT
 PASS=0
 FAIL=0
-BLOCK_LINE='<!-- logbook:begin v8 -->'
+BLOCK_LINE='<!-- logbook:begin v8 -->'  # a rule block from logbook before 0.7
 
 ok() { PASS=$((PASS + 1)); printf 'PASS  %s\n' "$1"; }
 bad() { FAIL=$((FAIL + 1)); printf 'FAIL  %s\n' "$1"; [ -n "${2:-}" ] && printf '%s\n' "$2" | sed 's/^/      /'; return 0; }
@@ -27,19 +27,18 @@ git -C "$R" init -q -b main
 git -C "$R" remote add origin git@github.com:acme/demo.git
 printf '# Demo\n\nExisting rules stay.\n' > "$R/AGENTS.md"
 chmod 644 "$R/AGENTS.md"
+cp "$R/AGENTS.md" "$TMP/agents-before"
 printf '{\n  "model": "opus"\n}\n' > "$R/.claude/settings.json"
 
 out="$("$ROOT/scripts/rulebook.sh" --apply --no-labels --dir "$R" 2>&1)"; rc=$?
 if [ $rc -eq 0 ]; then ok "rulebook: --apply exits 0"; else bad "rulebook: --apply exits 0" "$out"; fi
-expect "rulebook: block inserted between markers" grep -qx "$BLOCK_LINE" "$R/AGENTS.md"
-expect "rulebook: content outside the block kept" grep -q 'Existing rules stay.' "$R/AGENTS.md"
-expect "rulebook: repo filled from origin remote" grep -q 'repo `acme/demo`' "$R/AGENTS.md"
-expect "rulebook: gh account omitted when not given" bash -c "! grep -q 'gh 계정' '$R/AGENTS.md'"
+expect "rulebook: AGENTS.md without an old block is left alone" cmp -s "$R/AGENTS.md" "$TMP/agents-before"
+expect "rulebook: no rule block is written" bash -c "! grep -q 'logbook:begin' '$R/AGENTS.md'"
 expect "rulebook: CLAUDE.md imports AGENTS.md" grep -qx '@AGENTS.md' "$R/CLAUDE.md"
 expect "rulebook: plansDirectory merged, existing keys kept" jq -e '.plansDirectory == "docs/plans" and .model == "opus"' "$R/.claude/settings.json"
 expect "rulebook: .gitignore lists .logbook/" grep -qx '.logbook/' "$R/.gitignore"
 expect "rulebook: docs/plans/ created" test -d "$R/docs/plans"
-expect "rulebook: .logbook/config.json records repo and base" jq -e '.repo == "acme/demo" and .base == "main"' "$R/.logbook/config.json"
+expect "rulebook: .logbook/config.json records repo from origin and base" jq -e '.repo == "acme/demo" and .base == "main" and .account == ""' "$R/.logbook/config.json"
 expect "rulebook: existing file keeps its mode (644)" test "$(mode_of "$R/AGENTS.md")" = 644
 expect "rulebook: new files are readable by others" test "$(( 0$(mode_of "$R/CLAUDE.md") & 04 ))" -ne 0
 
@@ -52,15 +51,43 @@ if [ "$before" = "$after" ] && printf '%s' "$out" | grep -q '변경 없음'; the
 else
   bad "rulebook: second run changes nothing and says 변경 없음" "$out"
 fi
-expect "rulebook: still exactly one block" test "$(grep -c '^<!-- logbook:begin' "$R/AGENTS.md")" -eq 1
 "$ROOT/scripts/rulebook.sh" --apply --no-labels --dir "$R" --account octo >/dev/null 2>&1
-expect "rulebook: --account adds the gh account and refreshes the block" grep -q 'gh 계정 `octo`' "$R/AGENTS.md"
-expect "rulebook: refresh keeps one block" test "$(grep -c '^<!-- logbook:begin' "$R/AGENTS.md")" -eq 1
+expect "rulebook: --account is recorded in .logbook/config.json, not in AGENTS.md" bash -c "jq -e '.account == \"octo\"' '$R/.logbook/config.json' >/dev/null && cmp -s '$R/AGENTS.md' '$TMP/agents-before'"
+
+MG="$TMP/migrate"
+mkdir -p "$MG"
+git -C "$MG" init -q -b main
+printf '# Old\n\nKeep before.\n\n<!-- logbook:begin v7 -->\n## 작업 방식 (logbook)\n\n- **이슈부터 만든다.**\n\n트래커: repo `acme/old` · 기본 브랜치 `main`\n<!-- logbook:end -->\n\nKeep after.\n' > "$MG/AGENTS.md"
+out="$("$ROOT/scripts/rulebook.sh" --apply --no-labels --dir "$MG" --repo acme/old 2>&1)"; rc=$?
+if [ $rc -eq 0 ] && printf '%s' "$out" | grep -q '^update *AGENTS.md'; then ok "rulebook: an old rule block is migrated"; else bad "rulebook: an old rule block is migrated" "$out"; fi
+expect "rulebook: the old block and its markers are gone" bash -c "! grep -qE 'logbook:(begin|end)|작업 방식|트래커' '$MG/AGENTS.md'"
+expect "rulebook: the document rules paragraph takes the block's place" bash -c "awk '/Keep before/ {a = NR} /^## 문서\$/ {b = NR} /Keep after/ {c = NR} END {exit !(a && b && c && a < b && b < c)}' '$MG/AGENTS.md'"
+expect "rulebook: the paragraph lists the default places with no placeholders" bash -c "grep -q '\`docs/system/\`' '$MG/AGENTS.md' && grep -q '\`docs/plans/\`' '$MG/AGENTS.md' && grep -q '\`docs/designs/\`' '$MG/AGENTS.md' && grep -q '\`docs/manual/\`' '$MG/AGENTS.md' && ! grep -q '{[a-z]*}' '$MG/AGENTS.md'"
+out="$("$ROOT/scripts/rulebook.sh" --apply --no-labels --dir "$MG" --repo acme/old 2>&1)"
+if printf '%s' "$out" | grep -q '변경 없음'; then ok "rulebook: a migrated project needs nothing on the next run"; else bad "rulebook: a migrated project needs nothing on the next run" "$out"; fi
+
+PL="$TMP/plans-place"
+mkdir -p "$PL"
+git -C "$PL" init -q -b main
+printf '# P\n\n%s\nold\n<!-- logbook:end -->\n' "$BLOCK_LINE" > "$PL/AGENTS.md"
+"$ROOT/scripts/rulebook.sh" --apply --no-labels --dir "$PL" --repo acme/p --plans documentation/records/ >/dev/null 2>&1
+expect "rulebook: --plans sets plansDirectory, the plans folder and the table row" bash -c "jq -e '.plansDirectory == \"documentation/records\"' '$PL/.claude/settings.json' >/dev/null && test -f '$PL/documentation/records/.gitkeep' && grep -q '\`documentation/records/\`' '$PL/AGENTS.md' && test ! -e '$PL/docs/plans'"
+
+NA="$TMP/no-agents"
+mkdir -p "$NA"
+git -C "$NA" init -q -b main
+out="$("$ROOT/scripts/rulebook.sh" --apply --no-labels --dir "$NA" --repo acme/na 2>&1)"
+if [ ! -e "$NA/AGENTS.md" ] && [ ! -e "$NA/CLAUDE.md" ] && [ -f "$NA/.logbook/config.json" ]; then
+  ok "rulebook: without AGENTS.md it writes only the setup and leaves the rules files to /sync"
+else
+  bad "rulebook: without AGENTS.md it writes only the setup and leaves the rules files to /sync" "$out"
+fi
 
 C="$TMP/claude-existing"
 mkdir -p "$C"
 git -C "$C" init -q -b main
 printf '# Local notes\n' > "$C/CLAUDE.md"
+printf '# C\n' > "$C/AGENTS.md"
 "$ROOT/scripts/rulebook.sh" --apply --no-labels --dir "$C" --repo acme/c >/dev/null 2>&1
 "$ROOT/scripts/rulebook.sh" --apply --no-labels --dir "$C" --repo acme/c >/dev/null 2>&1
 expect "rulebook: existing CLAUDE.md keeps its text" grep -q '# Local notes' "$C/CLAUDE.md"
@@ -69,12 +96,33 @@ expect "rulebook: existing CLAUDE.md gets one @AGENTS.md line" test "$(grep -cx 
 L="$TMP/symlinked"
 mkdir -p "$L"
 git -C "$L" init -q -b main
-printf 'rules\n' > "$L/CLAUDE.md"
+printf 'rules\n\n%s\nold\n<!-- logbook:end -->\n' "$BLOCK_LINE" > "$L/CLAUDE.md"
 ln -s CLAUDE.md "$L/AGENTS.md"
 "$ROOT/scripts/rulebook.sh" --apply --no-labels --dir "$L" --repo acme/l >/dev/null 2>&1
 expect "rulebook: AGENTS.md symlink survives" test -L "$L/AGENTS.md"
-expect "rulebook: block lands in the symlink target" grep -qx "$BLOCK_LINE" "$L/CLAUDE.md"
+expect "rulebook: the block in the symlink target is migrated" bash -c "grep -qx '## 문서' '$L/CLAUDE.md' && ! grep -q 'logbook:begin' '$L/CLAUDE.md' && grep -qx 'rules' '$L/CLAUDE.md'"
 expect "rulebook: no self-import when AGENTS.md points to CLAUDE.md" bash -c "! grep -qx '@AGENTS.md' '$L/CLAUDE.md'"
+
+TB="$TMP/two-blocks"
+mkdir -p "$TB"
+git -C "$TB" init -q -b main
+printf '# T\n\n%s\none\n<!-- logbook:end -->\n\nmiddle\n\n%s\ntwo\n<!-- logbook:end -->\n' "$BLOCK_LINE" "$BLOCK_LINE" > "$TB/AGENTS.md"
+"$ROOT/scripts/rulebook.sh" --apply --no-labels --dir "$TB" --repo acme/tb >/dev/null 2>&1
+out="$("$ROOT/scripts/rulebook.sh" --apply --no-labels --dir "$TB" --repo acme/tb 2>&1)"
+if [ "$(grep -cx '## 문서' "$TB/AGENTS.md")" -eq 1 ] && ! grep -q 'logbook:begin' "$TB/AGENTS.md" && grep -qx 'middle' "$TB/AGENTS.md" && printf '%s' "$out" | grep -q '변경 없음'; then
+  ok "rulebook: several old blocks become one paragraph in one run"
+else
+  bad "rulebook: several old blocks become one paragraph in one run" "$(cat "$TB/AGENTS.md")"
+fi
+
+WR="$TMP/wt-main"
+mkdir -p "$WR"
+git -C "$WR" init -q -b main
+git -C "$WR" -c user.email=t@example.com -c user.name=t commit -q --allow-empty -m init
+git -C "$WR" worktree add -q "$TMP/wt-linked" -b feat/1-x
+"$ROOT/scripts/rulebook.sh" --apply --no-labels --dir "$TMP/wt-linked" --repo acme/wt >/dev/null 2>&1
+expect "rulebook: run in a worktree, it writes the config to the main checkout" bash -c "jq -e '.repo == \"acme/wt\"' '$WR/.logbook/config.json' >/dev/null && test ! -e '$TMP/wt-linked/.logbook/config.json'"
+expect "rulebook: run in a worktree, the main checkout ignores .logbook/ without a tracked change" bash -c "[ -z \"\$(git -C '$WR' status --porcelain)\" ] && grep -qx '.logbook/' '$WR/.git/info/exclude'"
 
 M="$TMP/broken-markers"
 mkdir -p "$M"
@@ -92,7 +140,7 @@ D="$TMP/dry"
 mkdir -p "$D"
 git -C "$D" init -q -b main
 out="$("$ROOT/scripts/rulebook.sh" --dry-run --no-labels --dir "$D" --repo acme/dry 2>&1)"
-if [ ! -e "$D/AGENTS.md" ] && [ ! -e "$D/CLAUDE.md" ] && [ ! -e "$D/.claude" ] && printf '%s' "$out" | grep -q 'planned'; then
+if [ ! -e "$D/.logbook" ] && [ ! -e "$D/.gitignore" ] && [ ! -e "$D/.claude" ] && printf '%s' "$out" | grep -q 'planned'; then
   ok "rulebook: --dry-run lists changes and writes nothing"
 else
   bad "rulebook: --dry-run lists changes and writes nothing" "$out"
@@ -222,11 +270,79 @@ html_doc $'<!--\n여러 줄 주석 안의 <div>는 보이지 않습니다\n-->\n
 "$ROOT/scripts/render-brief.sh" "$TMP/html.md" brief "$TMP/html.html" >/dev/null 2>&1; rc=$?
 expect "render-brief: HTML comments and inline code in tables are allowed" test $rc -eq 0
 
+# ---------------------------------------------------------------- session-rules hook
+echo "== session-rules hook =="
+SR="$TMP/session"
+mkdir -p "$SR"
+git -C "$SR" init -q -b main
+printf '# S\n' > "$SR/AGENTS.md"
+"$ROOT/scripts/rulebook.sh" --apply --no-labels --dir "$SR" --repo acme/session --account octo >/dev/null 2>&1
+git -C "$SR" add -A && git -C "$SR" -c user.email=t@example.com -c user.name=t commit -q -m init
+rules() { jq -cn --arg cwd "$1" '{hook_event_name: "SessionStart", source: "startup", cwd: $cwd}' | env -u CLAUDE_PROJECT_DIR "$ROOT/hooks/session-rules.sh"; }
+context() { printf '%s' "$1" | jq -r '.hookSpecificOutput.additionalContext // empty' 2>/dev/null; }
+VERSION="$(jq -r .version "$ROOT/.claude-plugin/plugin.json")"
+
+for engine in jq python; do
+  force=""; [ "$engine" = python ] && force=1
+  res="$(LOGBOOK_FORCE_PYTHON="$force" rules "$SR")"; rc=$?
+  ctx="$(context "$res")"
+  if [ $rc -eq 0 ] && printf '%s' "$res" | jq -e '.hookSpecificOutput.hookEventName == "SessionStart"' >/dev/null 2>&1 \
+     && printf '%s\n' "$ctx" | grep -qx "# logbook 작업 규칙 (플러그인 v$VERSION)"; then
+    ok "session-rules [$engine]: a logbook repository gets the rules, headed by the plugin version"
+  else
+    bad "session-rules [$engine]: a logbook repository gets the rules, headed by the plugin version" "rc=$rc $res"
+  fi
+done
+ctx="$(context "$(rules "$SR")")"
+expect "session-rules: the tracker line comes from .logbook/config.json" bash -c "printf '%s' \"\$1\" | grep -qF 'repo \`acme/session\` · 라벨 \`status:backlog|todo|in-progress|done\`, \`epic\` · 기본 브랜치 \`main\` · gh 계정 \`octo\`'" _ "$ctx"
+expect "session-rules: no placeholder is left" bash -c "! printf '%s' \"\$1\" | grep -qE '\\{(version|repo|base|account)\\}'" _ "$ctx"
+expect "session-rules: the rules point at AGENTS.md's document rules" bash -c "printf '%s' \"\$1\" | grep -q '문서는 AGENTS.md의 문서 규칙을 따른다'" _ "$ctx"
+size="$(printf '%s' "$ctx" | python3 -c 'import sys; print(len(sys.stdin.read()))')"
+printf '      context: %s characters\n' "$size"
+expect "session-rules: the context stays under Claude Code's 10,000-character hook limit" test "$size" -lt 10000
+expect "session-rules: no migration note without an old block" bash -c "! printf '%s' \"\$1\" | grep -q '0.7 이전의 규칙 블록'" _ "$ctx"
+
+git -C "$SR" worktree add -q "$TMP/session-wt" -b feat/1-wt
+ctx_wt="$(context "$(rules "$TMP/session-wt")")"
+expect "session-rules: a worktree finds the main checkout's config" bash -c "[ -n \"\$1\" ] && [ \"\$1\" = \"\$2\" ]" _ "$ctx_wt" "$ctx"
+mkdir -p "$SR/sub/dir"
+expect "session-rules: CDPATH does not change where the config is found" bash -c "[ \"\$1\" = \"\$2\" ]" _ "$(cd "$SR" && jq -cn --arg cwd "$SR" '{cwd: $cwd}' | CDPATH=.:/ env -u CLAUDE_PROJECT_DIR "$ROOT/hooks/session-rules.sh" | jq -r '.hookSpecificOutput.additionalContext')" "$ctx"
+expect "session-rules: works from a subfolder" bash -c "[ \"\$1\" = \"\$2\" ]" _ "$(context "$(rules "$SR/sub/dir")")" "$ctx"
+
+NL="$TMP/no-logbook"
+mkdir -p "$NL"
+git -C "$NL" init -q -b main
+printf '# N\n' > "$NL/AGENTS.md"
+res="$(rules "$NL")"; rc=$?
+expect "session-rules: a repository without logbook gets nothing" test $rc -eq 0 -a -z "$res"
+res="$(rules "$TMP")"; rc=$?
+expect "session-rules: a folder outside git without .logbook/config.json gets nothing" test $rc -eq 0 -a -z "$res"
+NGS="$TMP/not-git-session"
+mkdir -p "$NGS"
+"$ROOT/scripts/rulebook.sh" --apply --no-labels --dir "$NGS" --repo acme/ngs >/dev/null 2>&1
+expect "session-rules: a logbook folder outside git gets the rules" bash -c "printf '%s' \"\$1\" | grep -q '^트래커: repo .acme/ngs.'" _ "$(context "$(rules "$NGS")")"
+
+OB="$TMP/old-block"
+mkdir -p "$OB"
+git -C "$OB" init -q -b main
+printf '# O\n\n%s\n- old rules\n\n트래커: repo `acme/old` · 라벨 `x` · 기본 브랜치 `trunk` · gh 계정 `olduser`\n<!-- logbook:end -->\n' "$BLOCK_LINE" > "$OB/AGENTS.md"
+ctx="$(context "$(rules "$OB")")"
+expect "session-rules: an unmigrated project gets the rules with the tracker from its old block" bash -c "printf '%s' \"\$1\" | grep -qF 'repo \`acme/old\`' && printf '%s' \"\$1\" | grep -qF '기본 브랜치 \`trunk\` · gh 계정 \`olduser\`'" _ "$ctx"
+expect "session-rules: an old block adds a note to run /rulebook" bash -c "printf '%s' \"\$1\" | grep -q '0.7 이전의 규칙 블록' && printf '%s' \"\$1\" | grep -q '/rulebook'" _ "$ctx"
+
+NAC="$TMP/no-account"
+mkdir -p "$NAC"
+git -C "$NAC" init -q -b main
+"$ROOT/scripts/rulebook.sh" --apply --no-labels --dir "$NAC" --repo acme/na >/dev/null 2>&1
+ctx="$(context "$(rules "$NAC")")"
+expect "session-rules: without a gh account the tracker line leaves it out" bash -c "printf '%s' \"\$1\" | grep -qF '기본 브랜치 \`main\`' && ! printf '%s' \"\$1\" | grep -q 'gh 계정'" _ "$ctx"
+
 # ---------------------------------------------------------------- plan-preview hook
 echo "== plan-preview hook =="
 P="$TMP/proj"
 mkdir -p "$P"
-printf '# proj\n\n%s\n<!-- logbook:end -->\n' "$BLOCK_LINE" > "$P/AGENTS.md"
+git -C "$P" init -q -b main
+"$ROOT/scripts/rulebook.sh" --apply --no-labels --dir "$P" --repo acme/proj >/dev/null 2>&1
 hook() { CLAUDE_PROJECT_DIR="$1" LOGBOOK_NO_OPEN=1 "$ROOT/hooks/plan-preview.sh"; }
 pre_input() { jq -cn --arg plan "$1" --arg cwd "$P" '{hook_event_name: "PreToolUse", tool_name: "ExitPlanMode", tool_input: {plan: $plan}, cwd: $cwd}'; }
 
@@ -300,6 +416,23 @@ N="$TMP/not-logbook"
 mkdir -p "$N"
 res="$(jq -cn --arg cwd "$N" '{hook_event_name: "PreToolUse", tool_input: {plan: "# x\n\n1. y"}, cwd: $cwd}' | hook "$N")"; rc=$?
 expect "plan-preview: projects without logbook rules are left alone" test $rc -eq 0 -a -z "$res"
+res="$(jq -cn --arg cwd "$NL" '{hook_event_name: "PreToolUse", tool_input: {plan: "# x\n\n1. y"}, cwd: $cwd}' | hook "$NL")"; rc=$?
+expect "plan-preview: a git repository without .logbook/config.json is left alone" test $rc -eq 0 -a -z "$res"
+OP="$TMP/old-proj"
+mkdir -p "$OP"
+git -C "$OP" init -q -b main
+printf '# old\n\n%s\n<!-- logbook:end -->\n' "$BLOCK_LINE" > "$OP/AGENTS.md"
+res="$(jq -cn --arg cwd "$OP" '{hook_event_name: "PreToolUse", tool_input: {plan: "# x\n\n1. y"}, cwd: $cwd}' | hook "$OP")"
+expect "plan-preview: an unmigrated project with an old block still gets the check" bash -c "printf '%s' \"\$1\" | jq -e '.hookSpecificOutput.permissionDecision == \"deny\"' >/dev/null" _ "$res"
+git -C "$P" add -A && git -C "$P" -c user.email=t@example.com -c user.name=t commit -q -m init
+git -C "$P" worktree add -q "$TMP/proj-wt" -b feat/2-wt
+res="$(jq -cn --arg cwd "$TMP/proj-wt" '{hook_event_name: "PreToolUse", tool_input: {plan: "# x\n\n1. y"}, cwd: $cwd}' | hook "$TMP/proj-wt")"
+expect "plan-preview: a worktree uses the main checkout's config" bash -c "printf '%s' \"\$1\" | jq -e '.hookSpecificOutput.permissionDecision == \"deny\"' >/dev/null" _ "$res"
+NG="$TMP/not-git"
+mkdir -p "$NG/.logbook"
+printf '{"repo": "acme/ng", "base": "main", "account": ""}\n' > "$NG/.logbook/config.json"
+res="$(jq -cn --arg cwd "$NG" '{hook_event_name: "PreToolUse", tool_input: {plan: "# x\n\n1. y"}, cwd: $cwd}' | hook "$NG")"
+expect "plan-preview: a logbook folder outside git still gets the check" bash -c "printf '%s' \"\$1\" | jq -e '.hookSpecificOutput.permissionDecision == \"deny\"' >/dev/null" _ "$res"
 
 # ---------------------------------------------------------------- debrief-gate hook
 echo "== debrief-gate hook =="
@@ -307,8 +440,9 @@ G="$TMP/gate"
 BIN="$TMP/bin"
 mkdir -p "$G" "$BIN"
 git -C "$G" init -q -b main
-printf '# gate\n\n%s\n트래커: repo `acme/demo` · 기본 브랜치 `main` · gh 계정 `octo`\n<!-- logbook:end -->\n' "$BLOCK_LINE" > "$G/AGENTS.md"
-git -C "$G" add AGENTS.md
+printf '# gate\n' > "$G/AGENTS.md"
+"$ROOT/scripts/rulebook.sh" --apply --no-labels --dir "$G" --repo acme/demo --account octo >/dev/null 2>&1
+git -C "$G" add -A
 git -C "$G" -c user.email=t@example.com -c user.name=t commit -q -m init
 git -C "$G" checkout -q -b feat/9-demo
 cat > "$BIN/gh" <<'EOF'
@@ -340,7 +474,7 @@ for engine in jq python; do
   res="$(stop_input true | LOGBOOK_FORCE_PYTHON="$force" gate nomarker)"; rc=$?
   expect "debrief-gate [$engine]: stop_hook_active=true passes" test $rc -eq 0 -a -z "$res"
 done
-expect "debrief-gate: gh account comes from the AGENTS.md tracker line" grep -qx octo "$TMP/gh.log"
+expect "debrief-gate: gh account comes from .logbook/config.json" grep -qx octo "$TMP/gh.log"
 res="$(stop_input false '[{"id":"t1","type":"shell"}]' | gate nomarker)"; rc=$?
 expect "debrief-gate: running background work passes" test $rc -eq 0 -a -z "$res"
 res="$(stop_input false | gate fail)"; rc=$?
@@ -363,6 +497,19 @@ expect "debrief-gate: PR with the marker passes" test $rc -eq 0 -a -z "$res"
 expect "debrief-gate: debriefed HEAD is cached" test -f "$G/.logbook/state/debrief-feat_9-demo"
 res="$(stop_input false | gate nomarker)"
 expect "debrief-gate: cached HEAD skips the gh call" test -z "$res"
+git -C "$G" worktree add -q "$TMP/gate-wt" -b feat/10-wt
+: > "$TMP/gh.log"
+res="$(stop_input false '[]' "$TMP/gate-wt" | gate nomarker)"
+expect "debrief-gate: a worktree uses the main checkout's config" bash -c "printf '%s' \"\$1\" | jq -e '.decision == \"block\"' >/dev/null && grep -qx octo '$TMP/gh.log'" _ "$res"
+OG="$TMP/old-gate"
+mkdir -p "$OG"
+git -C "$OG" init -q -b main
+printf '# old\n\n%s\n트래커: repo `acme/old` · 기본 브랜치 `main` · gh 계정 `olduser`\n<!-- logbook:end -->\n' "$BLOCK_LINE" > "$OG/AGENTS.md"
+git -C "$OG" add -A && git -C "$OG" -c user.email=t@example.com -c user.name=t commit -q -m init
+git -C "$OG" checkout -q -b feat/2-old
+: > "$TMP/gh.log"
+res="$(stop_input false '[]' "$OG" | gate nomarker)"
+expect "debrief-gate: an unmigrated project reads the account from its old block" bash -c "printf '%s' \"\$1\" | jq -e '.decision == \"block\"' >/dev/null && grep -qx olduser '$TMP/gh.log'" _ "$res"
 
 # ---------------------------------------------------------------- system-check
 echo "== system-check =="
@@ -484,7 +631,7 @@ expect "legacy-scan: leaves plans, project docs and README alone" bash -c "! pri
 CL="$TMP/legacy-clean"
 mkdir -p "$CL/docs/plans" "$CL/docs/system"
 git -C "$CL" init -q -b main
-printf '# C\n\n%s\n## 작업 방식 (logbook)\n\n- **이슈부터 만든다.**\n<!-- logbook:end -->\n' "$BLOCK_LINE" > "$CL/AGENTS.md"
+sed -e 's#{system}#docs/system/#; s#{plans}#docs/plans/#; s#{designs}#docs/designs/#; s#{manual}#docs/manual/#' "$ROOT/templates/docs-rules.md" > "$CL/AGENTS.md"
 printf '@AGENTS.md\n' > "$CL/CLAUDE.md"
 printf 'readme\n' > "$CL/README.md"
 printf 'plan\n' > "$CL/docs/plans/1-start.md"
@@ -492,6 +639,33 @@ printf 'map\n' > "$CL/docs/system/overview.md"
 git -C "$CL" add -A && git -C "$CL" -c user.email=t@example.com -c user.name=t commit -q -m init
 out="$("$ROOT/scripts/legacy-scan.sh" --dir "$CL")"
 expect "legacy-scan: prints nothing for a repository that fits logbook" test -z "$out"
+CP="$TMP/legacy-places"
+mkdir -p "$CP/documentation/system" "$CP/documentation/records" "$CP/docs"
+git -C "$CP" init -q -b main
+printf 'map\n' > "$CP/documentation/system/overview.md"
+printf 'plan\n' > "$CP/documentation/records/4-start.md"
+printf 'note\n' > "$CP/documentation/records/notes.md"
+printf 'loose\n' > "$CP/documentation/loose.md"
+printf 'old\n' > "$CP/docs/old.md"
+git -C "$CP" add -A && git -C "$CP" -c user.email=t@example.com -c user.name=t commit -q -m init
+out="$("$ROOT/scripts/legacy-scan.sh" --dir "$CP" --system documentation/system --plans documentation/records/)"
+printf '%s\n' "$out" | sed 's/^/      /'
+if has_row "$out" "자리 밖 문서" "docs/old.md" && has_row "$out" "자리 밖 문서" "documentation/loose.md" && has_row "$out" "자리 밖 문서" "documentation/records/notes.md" \
+   && ! printf '%s' "$out" | grep -qE 'documentation/system/overview.md|documentation/records/4-start.md'; then
+  ok "legacy-scan: document places come from the options, as AGENTS.md's table sets them"
+else
+  bad "legacy-scan: document places come from the options, as AGENTS.md's table sets them" "$out"
+fi
+mkdir -p "$CP/docs/manual"
+printf '<html></html>\n' > "$CP/docs/manual/index.html"
+printf 'extra\n' > "$CP/docs/manual/extra.md"
+git -C "$CP" add -A && git -C "$CP" -c user.email=t@example.com -c user.name=t commit -q -m manual
+out="$("$ROOT/scripts/legacy-scan.sh" --dir "$CP" --system ./documentation/system/ --plans ./documentation/records --manual docs/manual/index.html)"
+if has_row "$out" "자리 밖 문서" "docs/manual/extra.md" && ! printf '%s' "$out" | grep -qE 'docs/manual/index.html|documentation/system/overview.md|documentation/records/4-start.md'; then
+  ok "legacy-scan: a place can be a single file, and ./ or a trailing slash is accepted"
+else
+  bad "legacy-scan: a place can be a single file, and ./ or a trailing slash is accepted" "$out"
+fi
 
 # ---------------------------------------------------------------- render-system
 echo "== render-system =="
@@ -515,7 +689,8 @@ if [ $rc -eq 4 ] && printf '%s' "$err" | grep -q 'overview.md에 HTML이 있습�
 
 # ---------------------------------------------------------------- plugin files
 echo "== plugin files =="
-expect "hooks.json is valid JSON" jq -e '.hooks.PreToolUse and .hooks.PostToolUse and .hooks.Stop' "$ROOT/hooks/hooks.json"
+expect "hooks.json is valid JSON with the four hooks" jq -e '.hooks.SessionStart and .hooks.PreToolUse and .hooks.PostToolUse and .hooks.Stop' "$ROOT/hooks/hooks.json"
+expect "SessionStart runs on every source (no matcher)" jq -e '.hooks.SessionStart[0] | has("matcher") | not' "$ROOT/hooks/hooks.json"
 for skill in rulebook discuss brief debrief sync; do
   f="$ROOT/skills/$skill/SKILL.md"
   if [ ! -f "$f" ]; then bad "skill $skill exists"; continue; fi
@@ -543,7 +718,7 @@ expect "brief flags an unreasonable answer once and records it" bash -c "grep -q
 D="$ROOT/skills/discuss/SKILL.md"
 expect "discuss changes nothing until the user picks an ending" bash -c "grep -q 'Nothing in the project changes until the user picks an ending' '$D' && grep -q 'No file edits, no commits, no branches' '$D' && grep -q 'No issues, labels or comments' '$D' && grep -q 'no plan mode' '$D'"
 expect "discuss leaves /debrief alone and cites issues as full links for /brief" bash -c "grep -q 'No \`/debrief\`, even when a Stop hook asks' '$D' && grep -q 'never as a bare' '$D' && grep -q 'without an account there, use the default login' '$D'"
-expect "rule block has the agent load the discuss skill" grep -q '`/discuss` 스킬을 불러 그 절차대로 토론한다' "$ROOT/templates/agents-block.md"
+expect "rule block has the agent load the discuss skill" grep -q '`/discuss` 스킬을 불러 그 절차대로 토론한다' "$ROOT/templates/session-rules.md"
 expect "discuss researches read-only with Explore on Sonnet and the web" bash -c "grep -q 'Research actively, read-only' '$D' && grep -q 'Explore agents on Sonnet' '$D' && grep -q 'templates/parallel.md' '$D' && grep -q 'search the web' '$D'"
 expect "discuss argues like a colleague and pushes back with evidence" bash -c "grep -q 'push back with confidence' '$D' && grep -q 'Do not argue for the sake of arguing' '$D' && grep -q 'strongest argument against' '$D'"
 expect "discuss ends with a summary and three endings, one recommended" bash -c "grep -q '결론' '$D' && grep -q '합의한 것' '$D' && grep -q '남은 질문' '$D' && grep -q 'Recommend one of three endings' '$D' && grep -q '바로 진행' '$D' && grep -q 'backlog 이슈로 남기기' '$D' && grep -q '남기지 않기' '$D'"
@@ -570,9 +745,10 @@ for name in sys.stdin.read().split():
 if [ -z "$html_hits" ]; then ok "templates and this repository's markdown carry no HTML"; else bad "templates and this repository's markdown carry no HTML" "$html_hits"; fi
 expect "flows template has a model-call table" grep -q '| 모델 호출 | 모델(설정) |' "$ROOT/templates/system/flows.md"
 expect "reviewer agent checks model calls and HTML in markdown" bash -c "grep -q 'LLM' '$ROOT/agents/reviewer.md' && grep -q 'hold no HTML' '$ROOT/agents/reviewer.md'"
-B="$ROOT/templates/agents-block.md"
-expect "rule block asks whenever a choice changes the user scenario" bash -c "grep -qx '$BLOCK_LINE' '$B' && grep -q '흐름이 달라지는 부분은 묻는다' '$B' && grep -q '사소한 것은 묻지 않고' '$B'"
-expect "rule block sets the reader and the picture rules" bash -c "grep -q '컴퓨터공학 학부' '$B' && grep -q 'ERD와 흐름도는 억지로 그리지 않는다' '$B' && grep -q '모든 테이블' '$B'"
+B="$ROOT/templates/session-rules.md"
+expect "no rule block template; the rules come from session-rules.md" bash -c "test ! -e '$ROOT/templates/agents-block.md' && ! grep -q 'logbook:begin' '$B' && head -1 '$B' | grep -qF '(플러그인 v{version})'"
+expect "rule block asks whenever a choice changes the user scenario" bash -c "grep -q '흐름이 달라지는 부분은 묻는다' '$B' && grep -q '사소한 것은 묻지 않고' '$B'"
+expect "rule block sets the reader and the picture rules" bash -c "grep -q '컴퓨터공학 학부' '$B' && grep -q 'ERD와 흐름도는 억지로 그리지 않는다' '$B' && grep -q '모든 테이블' '$ROOT/templates/docs-rules.md'"
 expect "rule block points at docs/system, /sync and /design" bash -c "grep -q 'docs/system/' '$B' && grep -q '/sync' '$B' && grep -q '/design' '$B'"
 expect "rule block no longer demands a flowchart and an ERD in every briefing" bash -c "! grep -q 'ERD 변화(없으면' '$B'"
 expect "rule block keeps HTML out of markdown and details model calls" bash -c "grep -q 'md 파일에는 HTML을 넣지 않고' '$B' && grep -q 'AI 모델을 부르는 단계' '$B'"
@@ -588,7 +764,13 @@ expect "brief and plan mode read comments deferred to the issue" bash -c "grep -
 expect "a small change given an issue still closes it" grep -q 'put `Closes #<issue>` in the PR body' "$ROOT/skills/brief/SKILL.md"
 expect "debrief reviews bigger changes without a plan doc and skips only the HTML" bash -c "grep -q '^## Changes without a plan doc' '$ROOT/skills/debrief/SKILL.md' && grep -q 'Anything bigger, such as a follow-up doc update or a \`/sync\` fix, runs step 3 and step 7' '$ROOT/skills/debrief/SKILL.md'"
 expect "an approved brief:skip plan follows the skip path and is not committed" grep -q 'leave the plan file out of the commit' "$ROOT/skills/brief/SKILL.md"
-expect "this repository's AGENTS.md carries the current rule block" bash -c "diff <(sed -n '/^<!-- logbook:begin/,/^<!-- logbook:end/p' '$ROOT/AGENTS.md' | grep -v '^트래커') <(grep -v '^트래커' '$B')"
+expect "this repository's AGENTS.md has no rule block and keeps the document table" bash -c "! grep -q 'logbook:begin' '$ROOT/AGENTS.md' && grep -qx '## 문서' '$ROOT/AGENTS.md' && grep -q '| 지금 시스템' '$ROOT/AGENTS.md'"
+DR="$ROOT/templates/docs-rules.md"
+expect "document rules paragraph: four places, no logbook marker and no logbook command" bash -c "for k in system plans designs manual; do grep -q \"{\$k}\" '$DR' || exit 1; done; ! grep -qiE 'logbook|/sync|/brief|<!--' '$DR'"
+expect "the rules defer document places to AGENTS.md's table" bash -c "grep -q '문서는 AGENTS.md의 문서 규칙을 따른다' '$B' && ! grep -q '문서는 정해진 자리에 둔다' '$B'"
+expect "skills read the tracker line from the logbook rules, not from AGENTS.md" bash -c "! grep -rq 'AGENTS.md tracker line' '$ROOT/skills' && grep -q 'the tracker line in the logbook rules the session started with' '$ROOT/skills/brief/SKILL.md' && grep -q 'the tracker line in the logbook rules the session started with' '$ROOT/skills/debrief/SKILL.md' && grep -q 'the tracker line in the logbook rules the session started with' '$ROOT/skills/discuss/SKILL.md'"
+expect "rulebook runs once per clone and writes no rule block" bash -c "grep -q 'once per clone' '$ROOT/skills/rulebook/SKILL.md' && grep -q 'A plugin update needs no rerun' '$ROOT/skills/rulebook/SKILL.md'"
+expect "sync asks for the document structure when it is not in place" bash -c "grep -q '^2. \*\*Structure.\*\*' '$ROOT/skills/sync/SKILL.md' && grep -q 'templates/docs-rules.md' '$ROOT/skills/sync/SKILL.md' && grep -q 'rulebook.sh --apply --plans' '$ROOT/skills/sync/SKILL.md'"
 T="$ROOT/templates/plan.md"
 expect "plan template records concerns raised about the user's decisions" grep -q '^알린 우려:' "$T"
 expect "plan template: conditional slides for logic, database and screens, no ERD filler" bash -c "grep -q '^## 주요 로직 흐름 (주요 로직이' '$T' && grep -q '^## 데이터베이스 변경 (DB 스키마가' '$T' && grep -q '^## 화면 시안 (' '$T' && ! grep -q 'ERD 변화 없음' '$T'"
@@ -607,7 +789,7 @@ expect "no /mission skill and no /goal template" bash -c "test ! -e '$ROOT/skill
 expect "skills, agents, hooks, templates and the rule block no longer mention /mission or /goal" bash -c "! grep -rnE '/mission|/goal|goal\\.md' '$ROOT/skills' '$ROOT/agents' '$ROOT/hooks' '$ROOT/templates' '$ROOT/scripts' '$ROOT/AGENTS.md' '$ROOT/README.md' '$ROOT/.claude-plugin' '$ROOT/docs/system' '$ROOT/docs/manual'"
 expect "brief plans an epic: child issues, step docs without HTML, an epic branch" bash -c "grep -q '^## Epics' \"$BR\" && grep -q 'epic/<issue>-<slug>' \"$BR\" && grep -q 'Only the epic doc is rendered and published; step docs get no HTML' \"$BR\" && grep -q 'Create the missing child issues' \"$BR\""
 expect "brief carries an approved plan through, and an epic through every step to the epic PR" bash -c "grep -q 'carry the plan out to the end without asking for approval again' \"$BR\" && grep -q 'do not end the turn between steps' \"$BR\" && grep -q 'open the epic PR from the epic branch' \"$BR\" && grep -q '고친 뒤 이어서 / 중단' \"$BR\" && grep -q 'Stops and resuming' \"$BR\" && grep -q 'do not weaken or delete tests' \"$BR\" && grep -q 'open the PR with \`Closes #<issue>\`' \"$BR\""
-expect "rule block plans an epic with /brief and runs its steps without stopping" bash -c "grep -q '\`/brief\`가 \`epic\` 라벨 이슈와 단계 이슈로 계획하고' '$ROOT/templates/agents-block.md' && grep -q '단계 사이에서 멈추지 않고' '$ROOT/templates/agents-block.md'"
+expect "rule block plans an epic with /brief and runs its steps without stopping" bash -c "grep -q '\`/brief\`가 \`epic\` 라벨 이슈와 단계 이슈로 계획하고' '$ROOT/templates/session-rules.md' && grep -q '단계 사이에서 멈추지 않고' '$ROOT/templates/session-rules.md'"
 expect "plan template has the epic step table and results" bash -c "grep -q '^## 단계 (에픽일 때)' '$T' && grep -q '^## 단계 결과 (에픽일 때)' '$T' && grep -q 'origin/{PR의 base 브랜치}' '$T'"
 for doc in overview stack flows data-model; do
   expect "system template $doc starts with its marker" bash -c "head -1 '$ROOT/templates/system/$doc.md' | grep -q '^<!-- logbook:system sources='"

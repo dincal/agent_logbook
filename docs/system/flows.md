@@ -1,12 +1,13 @@
-<!-- logbook:system sources="skills/** hooks/** agents/** templates/agents-block.md templates/plan.md templates/parallel.md" -->
+<!-- logbook:system sources="skills/** hooks/** agents/** templates/session-rules.md templates/docs-rules.md scripts/rulebook.sh templates/plan.md templates/parallel.md" -->
 # 주요 흐름
 
 ## 흐름 목록
 
-프로젝트마다 한 번 `/rulebook`으로 규칙을 설치한 뒤에는, 이슈로 남길 변경은 브리핑과 결과 보고를 거치고, 작은 수정은 이슈 없이 PR만 남기며, 프로젝트 문서는 `/sync`로 코드와 맞춥니다. 무엇을 만들지 정하기 전에는 `/discuss`로 토론할 수 있고, 여러 단계로 나뉜 긴 작업(에픽)은 에픽 브랜치에서 한 번에 진행합니다.
+clone마다 한 번 `/rulebook`으로 logbook을 켜면 세션마다 작업 규칙이 들어가고, 이슈로 남길 변경은 브리핑과 결과 보고를 거치고, 작은 수정은 이슈 없이 PR만 남기며, 프로젝트 문서는 `/sync`로 코드와 맞춥니다. 무엇을 만들지 정하기 전에는 `/discuss`로 토론할 수 있고, 여러 단계로 나뉜 긴 작업(에픽)은 에픽 브랜치에서 한 번에 진행합니다.
 
 | 흐름 | 한 줄 설명 |
 |---|---|
+| logbook 켜기와 세션 규칙 | `/rulebook`이 켜는 표시를 만들고, 세션이 시작될 때마다 hook이 플러그인의 규칙을 넣습니다 |
 | 구현 전 토론 | 아무것도 고치지 않고 아이디어를 따져 본 뒤, 넘기기·backlog·남기지 않기 중 하나를 고릅니다 |
 | 이슈로 남길지 정하기 | 다른 개발자가 알아야 하거나 꼭 남길 작업만 이슈가 되고, 나머지는 PR만 열거나 관련 PR에 얹거나 채팅으로 보고합니다 |
 | 구현 전 브리핑 | 조사하고, 흐름이 달라지는 선택은 묻고, 계획을 승인받습니다 |
@@ -14,7 +15,31 @@
 | 구현과 병렬 트랙 | 이득이 있을 때만 구현을 트랙으로 나눠 builder 에이전트에 동시에 맡기고, 서브에이전트나 Workflow로 띄웁니다 |
 | 구현 후 결과 보고 | 증거, 문서 대조, 별도 리뷰를 거쳐 머지를 고릅니다 |
 | 에픽 진행 | 브리핑을 승인한 세션이 단계를 차례로 에픽 브랜치에 합치고, 마지막 에픽 PR에서 한 번 보고합니다 |
-| 문서 동기화 | 옛 흔적을 정리하고 프로젝트 문서를 코드에 맞춥니다 |
+| 문서 동기화 | 문서 구조를 정하고, 옛 흔적을 정리하고, 프로젝트 문서를 코드에 맞춥니다 |
+
+## logbook 켜기와 세션 규칙
+
+`/rulebook`은 clone마다 한 번 logbook을 켜고, 그 뒤로는 세션이 시작될 때마다 hook이 플러그인의 최신 규칙을 넣습니다. 규칙이 저장소에 없으므로 플러그인을 올려도 프로젝트에서 할 일이 없습니다.
+
+```mermaid
+flowchart TD
+  S["세션 시작: startup, resume, clear, compact"] --> G["git rev-parse --git-common-dir로 원래 저장소 루트를 찾음. git 밖이면 그 폴더"]
+  G --> C{"원래 저장소에 .logbook/config.json이 있나"}
+  C -->|"있음"| R["templates/session-rules.md에 repo, 기본 브랜치, gh 계정을 채움"]
+  C -->|"없음"| O{"AGENTS.md에 0.7 이전 규칙 블록이 있나"}
+  O -->|"없음"| N["아무것도 넣지 않음"]
+  O -->|"있음"| R
+  R --> M{"AGENTS.md에 옛 블록이 남아 있나"}
+  M -->|"예"| W["규칙 끝에 /rulebook으로 옮기라는 안내를 붙임"]
+  M -->|"아니오"| A["additionalContext로 세션에 넣음"]
+  W --> A
+```
+
+- `/rulebook`은 `.logbook/config.json`(repo, 기본 브랜치, gh 계정), `.gitignore`의 `.logbook/`, 이슈 라벨, 변경 기록 폴더와 `plansDirectory`를 준비합니다. AGENTS.md는 0.7 이전 규칙 블록이 있을 때만 고칩니다. 블록 자리에 그 안의 문서 규칙을 일반 문단(`templates/docs-rules.md`)으로 옮겨 씁니다.
+- `.logbook/`은 git에서 제외되어 clone에 따라오지 않습니다. 새로 clone한 저장소는 `/rulebook`을 실행하기 전까지 규칙이 들어가지 않고, 경고도 없습니다. worktree는 원래 저장소의 설정을 읽으므로 따로 켤 필요가 없습니다. worktree에서 `/rulebook`을 실행하면 설정을 원래 저장소에 쓰고, 원래 저장소의 `.git/info/exclude`에 `.logbook/`을 넣습니다.
+- 플랜 미리보기와 결과 보고 hook도 같은 판정(`hooks/lib.sh`)으로 logbook 저장소인지 정합니다. git 밖 폴더는 세션 규칙과 플랜 미리보기만 그 폴더 자체를 보고(하위 폴더는 보지 않습니다), 결과 보고 hook은 PR이 없으므로 동작하지 않습니다.
+- hook 출력은 Claude Code가 한 번에 10,000자까지 그대로 넣습니다. 규칙은 약 4,200자이고, `tests/run.sh`가 한도를 넘지 않는지 확인합니다.
+- 시작점: `hooks/session-rules.sh`, `hooks/lib.sh`, `scripts/rulebook.sh`, `skills/rulebook/SKILL.md`
 
 ## 구현 전 토론
 
@@ -39,8 +64,8 @@ flowchart TD
 - 끝맺음을 고르기 전까지 파일 수정, 커밋, 이슈와 브랜치, Artifact 게시, 플랜 모드, `/debrief`를 쓰지 않습니다. hook으로 막지는 않고 스킬 문구로 지킵니다. 디브리핑 없는 열린 PR이 있는 브랜치에서 토론하면 결과 보고 hook이 턴마다 `/debrief`를 요구하지만, 토론 중에는 한 줄로 알리기만 합니다.
 - 토론 중 "해 줘"가 나오면 바로 고치지 않고 끝맺음으로 가서 `/brief`로 넘기기를 권합니다.
 - `/brief`는 토론 요약의 결정을 사용자가 정한 것으로 옮기고 남은 질문만 묻습니다. backlog 이슈를 받으면 라벨을 `status:todo`로 바꿉니다.
-- 규칙 블록의 "의견을 묻는 말에는 토론으로 답한다" 때문에 명령 없이 의견을 물어도 에이전트가 `/discuss` 스킬을 불러 같은 흐름을 탑니다. 할 일인지 의견인지 애매하면 에이전트가 한 줄로 묻습니다.
-- 시작점: `skills/discuss/SKILL.md`, `templates/agents-block.md`
+- logbook 규칙의 "의견을 묻는 말에는 토론으로 답한다" 때문에 명령 없이 의견을 물어도 에이전트가 `/discuss` 스킬을 불러 같은 흐름을 탑니다. 할 일인지 의견인지 애매하면 에이전트가 한 줄로 묻습니다.
+- 시작점: `skills/discuss/SKILL.md`, `templates/session-rules.md`
 
 | 모델 호출 | 모델(설정) | 넣는 것 | 요청(프롬프트 요지) | 받는 것과 검사 | 실패하면 |
 |---|---|---|---|---|---|
@@ -69,7 +94,7 @@ flowchart TD
 - 이슈 없는 PR은 `<type>/<slug>` 브랜치에서 엽니다. 기본 브랜치에 직접 커밋하지 않는 규칙은 그대로입니다. 계획 문서가 없는 PR은 `/debrief`가 결과 HTML 없이 PR 본문에 증거를 남기고, 한 문장 수정이 아니면 독립 리뷰는 그대로 합니다.
 - 곧 할 이슈로 미룬 문서 갱신은 그 이슈의 댓글에 남습니다. 그 이슈로 `/brief`나 플랜 모드를 시작하면 댓글을 읽어 같은 변경에 넣습니다.
 - 어느 쪽인지 애매하면 에이전트가 작업 전에 한 줄로 묻습니다.
-- 시작점: `templates/agents-block.md`의 "이슈는 남길 일에만 만든다", `skills/brief/SKILL.md`의 건너뛰는 경우
+- 시작점: `templates/session-rules.md`의 "이슈는 남길 일에만 만든다", `skills/brief/SKILL.md`의 건너뛰는 경우
 
 ## 구현 전 브리핑
 
@@ -142,7 +167,7 @@ flowchart TD
 - 트랙은 서브에이전트나 Workflow(여러 에이전트를 JavaScript 스크립트로 띄우는 Claude Code 도구)로 띄웁니다. 트랙이 둘이면 서브에이전트, Workflow를 쓸 수 있고 트랙이 셋 이상이거나 끊겨도 이어 받아야 하는 긴 작업이면 Workflow입니다. Workflow는 트랙마다 확인 결과를 정해진 형식으로 돌려주고, 끊기면 이어서 실행합니다. 어느 쪽이든 같은 builder 등급과 모델을 쓰고, 무엇으로 띄울지는 브리핑의 일정 장에 적습니다. Workflow를 쓸 수 없으면 서브에이전트로 띄웁니다.
 - 두 방식 모두 같은 작업 트리를 씁니다. 그래서 트랙끼리 파일이 겹치지 않아야 하고, 트랙의 확인 명령은 그 트랙의 파일만 검사합니다.
 - 결과 보고에 트랙마다 맡은 에이전트, 띄운 방식, 결과, 걸린 시간을 적습니다.
-- 시작점: `templates/agents-block.md`의 "구현은 이득이 있을 때만 나눈다", `templates/parallel.md`, `agents/builder.md`, `agents/builder-fast.md`, `agents/builder-deep.md`
+- 시작점: `templates/session-rules.md`의 "구현은 이득이 있을 때만 나눈다", `templates/parallel.md`, `agents/builder.md`, `agents/builder-fast.md`, `agents/builder-deep.md`
 
 | 모델 호출 | 모델(설정) | 넣는 것 | 요청(프롬프트 요지) | 받는 것과 검사 | 실패하면 |
 |---|---|---|---|---|---|
@@ -217,22 +242,27 @@ flowchart TD
 
 ## 문서 동기화
 
-`/sync`는 기존 프로젝트에서는 옛 흔적을 정리하고 프로젝트 문서를 새로 쓰며, logbook을 쓰던 프로젝트에서는 코드보다 뒤처진 문서만 다시 씁니다.
+`/sync`는 문서 구조가 AGENTS.md에 없으면 먼저 구조를 묻고, 옛 흔적을 정리한 뒤 프로젝트 문서를 새로 씁니다. 구조가 있고 문서가 그 틀을 따르면 코드보다 뒤처진 문서만 다시 씁니다.
 
 ```mermaid
 flowchart LR
-  A["/sync"] --> B{"규칙 블록이 있나"}
+  A["/sync"] --> B{".logbook/config.json이 있나"}
   B -->|"없음"| R["/rulebook 먼저 안내"]
-  B -->|"있음"| C{"옛 흔적이나 자리 밖 문서가 있나"}
-  C -->|"있음"| D["정리표로 브리핑, 사람이 승인"]
+  B -->|"있음"| T{"AGENTS.md에 문서 표가 있고 문서가 그 틀을 따르나"}
+  T -->|"아니오"| Q["문서마다 둘 위치와 지금 시스템 문서 구성을 물음"]
+  Q --> D["구조, 정리표, 쓸 문서로 브리핑, 사람이 승인"]
+  T -->|"예"| C{"옛 흔적이나 자리 밖 문서가 있나"}
+  C -->|"있음"| D
   D -->|"스택, 흐름, 데이터 세 영역"| S{{"`**Sonnet 5.5 · Explore 조사 에이전트 3개**
   코드에서 구성, 흐름, 모든 테이블과 모델 호출을 근거와 함께 찾아 달라`"}}
   C -->|"없음"| F["뒤처진 문서만 고치기로 정함, 이슈와 브리핑 없음"]
   F --> S
-  S -->|"근거가 달린 보고"| E["문서를 쓰고, 옛 흔적이 있으면 삭제"]
+  S -->|"근거가 달린 보고"| E["AGENTS.md 문서 규칙 문단과 문서를 쓰고, 옛 흔적이 있으면 삭제"]
   E --> G["대조, 핸드북 게시, PR과 리뷰"]
 ```
 
+- 문서 구조는 AGENTS.md의 문서 규칙 문단(문서와 위치 표)에 적습니다. 질문할 때는 `templates/docs-rules.md`의 기본 위치(지금 시스템, 변경 기록, 승인된 시안, 사용 설명서를 `docs/` 아래 폴더 네 곳에 둠)를 권장안으로 내고, 프로젝트에 이미 문서를 두는 자리가 있으면 그 자리를 그대로 쓰는 안도 함께 보여 줍니다. 프로젝트가 두지 않는 문서는 표에서 뺍니다.
+- 정한 위치는 스크립트에 인자로 넘깁니다(`system-check.sh --dir`, `render-system.sh`의 폴더, `legacy-scan.sh --system --plans --designs --manual`, `rulebook.sh --plans`).
 - 문서마다 첫 줄에 적은 코드 경로를 보고, 그 코드가 문서보다 나중에 바뀌었으면 "뒤처짐"으로 판단합니다.
 - 문서에는 코드로 확인한 사실만 남깁니다. 조사 보고는 실마리이고, 세션이 문서를 쓰기 전에 코드에서 다시 확인합니다.
 - 시작점: `skills/sync/SKILL.md`, `scripts/legacy_scan.py`, `scripts/system_check.py`

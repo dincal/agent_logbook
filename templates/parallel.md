@@ -1,6 +1,6 @@
 # Parallel work
 
-How logbook launches work that runs side by side: implementation tracks (the builder agents) and research (Explore agents in `/brief`, `/discuss` and `/sync`). The rule for when implementation is split at all lives in the AGENTS.md rule block ("구현은 이득이 있을 때만 나눈다"); this file covers how to launch it.
+How logbook launches work that runs side by side: implementation tracks (the builder agents) and research (Explore agents in `/brief`, `/discuss` and `/sync`). The rule for when implementation is split at all lives in the logbook rules the SessionStart hook adds ("구현은 이득이 있을 때만 나눈다"); this file covers how to launch it.
 
 ## Two ways to launch
 
@@ -30,7 +30,7 @@ Write the model and effort into the script even though the agent definitions car
 
 ## Implementation tracks as a Workflow
 
-Commit the shared parts first, as the rule block says. Then one `parallel()` call runs every track; there is no stage after it, since the session merges and tests.
+Commit the shared parts first, as the logbook rules say. Then one `parallel()` call runs every track; there is no stage after it, since the session merges and tests.
 
 ```js
 export const meta = { name: 'logbook-tracks', description: 'Run independent implementation tracks for one plan' }

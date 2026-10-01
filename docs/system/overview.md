@@ -1,4 +1,4 @@
-<!-- logbook:system sources="README.md .claude-plugin/** skills/** agents/**" -->
+<!-- logbook:system sources="README.md .claude-plugin/** skills/** agents/** hooks/** templates/session-rules.md templates/docs-rules.md" checked="2026-10-01" -->
 # logbook
 
 > 핸드북: https://claude.ai/artifact/LcZsiBL2JBbpMfePNVjGUh · 저장소: https://github.com/dincal/agent_logbook
@@ -8,7 +8,7 @@
 logbook은 Claude Code에 설치하는 플러그인입니다. 개발은 에이전트가 맡고, 사람은 구현 전 브리핑과 구현 후 결과 보고만 검토합니다.
 
 - **5** 명령(스킬): rulebook · discuss · brief · debrief · sync
-- **2** 자동 검사(hook): 플랜 미리보기 · 결과 보고 확인
+- **3** hook(자동으로 실행되는 스크립트): 세션 규칙 · 플랜 미리보기 · 결과 보고 확인
 - **4** 하위 에이전트(세션이 따로 띄우는 에이전트): 리뷰어와 구현 트랙을 맡는 builder 세 등급
 - **3** 사람이 보는 페이지: 브리핑 · 결과 보고 · 프로젝트 핸드북
 
@@ -23,12 +23,14 @@ flowchart LR
   U["개발자"] -->|"요청과 승인"| C["Claude Code와 logbook"]
   C -->|"이슈, 브랜치, PR"| G["GitHub"]
   C -->|"브리핑, 결과 보고, 핸드북"| A["claude.ai Artifact"]
-  C -->|"규칙, 계획 문서, 프로젝트 문서"| R["작업하는 저장소"]
+  C -->|"문서 규칙 문단, 계획 문서, 프로젝트 문서"| R["작업하는 저장소"]
+  R -->|".logbook/config.json이 있으면 세션마다 규칙을 넣음"| C
   U -->|"링크로 검토"| A
 ```
 
 - Artifact는 claude.ai에 올리는 비공개 웹 페이지입니다. Artifact를 쓸 수 없는 환경에서는 로컬 HTML 파일 경로를 링크로 씁니다.
-- hook은 Claude Code가 특정 순간(플랜 제출, 대화 종료)에 자동으로 실행하는 스크립트입니다.
+- hook은 Claude Code가 특정 순간(세션 시작, 플랜 제출, 대화 종료)에 자동으로 실행하는 스크립트입니다.
+- logbook 작업 규칙은 저장소에 복사하지 않습니다. 세션이 시작될 때마다 플러그인이 넣으므로, 플러그인을 올리면 모든 프로젝트에 바로 적용됩니다.
 
 ## 바꾸기 어려운 선택과 위험
 
@@ -36,7 +38,9 @@ flowchart LR
 
 | 선택 또는 위험 | 내용 | 근거 |
 |---|---|---|
-| 흐름은 AGENTS.md 규칙과 hook으로 지킨다 | 스킬은 절반 넘게 스스로 불리지 않습니다. 그래서 늘 지켜야 할 흐름은 매 세션 읽히는 규칙 블록과 확실하게 실행되는 hook에 둡니다 | [v0.1 계획](https://github.com/dincal/agent_logbook/blob/main/docs/plans/1-logbook-v0-1.md) |
+| 흐름은 세션마다 들어가는 규칙과 hook으로 지킨다 | 스킬은 절반 넘게 스스로 불리지 않습니다. 그래서 늘 지켜야 할 흐름은 매 세션 컨텍스트에 들어가는 규칙과 확실하게 실행되는 hook에 둡니다. 규칙은 프로젝트에 복사하지 않고 SessionStart hook이 플러그인에서 넣으므로, 규칙이 바뀌어도 프로젝트마다 할 일이 없습니다 | [v0.1 계획](https://github.com/dincal/agent_logbook/blob/main/docs/plans/1-logbook-v0-1.md), [#20 계획](https://github.com/dincal/agent_logbook/blob/main/docs/plans/20-rules-via-session-hook.md) |
+| logbook은 clone마다 `/rulebook`으로 켠다 | 켜는 표시 `.logbook/config.json`은 git에서 제외되어 clone에 따라오지 않습니다. 그래서 logbook이 없는 사람에게는 logbook 규칙이 보이지 않고, 새로 clone하면 `/rulebook`을 한 번 실행해야 합니다. 잊어도 경고하지 않습니다 | [#20 계획](https://github.com/dincal/agent_logbook/blob/main/docs/plans/20-rules-via-session-hook.md) |
+| 문서 규칙은 프로젝트의 AGENTS.md에 둔다 | 문서와 위치 표, 코드와 함께 고치는 약속은 logbook이 없는 사람도 지킬 프로젝트의 약속이라 AGENTS.md의 일반 문단으로 둡니다. logbook은 그 표의 위치를 따르고, 문단을 다시 쓰지 않습니다 | [#20 계획](https://github.com/dincal/agent_logbook/blob/main/docs/plans/20-rules-via-session-hook.md) |
 | 보고는 HTML 슬라이드로, Artifact 링크로 공유한다 | 긴 문서 대신 짧은 슬라이드로 보고하고, 링크를 GitHub 이슈와 PR에 겁니다 | [v0.1 계획](https://github.com/dincal/agent_logbook/blob/main/docs/plans/1-logbook-v0-1.md) |
 | 승인한 계획은 세션이 끝까지 진행한다 | 브리핑을 승인하면 세션이 다시 승인을 묻지 않고 PR과 결과 보고까지, 에픽이면 모든 단계를 합쳐 에픽 PR까지 갑니다. | [#17 계획](https://github.com/dincal/agent_logbook/blob/main/docs/plans/17-merge-brief-mission.md) |
 | 흐름이 달라지는 선택은 사람에게 묻는다 | 에이전트가 스펙을 임의로 정하지 않도록, 사용 흐름이 달라지는 부분은 질문으로 정합니다 | [#3 계획](https://github.com/dincal/agent_logbook/blob/main/docs/plans/3-system-docs-and-design.md) |
@@ -49,7 +53,7 @@ flowchart LR
 
 ## 용어
 
-logbook에서 쓰는 말 열두 개입니다.
+logbook에서 쓰는 말 열세 개입니다.
 
 | 용어 | 쉬운 설명 | 코드에서 부르는 이름 |
 |---|---|---|
@@ -58,10 +62,11 @@ logbook에서 쓰는 말 열두 개입니다.
 | 계획 문서 | 변경마다 하나씩 쓰는 문서. 브리핑과 결과 보고의 원본입니다 | `docs/plans/<번호>-<slug>.md` |
 | 프로젝트 문서 | 지금 시스템을 설명하는 문서(한눈에 보기, 기술 스택, 주요 흐름, 데이터 모델) | `docs/system/` |
 | 핸드북 | 프로젝트 문서를 슬라이드 하나로 묶은 웹 페이지 | `scripts/render-system.sh` |
-| 규칙 블록 | 프로젝트의 AGENTS.md에 설치되는 logbook 작업 규칙 | `templates/agents-block.md` |
+| logbook 규칙 | SessionStart hook이 세션마다 넣는 logbook 작업 규칙과 트래커 정보. 0.7 이전에는 AGENTS.md에 복사하는 규칙 블록이었습니다 | `templates/session-rules.md`, `hooks/session-rules.sh` |
+| 문서 규칙 문단 | 프로젝트의 AGENTS.md에 두는 문서와 위치 표. logbook과 상관없는 프로젝트의 약속입니다 | `templates/docs-rules.md` |
 | 시안 | 화면을 구현하기 전에 승인받는 화면 그림. Claude Code의 `/design` 캔버스로 만듭니다 | `docs/designs/<번호>-<slug>/` |
 | 옛 흔적 | 예전 에이전트 도구(paperclip 등)가 남긴 파일과 규칙 | `scripts/legacy-scan.sh` |
-| 트랙 | 구현을 나눴을 때 한 에이전트가 맡는 독립된 부분. 다른 트랙과 파일이 겹치지 않습니다 | 규칙 블록의 "구현은 이득이 있을 때만 나눈다" |
+| 트랙 | 구현을 나눴을 때 한 에이전트가 맡는 독립된 부분. 다른 트랙과 파일이 겹치지 않습니다 | logbook 규칙의 "구현은 이득이 있을 때만 나눈다" |
 | 에픽 | 여러 단계(하위 이슈)로 나뉜 긴 작업. `epic` 라벨이 붙고 `epic/<번호>-<slug>` 브랜치에서 진행합니다 | `skills/brief/SKILL.md`의 Epics 절 |
 | Workflow | 여러 하위 에이전트를 JavaScript 스크립트 하나로 순서대로, 동시에 띄우는 Claude Code 도구 | `templates/parallel.md` |
 | builder | 트랙 하나를 맡아 구현하는 하위 에이전트. 모델과 effort에 따라 세 등급(builder-fast, builder, builder-deep)이 있습니다 | `agents/builder*.md` |
