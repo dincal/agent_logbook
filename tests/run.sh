@@ -66,7 +66,7 @@ out="$("$ROOT/scripts/rulebook.sh" --apply --no-labels --dir "$MG" --repo acme/o
 if [ $rc -eq 0 ] && printf '%s' "$out" | grep -q '^update *AGENTS.md'; then ok "rulebook: an old rule block is migrated"; else bad "rulebook: an old rule block is migrated" "$out"; fi
 expect "rulebook: the old block and its markers are gone" bash -c "! grep -qE 'logbook:(begin|end)|작업 방식|트래커' '$MG/AGENTS.md'"
 expect "rulebook: the document rules paragraph takes the block's place" bash -c "awk '/Keep before/ {a = NR} /^## 문서\$/ {b = NR} /Keep after/ {c = NR} END {exit !(a && b && c && a < b && b < c)}' '$MG/AGENTS.md'"
-expect "rulebook: the paragraph lists the default places with no placeholders" bash -c "grep -q '\`docs/system/\`' '$MG/AGENTS.md' && grep -q '\`docs/plans/\`' '$MG/AGENTS.md' && grep -q '\`docs/designs/\`' '$MG/AGENTS.md' && grep -q '\`docs/manual/\`' '$MG/AGENTS.md' && ! grep -q '{[a-z]*}' '$MG/AGENTS.md'"
+expect "rulebook: the paragraph lists the default places with no placeholders" bash -c "grep -q '\`docs/system/\`' '$MG/AGENTS.md' && grep -q '\`CHANGELOG.md\`' '$MG/AGENTS.md' && grep -q '\`docs/manual/\`' '$MG/AGENTS.md' && ! grep -qE 'docs/(plans|designs)' '$MG/AGENTS.md' && ! grep -q '{[a-z]*}' '$MG/AGENTS.md'"
 out="$("$ROOT/scripts/rulebook.sh" --apply --no-labels --dir "$MG" --repo acme/old 2>&1)"
 if printf '%s' "$out" | grep -q '변경 없음'; then ok "rulebook: a migrated project needs nothing on the next run"; else bad "rulebook: a migrated project needs nothing on the next run" "$out"; fi
 
@@ -176,7 +176,7 @@ fi
 
 # ---------------------------------------------------------------- render-brief
 echo "== render-brief =="
-DOC="$ROOT/docs/plans/1-logbook-v0-1.md"
+DOC="$ROOT/tests/fixtures/plan.md"
 out="$("$ROOT/scripts/render-brief.sh" "$DOC" brief "$TMP/brief.html" 2>&1)"; rc=$?
 printf '      %s\n' "$out"
 if [ $rc -eq 0 ] && [ -s "$TMP/brief.html" ]; then ok "render-brief: plan doc brief block -> HTML"; else bad "render-brief: plan doc brief block -> HTML" "$out"; fi
@@ -712,7 +712,7 @@ expect "writing guide: markdown holds no HTML, and model calls show the model an
 K="$ROOT/templates/diagram-kit.md"
 expect "diagram kit: pictures wherever they fit, no quota, no forced ERD" bash -c "grep -q 'no quota' '$K' && grep -q 'never go into an ERD' '$K' && grep -q 'every table' '$K'"
 expect "diagram kit: markdown only, bold numbers become tiles, model calls get a hexagon and a table" bash -c "grep -q 'holds no HTML' '$K' && grep -q 'bold number' '$K' && grep -q '^## Model calls' '$K' && grep -q 'hexagon' '$K'"
-md_files="$(cd "$ROOT" && ls templates/*.md templates/system/*.md docs/system/*.md docs/plans/*.md README.md CHANGELOG.md)"
+md_files="$(cd "$ROOT" && ls templates/*.md templates/system/*.md docs/system/*.md tests/fixtures/*.md README.md CHANGELOG.md)"
 html_hits="$(cd "$ROOT/scripts" && printf '%s\n' "$md_files" | python3 -c "
 import sys, pathlib
 from render_brief import html_in_markdown
@@ -745,7 +745,7 @@ expect "debrief reviews bigger changes without a plan doc and skips only the HTM
 expect "an approved brief:skip plan follows the skip path and stays in the git-ignored plans folder" grep -q 'the plan file stays in .\.logbook/plans/., which git ignores' "$ROOT/skills/brief/SKILL.md"
 expect "this repository's AGENTS.md has no rule block and keeps the document table" bash -c "! grep -q 'logbook:begin' '$ROOT/AGENTS.md' && grep -qx '## 문서' '$ROOT/AGENTS.md' && grep -q '| 지금 시스템' '$ROOT/AGENTS.md'"
 DR="$ROOT/templates/docs-rules.md"
-expect "document rules paragraph: four places, no logbook marker and no logbook command" bash -c "for k in system plans designs manual; do grep -q \"{\$k}\" '$DR' || exit 1; done; ! grep -qiE 'logbook|/sync|/brief|<!--' '$DR'"
+expect "document rules paragraph: system, changelog and manual, no plan docs or mockups, no logbook marker and no logbook command" bash -c "for k in system changelog manual; do grep -q \"{\$k}\" '$DR' || exit 1; done; ! grep -qE '\\{(plans|designs)\\}' '$DR' && grep -q '이슈와 PR을 링크한다' '$DR' && grep -q '날짜별로' '$DR' && ! grep -qiE 'logbook|/sync|/brief|<!--' '$DR'"
 expect "the rules defer document places to AGENTS.md's table" bash -c "grep -q '문서는 AGENTS.md의 문서 규칙을 따른다' '$B' && ! grep -q '문서는 정해진 자리에 둔다' '$B'"
 expect "skills read the tracker line from the logbook rules, not from AGENTS.md" bash -c "! grep -rq 'AGENTS.md tracker line' '$ROOT/skills' && grep -q 'the tracker line in the logbook rules the session started with' '$ROOT/skills/brief/SKILL.md' && grep -q 'the tracker line in the logbook rules the session started with' '$ROOT/skills/debrief/SKILL.md' && grep -q 'the tracker line in the logbook rules the session started with' '$ROOT/skills/discuss/SKILL.md'"
 expect "rulebook runs once per clone and writes no rule block" bash -c "grep -q 'once per clone' '$ROOT/skills/rulebook/SKILL.md' && grep -q 'A plugin update needs no rerun' '$ROOT/skills/rulebook/SKILL.md'"
@@ -760,7 +760,7 @@ expect "brief, discuss and sync launch parallel work by the guide" bash -c "for 
 expect "rule block lets tracks and research run as subagents or a Workflow" bash -c "grep -q '서브에이전트나 Workflow' '$B' && grep -q 'Workflow를 쓸 수 없으면 서브에이전트로' '$B'"
 expect "rule block runs an epic on an epic branch and merges steps only when the evidence holds" bash -c "grep -q '에픽은 에픽 브랜치에서' '$B' && grep -q 'epic/<번호>-<slug>' '$B' && grep -q '확인된 심각한 지적이 없을 때만 에이전트가 squash로 합친' '$B' && grep -q '일반 머지' '$B'"
 DB="$ROOT/skills/debrief/SKILL.md"
-expect "debrief: an epic step merges itself into the epic branch without HTML, or stops" bash -c "grep -q '^## Epic steps and epics' '$DB' && grep -q 'Skip step 5: no HTML' '$DB' && grep -q 'gh pr merge --squash --delete-branch' '$DB' && grep -q 'stop the epic run there' '$DB'"
+expect "debrief: an epic step merges itself into the epic branch without HTML, or stops" bash -c "grep -q '^## Epic steps and epics' '$DB' && grep -q 'Skip step 5 and the changelog line: no HTML' '$DB' && grep -q 'gh pr merge --squash --delete-branch' '$DB' && grep -q 'stop the epic run there' '$DB'"
 expect "debrief: an epic gets the epic review and a merge commit" bash -c "grep -q 'in epic mode' '$DB' && grep -q 'gh pr merge --merge --delete-branch' '$DB' && grep -q 'origin/<PR base>...HEAD' '$DB'"
 expect "reviewer has an epic mode that reads where steps meet" bash -c "grep -q '^## Epic mode' '$ROOT/agents/reviewer.md' && grep -q 'where steps meet' '$ROOT/agents/reviewer.md'"
 BR="$ROOT/skills/brief/SKILL.md"
@@ -773,14 +773,30 @@ expect "plan template has the epic step table and results" bash -c "grep -q '^##
 for doc in overview stack flows data-model; do
   expect "system template $doc starts with its marker" bash -c "head -1 '$ROOT/templates/system/$doc.md' | grep -q '^<!-- logbook:system sources='"
 done
-expect "brief: 중단 asks 나중에 하기 or 버리기, and a set-aside branch is picked up again" bash -c "grep -q 'On 중단, ask 나중에 하기 / 버리기' '$ROOT/skills/brief/SKILL.md' && grep -q 'status:backlog. and keeps the branch' '$ROOT/skills/brief/SKILL.md' && grep -q 'not planned' '$ROOT/skills/brief/SKILL.md' && grep -q 'When its branch already exists' '$ROOT/skills/brief/SKILL.md'"
-expect "sync: only the structure path cleans up without asking, root docs such as CONTRIBUTING stay, history is not grepped" bash -c "grep -q '^   - The structure path: set up the structure' '$ROOT/skills/sync/SKILL.md' && grep -q 'ask once whether this PR removes it' '$ROOT/skills/sync/SKILL.md' && grep -q 'CONTRIBUTING, SECURITY and CODE_OF_CONDUCT' '$ROOT/skills/sync/SKILL.md' && grep -q 'leaving out the change records and CHANGELOG' '$ROOT/skills/sync/SKILL.md'"
+expect "brief: 중단 asks 나중에 하기 or 버리기, and a set-aside branch is picked up again" bash -c "grep -q 'On 중단, ask 나중에 하기 / 버리기' '$ROOT/skills/brief/SKILL.md' && grep -q 'keeps the branch, and posts the whole plan doc as an issue comment' '$ROOT/skills/brief/SKILL.md' && grep -q 'not planned' '$ROOT/skills/brief/SKILL.md' && grep -q 'A plan set aside with 나중에 하기 in step 9 is picked up again' '$ROOT/skills/brief/SKILL.md'"
+expect "sync: only the structure path cleans up without asking, root docs such as CONTRIBUTING stay, history is not grepped" bash -c "grep -q '^   - The structure path: set up the structure' '$ROOT/skills/sync/SKILL.md' && grep -q 'ask once whether this PR removes it' '$ROOT/skills/sync/SKILL.md' && grep -q 'CONTRIBUTING, SECURITY and CODE_OF_CONDUCT' '$ROOT/skills/sync/SKILL.md' && grep -q 'leaving out CHANGELOG, which keeps history' '$ROOT/skills/sync/SKILL.md'"
 expect "sync: a stale doc that still matches gets a new checked date, not new wording" bash -c "grep -q 'set .checked. to today and commit' '$ROOT/skills/sync/SKILL.md'"
 for f in "$ROOT"/templates/system/*.md; do
   expect "system template $(basename "$f") records when it was checked" bash -c "head -1 '$f' | grep -q 'checked='"
 done
 expect "no skill, hook, script or template runs legacy-scan or passes --plans" bash -c "! grep -rqE 'legacy-scan|legacy_scan|--plans' '$ROOT/skills' '$ROOT/hooks' '$ROOT/scripts' '$ROOT/templates' '$ROOT/agents'"
 expect "system template data-model declares the table count" bash -c "head -1 '$ROOT/templates/system/data-model.md' | grep -q 'tables='"
+
+# ---------------------------------------------------------------- local plan docs and CHANGELOG (0.9)
+expect "this repository tracks no plan docs and no mockup copies" bash -c "cd '$ROOT' && test -z \"\$(git ls-files docs/plans docs/designs)\""
+expect "only sync's migration rule still names docs/plans or docs/designs" bash -c "test \"\$(grep -rlE 'docs/(plans|designs)' '$ROOT/skills' '$ROOT/hooks' '$ROOT/scripts' '$ROOT/templates' '$ROOT/agents')\" = '$ROOT/skills/sync/SKILL.md' && grep -q 'Plan docs and mockup copies that logbook before 0.9 committed' '$ROOT/skills/sync/SKILL.md'"
+expect "brief keeps the plan doc and the mockup copy in the main checkout's .logbook and never commits them" bash -c "grep -q '\`.logbook/plans/\` and \`.logbook/designs/\` of the main checkout' '$BR' && grep -q 'never committed' '$BR' && grep -q 'Write \`<main>/.logbook/plans/<issue>-<slug>.md\`' '$BR' && grep -q 'artboards to \`<main>/.logbook/designs/<issue>-<slug>/\`' '$BR' && grep -q 'render-brief.sh <main>/.logbook/plans/<issue>-<slug>.md brief <main>/.logbook/briefs/' '$BR' && grep -q 'render-brief.sh <doc> debrief <main>/.logbook/briefs/' '$DB' && grep -q 'Do not commit the plan doc' '$BR'"
+expect "brief puts the reasons in the PR body" bash -c "grep -q 'The PR body carries what the plan doc cannot' '$BR' && grep -q '알린 우려, your own calls' '$BR' && grep -q 'in the plan doc.s 결정 기록 and the PR body' '$BR'"
+expect "brief resumes a set-aside plan from the local doc or the 계획 문서 comment" bash -c "grep -q 'or else from the issue.s last comment whose first line is \`계획 문서\`' '$BR' && grep -q 'picks it up again on any clone' '$BR' && grep -q 'Check out its branch when it exists on this clone or the remote; otherwise cut it' '$BR'"
+expect "brief keeps an epic's step table in the epic issue" bash -c "grep -q 'in the epic issue body, push the epic branch' '$BR' && grep -q 'rebuild the epic doc from the epic issue body and the step docs from the child issue bodies' '$BR' && grep -q 'a body like step 9.s (요약, 주요 결정, completion conditions)' '$BR'"
+expect "debrief writes one CHANGELOG line linking the issue and the PR, once per epic" bash -c "grep -q 'Changelog: add one line for this change' '$DB' && grep -q 'linking the issue and the PR' '$DB' && grep -q 'Keep a Changelog' '$DB' && grep -q 'by date for an app that has no versions' '$DB' && grep -q 'The changelog line links the epic issue and the epic PR' '$DB' && grep -q 'The doc stays uncommitted' '$DB'"
+expect "plan template keeps the doc local and has a 변경 이력 evidence row" bash -c "grep -q '커밋하지 않는다' '$T' && grep -q '^| 변경 이력 | ✅ |' '$T' && grep -q '.logbook/designs/{이슈번호}-{slug}/' '$T'"
+expect "rules keep plan docs and mockups in .logbook and the history in CHANGELOG" bash -c "grep -q '.logbook/plans/<번호>-<slug>.md' '$B' && grep -q '.logbook/designs/<번호>-<slug>/' '$B' && grep -q 'CHANGELOG에 이슈와 PR을 링크한 한 줄' '$B' && grep -q '\`CHANGELOG.md\`(변경 이력)' '$B' && ! grep -qE 'docs/(plans|designs)' '$B'"
+expect "sync's document table has a changelog row and asks version or date" bash -c "grep -q '| 변경 이력 (CHANGELOG' '$ROOT/skills/sync/SKILL.md' && grep -q 'whether the changelog goes by version or by date' '$ROOT/skills/sync/SKILL.md'"
+expect "the approved-plan hook keeps the plan in .logbook/plans and commits no plan doc" bash -c "grep -q '원래 checkout의 .logbook/plans/<이슈번호>-<slug>.md로 옮긴 뒤' '$ROOT/hooks/plan-preview.sh' && grep -q '커밋하지 않습니다' '$ROOT/hooks/plan-preview.sh' && ! grep -qE '(계획 문서|문서)[^.]*커밋합니다' '$ROOT/hooks/plan-preview.sh'"
+expect "sync looks for plan docs left by logbook before 0.9 on every run and puts 주요 결정 in its PR" bash -c "grep -q 'On every path, also check .git ls-files. for plan docs and mockup copies left by logbook before 0.9' '$ROOT/skills/sync/SKILL.md' && grep -q 'and the document table for their rows' '$ROOT/skills/sync/SKILL.md' && grep -q 'the plan.s 주요 결정 in its body' '$ROOT/skills/sync/SKILL.md'"
+expect "system doc templates link decisions to PRs, not plan docs" bash -c "! grep -q '계획 문서 링크' '$ROOT/templates/system/overview.md' '$ROOT/templates/system/stack.md'"
+expect "no skill or hook tells the agent to commit or push a plan doc" bash -c "test -z \"\$(grep -rniE '(commit|push)[a-z ]* (the|every) (plan|step|epic) doc|plan-doc updates' '$ROOT/skills' '$ROOT/hooks' '$ROOT/agents' '$ROOT/templates' | grep -viE 'do not commit')\""
 
 echo
 echo "$PASS passed, $FAIL failed"

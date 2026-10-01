@@ -1,6 +1,6 @@
 {
   "name": "logbook",
-  "version": "0.8.0",
+  "version": "0.9.0",
   "description": "Claude Code-first workflow: the agent discusses ideas read-only before a spec exists, researches, asks about every open choice that changes the user scenario, and reports twice with HTML slides (a briefing before implementation and a debriefing after the PR). It keeps project docs (tech stack, main flows, full ERD) in sync with the code, gets changed screens approved as mockups, tracks work on GitHub Issues and carries an approved plan, or every step of an epic, through to its pull request.",
   "author": {
     "name": "dincal",

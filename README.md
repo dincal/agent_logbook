@@ -18,6 +18,7 @@ claude plugin install logbook@agent-logbook
 - 저장소를 clone할 때마다 한 번 `/logbook:rulebook`을 실행해 logbook을 켭니다. 이 명령이 만드는 `.logbook/config.json`(git에서 제외)이 있는 저장소에만 hook이 작업 규칙을 넣습니다. 이어서 `/logbook:sync`를 실행하면 문서 구조를 정해 AGENTS.md에 문서 규칙 문단을 쓰고, 옛 문서를 정리하고, 프로젝트 문서를 씁니다.
 - 새 버전으로 올릴 때는 `claude plugin marketplace update agent-logbook`과 `claude plugin update logbook@agent-logbook`을 실행합니다. 작업 규칙은 플러그인에서 세션마다 들어가므로 프로젝트에서 따로 할 일은 없습니다.
 - 0.7 이전에 `/rulebook`으로 AGENTS.md에 규칙 블록을 넣은 프로젝트는 `/logbook:rulebook`을 한 번 더 실행합니다. 블록을 지우고, 그 안의 문서 규칙을 AGENTS.md의 일반 문단으로 옮깁니다.
+- 0.9부터 계획 문서와 승인된 시안 사본은 저장소에 커밋하지 않고 원래 checkout의 `.logbook/plans/`, `.logbook/designs/`에 둡니다. 0.9 이전에 커밋된 `docs/plans/`, `docs/designs/`는 `/logbook:sync`가 로컬로 옮기고 CHANGELOG 한 줄씩으로 바꿔 정리합니다. AGENTS.md 문서 표의 "변경 기록", "승인된 화면 시안" 줄은 "변경 이력: `CHANGELOG.md`" 줄로 바꿉니다.
 - 0.8 이전에 `/rulebook`을 실행한 프로젝트는 `/logbook:rulebook`을 한 번 더 실행하면 플랜 모드의 계획 파일이 git이 무시하는 `.logbook/plans`에 저장됩니다. 실행하기 전까지는 세션을 시작할 때 안내가 붙습니다.
 
 Codex(기본 지원):
@@ -35,8 +36,8 @@ Antigravity·OpenCode(안내만): `skills/` 아래 폴더를 각 하네스의 �
 |---|---|---|
 | `/logbook:rulebook` | clone마다 한 번 | logbook을 켜는 표시(`.logbook/config.json`), 이슈 라벨, 플랜 저장 위치(`.logbook/plans`) 준비. 0.7 이전의 규칙 블록은 문서 규칙 문단으로 옮김. 문서 구조가 없거나 기존 프로젝트면 `/sync`를 안내 |
 | `/logbook:discuss` | 스펙을 정하기 전 | 코드와 웹을 읽기만 하며 아이디어를 토론. 끝에 `/brief`로 넘기기, backlog 이슈, 남기지 않기 중 선택 |
-| `/logbook:brief` | 구현 전 | 조사, 흐름이 달라지는 선택 질문, 화면 시안 승인, 상세 문서와 브리핑 슬라이드, 이슈 링크. 여러 단계로 나뉘는 작업은 에픽 이슈와 단계 이슈로 계획. 승인 뒤에는 PR과 디브리핑까지, 에픽이면 모든 단계를 에픽 브랜치에 합치고 에픽 PR까지 진행 |
-| `/logbook:debrief` | PR 직후 | 기준별 검증 증거, 프로젝트 문서와 코드 대조, 독립 리뷰, 결과 보고 슬라이드, 머지·재리뷰 선택지. 에픽 단계 PR은 슬라이드 없이 조건을 채우면 에픽 브랜치에 스스로 머지 |
+| `/logbook:brief` | 구현 전 | 조사, 흐름이 달라지는 선택 질문, 화면 시안 승인, 계획 문서(로컬, 커밋하지 않음)와 브리핑 슬라이드, 이슈 링크. 결정 이유는 PR 본문에 남김. 여러 단계로 나뉘는 작업은 에픽 이슈와 단계 이슈로 계획. 승인 뒤에는 PR과 디브리핑까지, 에픽이면 모든 단계를 에픽 브랜치에 합치고 에픽 PR까지 진행 |
+| `/logbook:debrief` | PR 직후 | 기준별 검증 증거, 프로젝트 문서와 코드 대조, 독립 리뷰, 결과 보고 슬라이드, 이슈와 PR을 링크한 CHANGELOG 한 줄, 머지·재리뷰 선택지. 에픽 단계 PR은 슬라이드 없이 조건을 채우면 에픽 브랜치에 스스로 머지 |
 | `/logbook:sync` | 처음 도입할 때, 문서가 뒤처졌을 때 | 문서 구조가 없으면 물어서 정하고 AGENTS.md에 문서 규칙 문단을 씀. 옛 도구(paperclip 등)의 흔적과 자리 밖 문서 정리, 프로젝트 문서 작성과 동기화, 핸드북 게시 |
 
 - hook(Claude Code가 특정 순간에 자동으로 실행하는 스크립트) 세 개가 함께 설치됩니다. 세션을 시작할 때마다 logbook 작업 규칙과 트래커 정보를 넣습니다(worktree에서도 원래 저장소의 설정을 읽습니다).
@@ -49,10 +50,11 @@ Antigravity·OpenCode(안내만): `skills/` 아래 폴더를 각 하네스의 �
 
 | 기본 자리 | 담는 것 |
 |---|---|
-| `docs/plans/<이슈 번호>-<slug>.md` | 변경마다 하나씩 쓰는 계획과 보고 |
 | `docs/system/` | 지금 시스템: 한눈에 보기, 기술 스택, 주요 흐름, 데이터 모델(DB가 있을 때, 모든 테이블의 ERD) |
-| `docs/designs/<이슈 번호>-<slug>/` | 승인된 화면 시안의 사본 |
+| `CHANGELOG.md` | 변경 이력: PR마다 한 줄, 이슈와 PR 링크, 버전별(버전이 없는 앱은 날짜별) |
 | `docs/manual/` | 사용 설명서(있을 때) |
+
+계획 문서(브리핑과 결과 보고의 원본)와 승인된 화면 시안의 사본은 작업용 문서라 저장소에 두지 않습니다. 원래 checkout(git worktree가 아닌 처음 clone한 폴더)의 `.logbook/plans/<이슈 번호>-<slug>.md`, `.logbook/designs/<이슈 번호>-<slug>/`에 두고, 결정 이유는 PR 본문에 남깁니다.
 
 모든 문서는 컴퓨터공학 학부를 졸업했지만 이 프로젝트는 모르는 사람이 읽기 쉽게 씁니다. md 파일에는 HTML을 넣지 않고 그림은 mermaid로 그리며, AI 모델 호출은 모델과 프롬프트 요지를 그림에 적습니다. 기준은 [templates/writing.md](templates/writing.md)와 [templates/diagram-kit.md](templates/diagram-kit.md)에 있습니다.
 
@@ -64,4 +66,4 @@ bash tests/run.sh
 scripts/system-check.sh
 ```
 
-설계와 결정 기록은 [docs/plans/](docs/plans/)에 있습니다.
+변경 이력은 [CHANGELOG.md](CHANGELOG.md)에 있고, 줄마다 이슈와 PR로 이어집니다. 결정 이유는 각 PR 본문에 있습니다.

@@ -65,7 +65,7 @@ esac
 if [ -n "$plans_dir" ]; then
   [ -z "$note" ] || note="$note
 "
-  note="${note}.claude/settings.json이 플랜 모드의 계획 파일을 \`${plans_dir}\`에 저장한다. logbook 0.8부터는 git이 무시하는 \`.logbook/plans\`에 두고, 승인된 계획만 변경 기록 위치로 옮긴다. /rulebook을 다시 실행하면 바뀐다. 사람에게 한 번 알린다."
+  note="${note}.claude/settings.json이 플랜 모드의 계획 파일을 \`${plans_dir}\`에 저장한다. logbook 0.8부터는 git이 무시하는 \`.logbook/plans\`에 두고, 0.9부터는 승인된 계획도 커밋하지 않고 원래 checkout의 \`.logbook/plans\`에 둔다. /rulebook을 다시 실행하면 바뀐다. 사람에게 한 번 알린다."
 fi
 
 python3 - "$PLUGIN_ROOT/templates/session-rules.md" "$version" "$repo" "$base" "$account" "$note" <<'EOF'

@@ -18,7 +18,7 @@ The rules themselves live in the plugin (`${CLAUDE_PLUGIN_ROOT}/templates/sessio
 - `.logbook/config.json`: repo, base branch and gh account. The hooks read it, and its presence is what turns logbook on. Run from a git worktree, it is written to the main checkout, where the hooks look. A value not passed as an option keeps what the existing file holds.
 - `.gitignore`: adds `.logbook/` (the marker, previews, hook state).
 - GitHub labels: `status:backlog`, `status:todo`, `status:in-progress`, `status:done`, `epic`.
-- `plansDirectory` in `.claude/settings.json`: `.logbook/plans`, so plan-mode plans land where git ignores them. `/brief` moves an approved plan to the change record place.
+- `plansDirectory` in `.claude/settings.json`: `.logbook/plans`, so plan-mode plans land where git ignores them. `/brief` keeps an approved plan in the main checkout's `.logbook/plans/` too, under its issue number; a plan made in a git worktree is moved there.
 - `CLAUDE.md`: adds an `@AGENTS.md` import when AGENTS.md exists, so Claude Code reads the project's rules even in sessions that skip AGENTS.md.
 - `AGENTS.md`: touched only when it still holds a rule block from logbook before 0.7 (`<!-- logbook:begin` to `<!-- logbook:end -->`). The block is replaced, in place, by the document rules paragraph from `${CLAUDE_PLUGIN_ROOT}/templates/docs-rules.md`: the table of document places and the promise to update them with the code. That paragraph belongs to the project, not to logbook; logbook never rewrites it. Everything outside the block stays as it is.
 

@@ -1,6 +1,28 @@
 # 변경 이력
 
+## [0.9.0] - 2026-10-01
+
+이슈 [#25](https://github.com/dincal/agent_logbook/issues/25) · PR [#26](https://github.com/dincal/agent_logbook/pull/26)
+
+계획 문서와 승인된 시안 사본을 저장소에서 빼고, 변경 이력은 CHANGELOG에 이슈와 PR 링크로 남기게 했습니다. 저장소에는 logbook이 없는 사람도 읽을 문서만 남습니다.
+
+### 바뀜
+
+- `/brief`는 계획 문서를 원래 checkout(git worktree가 아닌 처음 clone한 폴더)의 `.logbook/plans/<번호>-<slug>.md`에 쓰고 커밋하지 않습니다. 승인된 시안 사본도 `.logbook/designs/<번호>-<slug>/`에 둡니다. 플랜 모드의 계획은 승인 뒤 원래 checkout의 `.logbook/plans/<번호>-<slug>.md`로 옮깁니다(worktree에서 세운 플랜도 이때 옮겨집니다).
+- 결정 이유(사용자가 정한 것과 버린 대안, 알린 우려, 에이전트가 정한 것)와 시안 링크는 PR을 열 때 PR 본문에 적습니다. `/debrief`는 계획과 달라진 점과 증거를 PR 본문에 더합니다.
+- `/debrief`가 CHANGELOG에 이슈와 PR을 링크한 한 줄을 씁니다. 이미 있는 CHANGELOG는 그 위치와 형식을 따르고, 없으면 루트에 Keep a Changelog 형식으로 만듭니다. 버전이 없는 앱은 날짜별로 쌓습니다. 에픽은 단계마다 쓰지 않고 에픽 PR이 한 줄로 씁니다.
+- `/brief`에서 나중에 하기를 고르면 계획 문서 전문을 이슈 댓글로 남기고, `/brief #<번호>`는 로컬 계획 문서가 없으면 그 댓글에서 이어서 합니다. 에픽은 단계 표, 완료 조건, 주요 결정을 에픽 이슈 본문에, 단계의 완료 조건을 단계 이슈 본문에 두어 다른 기기에서도 이어 갈 수 있게 했습니다. 에픽 PR과 `/sync` PR 본문에도 주요 결정을 적습니다.
+- 문서 규칙 문단(`templates/docs-rules.md`)의 "변경 기록", "승인된 화면 시안" 줄을 "변경 이력: `CHANGELOG.md`" 줄로 바꿨습니다. `/sync`는 문서 구조를 정할 때 CHANGELOG 형식(버전별, 날짜별)도 묻고, 실행할 때마다 0.9 이전에 커밋된 계획 문서와 시안 사본이 남았는지 확인합니다.
+- 이 저장소의 `docs/plans/`를 지우고, `docs/system/overview.md`의 근거 링크를 PR 링크로 바꿨습니다. 옛 버전 항목에 이슈와 PR 링크를 더했습니다.
+
+### 옮기는 법
+
+- 0.9 이전에 커밋한 `docs/plans/`, `docs/designs/`가 있는 프로젝트는 `/logbook:sync`를 실행합니다. 지우기 전에 로컬 `.logbook/`으로 복사하고, 계획 문서마다 CHANGELOG에 한 줄을 남기며, 그 문서를 가리키던 링크를 PR로 바꿉니다.
+- AGENTS.md 문서 표의 "변경 기록", "승인된 화면 시안" 줄은 `/sync`가 정리할 때 "변경 이력" 줄로 바꿉니다. `/rulebook`은 이 문단을 고치지 않습니다.
+
 ## [0.8.0] - 2026-10-01
+
+이슈 [#22](https://github.com/dincal/agent_logbook/issues/22) · PR [#24](https://github.com/dincal/agent_logbook/pull/24)
 
 전체 리뷰에서 찾은, 스킬 사용 흐름에서 틀리게 동작하는 부분을 고쳤습니다([#22](https://github.com/dincal/agent_logbook/issues/22)).
 
@@ -29,6 +51,8 @@
 
 ## [0.7.0] - 2026-10-01
 
+이슈 [#20](https://github.com/dincal/agent_logbook/issues/20) · PR [#21](https://github.com/dincal/agent_logbook/pull/21)
+
 작업 규칙을 프로젝트에 복사하지 않고 플러그인이 세션마다 넣게 했습니다. 플러그인을 올린 뒤 프로젝트마다 `/rulebook`을 다시 실행할 필요가 없습니다.
 
 ### 바뀜
@@ -49,6 +73,8 @@
 
 ## [0.6.0] - 2026-10-01
 
+이슈 [#17](https://github.com/dincal/agent_logbook/issues/17) · PR [#19](https://github.com/dincal/agent_logbook/pull/19)
+
 `/mission`을 없애고 `/brief` 하나가 작업 하나와 에픽을 모두 계획하게 했습니다. `/goal` 문장을 만드는 기능도 없앴습니다.
 
 ### 바뀜
@@ -62,6 +88,8 @@
 - `/mission` 스킬, `/goal` 문장 틀(`templates/goal.md`), 계획 문서의 `## Goal` 절. 측정값이 목표에 닿을 때까지 반복하는 작업은 [#18](https://github.com/dincal/agent_logbook/issues/18)에서 따로 다룹니다.
 
 ## [0.5.0] - 2026-09-29
+
+이슈 [#15](https://github.com/dincal/agent_logbook/issues/15) · PR [#16](https://github.com/dincal/agent_logbook/pull/16)
 
 에픽을 에픽 브랜치에서 한 번에 진행하고, 병렬 작업을 Workflow로도 띄울 수 있게 했습니다.
 
@@ -77,6 +105,8 @@
 
 ## [0.4.1] - 2026-09-29
 
+이슈 [#13](https://github.com/dincal/agent_logbook/issues/13) · PR [#14](https://github.com/dincal/agent_logbook/pull/14)
+
 이슈를 다른 개발자가 알아야 하거나 꼭 남길 작업에만 만들게 했습니다.
 
 ### 바뀜
@@ -88,6 +118,8 @@
 - `/sync`가 뒤처진 문서만 고칠 때는 문서 수와 상관없이 이슈와 브리핑 없이 PR을 열고 리뷰를 받습니다.
 
 ## [0.4.0] - 2026-09-29
+
+이슈 [#11](https://github.com/dincal/agent_logbook/issues/11) · PR [#12](https://github.com/dincal/agent_logbook/pull/12)
 
 무엇을 만들지 정하기 전에 에이전트와 토론하는 명령을 더했습니다.
 
@@ -101,6 +133,8 @@
 - `/brief`는 토론 요약의 결정을 사용자가 정한 것으로 옮기고 남은 질문만 묻습니다. `status:backlog` 이슈를 받으면 `status:todo`로 바꿉니다.
 
 ## [0.3.1] - 2026-09-29
+
+이슈 [#9](https://github.com/dincal/agent_logbook/issues/9) · PR [#10](https://github.com/dincal/agent_logbook/pull/10)
 
 역할마다 모델을 맞게 고르고, 구현을 나눌 이득이 있으면 병렬로 맡기며, 사용자의 결정이 근거와 어긋나 보이면 알리게 했습니다.
 
@@ -118,6 +152,8 @@
 
 ## [0.3.0] - 2026-09-29
 
+이슈 [#7](https://github.com/dincal/agent_logbook/issues/7) · PR [#8](https://github.com/dincal/agent_logbook/pull/8)
+
 md 문서가 md 뷰어에서도 잘 읽히도록 HTML을 뺐고, AI 모델 호출을 그림과 표로 자세히 적게 했습니다.
 
 ### 바뀜
@@ -130,6 +166,8 @@ md 문서가 md 뷰어에서도 잘 읽히도록 HTML을 뺐고, AI 모델 호�
 - 이 저장소의 계획 문서와 프로젝트 문서에서 HTML을 걷어 냈습니다.
 
 ## [0.2.0] - 2026-09-28
+
+이슈 [#3](https://github.com/dincal/agent_logbook/issues/3) · PR [#4](https://github.com/dincal/agent_logbook/pull/4)
 
 프로젝트 문서를 코드와 맞추는 기능과, 기존 프로젝트를 logbook으로 옮기는 기능을 더했습니다. 브리핑 쓰는 방식도 바꿨습니다.
 
@@ -153,6 +191,8 @@ md 문서가 md 뷰어에서도 잘 읽히도록 HTML을 뺐고, AI 모델 호�
 - 모든 브리핑에 흐름도와 ERD(또는 "ERD 변화 없음")를 요구하던 규칙, 플랜 모드 hook의 검사, 렌더러의 경고.
 
 ## [0.1.0] - 2026-09-28
+
+이슈 [#1](https://github.com/dincal/agent_logbook/issues/1) · PR [#2](https://github.com/dincal/agent_logbook/pull/2)
 
 첫 릴리스입니다.
 

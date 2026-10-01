@@ -20,7 +20,7 @@ EOF
 }
 
 MODE="" DIR="" REPO="" BASE="" ACCOUNT="" LABELS=1
-# Plan-mode plans land in the git-ignored .logbook/; /brief moves an approved one to the plans place.
+# Plan-mode plans land in the git-ignored .logbook/plans, where /brief keeps approved plans as well.
 PLANS_DIR=.logbook/plans
 while [ $# -gt 0 ]; do
   case "$1" in
@@ -107,8 +107,7 @@ render_docs_rules() {
   local text
   text="$(cat "$DOCS_RULES")"
   text="${text//\{system\}/docs/system/}"
-  text="${text//\{plans\}/docs/plans/}"
-  text="${text//\{designs\}/docs/designs/}"
+  text="${text//\{changelog\}/CHANGELOG.md}"
   text="${text//\{manual\}/docs/manual/}"
   printf '%s' "$text"
 }

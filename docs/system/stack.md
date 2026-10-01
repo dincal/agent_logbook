@@ -40,6 +40,7 @@ flowchart LR
 - 마켓플레이스 갱신은 `claude plugin marketplace update agent-logbook`, 플러그인 갱신은 `claude plugin update logbook@agent-logbook`입니다.
 - 쓰는 PC에는 git, GitHub CLI(`gh`), python3가 있어야 합니다. jq는 있으면 쓰고, 없으면 python3로 대신합니다.
 - Artifact와 `/design`은 claude.ai에 로그인한 Claude Code에서만 됩니다. 다른 곳에서는 로컬 HTML 파일을 씁니다.
+- 계획 문서, 승인된 시안 사본, 브리핑 HTML은 원래 checkout의 `.logbook/` 아래(`plans`, `designs`, `briefs`)에 두고 git에 올리지 않습니다. 다른 기기에서는 PR 본문, 이슈 댓글, Artifact 링크로 봅니다.
 
 ## AI 모델
 
@@ -63,7 +64,7 @@ logbook은 역할마다 모델을 정해 두고, 본 작업은 사용자가 고�
 
 | 할 일 | 명령 |
 |---|---|
-| 테스트 | `bash tests/run.sh` |
+| 테스트 | `bash tests/run.sh`. 브리핑 렌더 검사는 `tests/fixtures/plan.md`를 예제로 씁니다 |
 | 플러그인 구조 검사 | `claude plugin validate .` |
 | 브리핑 렌더 | `scripts/render-brief.sh [--standalone] <계획 문서> brief <출력 파일>`. `--standalone`은 로컬에서 열 파일에 doctype을 붙입니다 |
 | 핸드북 렌더 | `scripts/render-system.sh [--standalone] docs/system <출력 파일>` |
