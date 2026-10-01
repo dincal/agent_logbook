@@ -9,8 +9,8 @@
     {
       "name": "logbook",
       "source": "./",
-      "description": "Briefing before implementation, debriefing after the PR, project docs kept in sync with the code, screen mockups approved before building, /goal missions, and GitHub Issues tracking, with the rules installed into each project's AGENTS.md.",
-      "version": "0.5.0"
+      "description": "Briefing before implementation, debriefing after the PR, project docs kept in sync with the code, screen mockups approved before building, epics carried step by step to the epic PR, and GitHub Issues tracking, with the rules installed into each project's AGENTS.md.",
+      "version": "0.6.0"
     }
   ]
 }

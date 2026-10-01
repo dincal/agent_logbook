@@ -125,10 +125,6 @@ erDiagram
 
 - [ ] {단계}
 
-## Goal
-
-<!-- /mission이 여기에 /goal 문장을 코드 블록으로 적는다. 쓰지 않으면 이 절을 지운다. -->
-
 <!-- debrief:begin -->
 ## 결과
 

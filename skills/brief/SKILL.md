@@ -1,12 +1,12 @@
 ---
 name: brief
-description: Pre-implementation briefing for any change bigger than a one-sentence fix. Research the code and sources, ask about every open choice that changes the user scenario, mock up changed screens and get them approved, write docs/plans/<issue>-<slug>.md, render a slide briefing told the way one briefs a superior, link it from the GitHub issue, and wait for approval. Use before editing code for a walk-in request, and right after a plan-mode plan is approved.
-argument-hint: "[request or #issue]"
+description: Pre-implementation briefing for any change bigger than a one-sentence fix, as one issue or as an epic with one child issue per step. Research the code and sources, ask about every open choice that changes the user scenario, mock up changed screens and get them approved, write docs/plans/<issue>-<slug>.md, render a slide briefing told the way one briefs a superior, link it from the GitHub issue, and wait for approval. Once approved, carry the plan through to its PR, or through every step of an epic to the epic PR. Use before editing code for a walk-in request, and right after a plan-mode plan is approved.
+argument-hint: "[request | #issue | #epic]"
 ---
 
 # brief
 
-Turn a request into a plan the user approved, with a briefing they can review in two minutes. The user decides everything that changes how they will work; you decide the rest and say so.
+Turn a request into a plan the user approved, with a briefing they can review in two minutes, then carry it out. The user decides everything that changes how they will work; you decide the rest and say so. After approval the user only cares that what the briefing settled gets done.
 
 Paths below use `${CLAUDE_PLUGIN_ROOT}`. On harnesses that do not substitute it, the plugin root is two levels above this file.
 
@@ -21,8 +21,9 @@ A change that one sentence fully describes (a typo, a rename, a small config twe
    - An issue given in `status:backlog` (one `/discuss` left for later, for instance) moves to `status:todo`.
    - Read the given issue's comments too: follow-up work deferred to this issue, such as a doc update, is left there as a comment and belongs in this change.
    - Run gh with the account on that line: `GH_TOKEN="$(gh auth token --user <account>)" gh ...`. Without an account there, use the default login.
-   - An issue labelled `epic` is planned with `/mission`, which sets up the epic branch and one `/goal` run for all its steps. Say so in one line and hand over.
    - Slug: a short kebab-case summary. Branch: `<type>/<issue>-<slug>` (feat, fix, refactor, docs or chore), cut from the base branch.
+   - Work that splits into steps is planned as an epic (see Epics below): label the issue `epic` and use the branch `epic/<issue>-<slug>` instead. When research shows the split only later, relabel the issue and rename the branch then.
+   - An `epic` issue already in `status:in-progress` was approved before: resume its run as "Stops and resuming" under Epics says, instead of these steps.
 2. **Research.**
    - Start from `docs/system/` when it exists; it describes the system as it is. Note which of those docs the change will alter.
    - Code: research areas that do not depend on each other in parallel, with Explore subagents on Sonnet or a Workflow as `${CLAUDE_PLUGIN_ROOT}/templates/parallel.md` says. They read and report, you check their findings, and you read the files the change touches yourself.
@@ -61,17 +62,42 @@ A change that one sentence fully describes (a typo, a rename, a small config twe
    - Comment on the issue with a three-line summary, the briefing link and the 판단 필요 items.
    - Commit the plan doc on the work branch and push it.
 9. **Approval.**
-   - Walk-in request: ask "진행 / 수정 / 중단" and wait. Once approved, move the issue to `status:in-progress` and implement, splitting the work into parallel builder tracks only where the AGENTS.md rule says it pays, launched as `${CLAUDE_PLUGIN_ROOT}/templates/parallel.md` says.
-   - Right after a plan-mode approval: move the issue to `status:in-progress` and implement.
-   - Called by `/mission`: stop after step 8 and hand back. Do not implement, and leave the issue in `status:todo`; the `/goal` run moves it.
-   - Called by `/sync`: ask as for a walk-in request, then hand back to `/sync`, which carries out the approved plan.
+   - Called by `/sync`: ask "진행 / 수정 / 중단" and wait, then hand back to `/sync`, which carries out the approved plan itself under the "While carrying it out" rules below.
+   - Walk-in request: ask "진행 / 수정 / 중단" and wait. Right after a plan-mode approval, the approval is already given.
+   - Once approved, move the issue to `status:in-progress` and carry the plan out to the end without asking for approval again: implement, open the PR with `Closes #<issue>` and run `/debrief`. For an epic, do After approval and then Run under Epics.
+   - Split the work into parallel builder tracks only where the AGENTS.md rule says it pays, launched as subagents or a Workflow as `${CLAUDE_PLUGIN_ROOT}/templates/parallel.md` says.
+   - While carrying it out: do not weaken or delete tests; stop and ask before a schema change or data deletion the plan does not cover; record anything decided differently from the plan, with the reason, in the plan doc's 결정 기록; update `docs/system/` in the same PR when the change alters what it describes.
+
+## Epics
+
+An epic is an issue labelled `epic` whose child issues are its steps. The human approves the epic briefing at the start and reads the epic debriefing at the end; in between, the session runs every step.
+
+- **When.** Propose an epic when the work splits into steps that each deserve their own PR and review, and later steps build on what earlier ones deliver. The briefing's 단계 table shows the split, and approving the briefing approves it. Started from an existing `epic` issue, read it and its child issues, and create only the steps that are missing. When the user turns the split down, plan it as one issue again: drop the `epic` label, rename the branch back, and delete the remote `epic/...` branch if it was pushed.
+- **Plan.** The epic doc `docs/plans/<epic>-<slug>.md` carries the 단계 section of `${CLAUDE_PLUGIN_ROOT}/templates/plan.md` (order, child issue, branch, the steps it waits for, what it delivers) and the epic's own completion conditions. Before approval the table names steps without numbers. Only the epic doc is rendered and published; step docs get no HTML.
+- **After approval.**
+  - Create the missing child issues in `status:todo` and write their numbers and branches into the table.
+  - Write each step's doc `docs/plans/<child>-<slug>.md` with its own completion conditions, for whoever implements it. Step docs detail what the approved epic doc says and add no new decisions.
+  - Commit every plan doc on the epic branch, push it, and move the epic issue to `status:in-progress`.
+- **Run.** Take the steps in the order of the table, and do not end the turn between steps: stop only when a step cannot be merged or a question needs the user. Per step:
+  - write "단계 n/N 시작: #<child> <title>" in one line, then fetch, bring the local epic branch up to its remote, merge the base branch into it when the base is ahead and push; stop on a conflict you cannot resolve;
+  - reread the step doc and trust the docs and the code over what you remember from earlier steps, cut `<type>/<child>-<slug>` from the epic branch, move the child issue to `status:in-progress`, and implement;
+  - open the PR against the epic branch with `Part of #<epic>` and the child issue number, and run `/debrief`, whose step path merges it into the epic branch or stops with the reason;
+  - pull the epic branch, tick the step in the epic doc's 진행 기록, commit and push that on the epic branch, and write "단계 n/N 끝: <PR link>".
+- **Stops and resuming.** When a step stops, report the step, the reason and what would let it go on, then ask 고친 뒤 이어서 / 중단. To go on, in this session or in a new one started with `/brief #<epic>`:
+  - read the epic doc's table and 진행 기록, the child issues and the open PRs against the epic branch;
+  - finish After approval first when child issues or step docs are missing;
+  - for the first step not ticked, reuse its branch and PR when they exist (fix, push, run `/debrief` again), otherwise start it as Run says; tick it as Run's last item says, then continue with Run;
+  - the "While carrying it out" rules of step 9 apply throughout.
+- **End.** After the last step, open the epic PR from the epic branch to the base branch with `Closes` for the epic and every child, and run `/debrief` on it. The human picks the merge there.
+- The epic branch takes only merged step PRs, base-branch merges, plan-doc updates, and the doc and review fixes `/debrief` makes on the epic PR.
+- Screens of every step are mocked up and approved in step 4, before the run starts.
 
 ## Plan mode
 
 - Write the plan file itself in the plan.md format, brief block included. The logbook hook renders it in the browser when the approval screen appears, and denies a plan without a complete block.
 - When the plan starts from an existing issue, read its comments before writing, as step 1 says.
 - For a change that "When to skip" covers, put a `<!-- brief:skip -->` line in the plan instead. After approval, follow "When to skip" rather than the steps below, and leave the plan file out of the commit.
-- Plan mode is read-only, so step 4 cannot run there; list the screens to mock up in the plan. After approval and before editing code: do step 1 if the issue or branch does not exist yet, run step 4 when the plan has screens, move the plan file to `docs/plans/<issue>-<slug>.md`, then do steps 7 and 8.
+- Plan mode is read-only, so step 4 cannot run there; list the screens to mock up in the plan. After approval and before editing code: do step 1 if the issue or branch does not exist yet, run step 4 when the plan has screens, move the plan file to `docs/plans/<issue>-<slug>.md`, then do steps 7 and 8, and for an epic the After approval items under Epics.
 
 ## Language
 

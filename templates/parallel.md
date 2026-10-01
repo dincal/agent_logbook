@@ -1,6 +1,6 @@
 # Parallel work
 
-How logbook launches work that runs side by side: implementation tracks (the builder agents) and research (Explore agents in `/brief`, `/mission`, `/discuss` and `/sync`). The rule for when implementation is split at all lives in the AGENTS.md rule block ("구현은 이득이 있을 때만 나눈다"); this file covers how to launch it.
+How logbook launches work that runs side by side: implementation tracks (the builder agents) and research (Explore agents in `/brief`, `/discuss` and `/sync`). The rule for when implementation is split at all lives in the AGENTS.md rule block ("구현은 이득이 있을 때만 나눈다"); this file covers how to launch it.
 
 ## Two ways to launch
 

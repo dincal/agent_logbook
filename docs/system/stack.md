@@ -7,7 +7,7 @@ logbook은 실행 서버 없이 Claude Code 안에서 동작하는 파일 묶음
 
 ```mermaid
 flowchart LR
-  M["플러그인 정의 · JSON"] --> S["명령 6개 · Markdown"]
+  M["플러그인 정의 · JSON"] --> S["명령 5개 · Markdown"]
   M --> H["hook 2개 · POSIX sh"]
   M --> V["하위 에이전트 4개 · Markdown"]
   S --> P["스크립트 · bash와 Python 3"]
@@ -18,10 +18,10 @@ flowchart LR
 | 조각 | 기술 | 하는 일 | 고른 이유 |
 |---|---|---|---|
 | 플러그인 정의 | JSON(`.claude-plugin/plugin.json`, `.claude-plugin/marketplace.json`) | 이름, 버전, 설치 정보 | Claude Code와 Codex가 같은 파일로 설치합니다 |
-| 명령 6개 | Markdown(`skills/<이름>/SKILL.md`) | rulebook, discuss, brief, mission, debrief, sync의 절차 | 에이전트가 읽는 설명서라서 코드가 필요 없습니다 |
+| 명령 5개 | Markdown(`skills/<이름>/SKILL.md`) | rulebook, discuss, brief, debrief, sync의 절차 | 에이전트가 읽는 설명서라서 코드가 필요 없습니다 |
 | hook 2개 | POSIX sh와 jq(없으면 python3) | 플랜 미리보기, 결과 보고 확인 | 어느 환경에서나 도는 가장 흔한 셸입니다 |
 | 스크립트 | bash, Python 3 표준 라이브러리 | 규칙 설치, 브리핑과 핸드북 렌더, 문서와 코드 대조, 옛 흔적 검사 | 따로 설치할 패키지가 없습니다 |
-| 템플릿 | Markdown, HTML과 CSS | 계획 문서, 규칙 블록, `/goal` 문장(에픽용 틀 포함), 슬라이드 모양, 프로젝트 문서의 뼈대, 글쓰기와 그림 안내, 병렬 실행 안내 | 한 곳을 고치면 모든 프로젝트에 적용됩니다 |
+| 템플릿 | Markdown, HTML과 CSS | 계획 문서, 규칙 블록, 슬라이드 모양, 프로젝트 문서의 뼈대, 글쓰기와 그림 안내, 병렬 실행 안내 | 한 곳을 고치면 모든 프로젝트에 적용됩니다 |
 | 리뷰어 | Markdown(`agents/reviewer.md`) | PR을 새 컨텍스트에서 읽기만 하며 검토 | 품질 검사라 Claude Code에서는 Opus 모델, high effort로 실행합니다 |
 | builder 3개 | Markdown(`agents/builder-fast.md`, `builder.md`, `builder-deep.md`) | 나눈 구현 트랙을 동시에 구현 | Agent 도구는 호출할 때 effort를 넘길 수 없어서 등급마다 파일을 따로 둡니다 |
 | Workflow | Claude Code의 Workflow 도구(JavaScript 스크립트) | 트랙이나 조사 영역이 셋 이상이거나 긴 작업일 때 에이전트를 한 스크립트로 띄움 | 트랙마다 결과를 정해진 형식으로 받고, 끊기면 이어서 실행합니다. 스크립트 틀은 `templates/parallel.md`에 있고, 쓸 수 없으면 서브에이전트로 띄웁니다 |
@@ -48,12 +48,11 @@ logbook은 역할마다 모델을 정해 두고, 본 작업은 사용자가 고�
 | 모델 | 고르는 설정(기본값) | 쓰는 곳 | 부르는 방법 |
 |---|---|---|---|
 | Opus 5.5, high effort | `agents/reviewer.md`의 `model: opus`, `effort: high` | 구현 후 결과 보고의 별도 리뷰, 에픽 PR의 에픽 리뷰 | Claude Code 하위 에이전트. 다른 하네스에서는 세션 모델 |
-| Sonnet 5.5 | `templates/parallel.md`의 모델 표(서브에이전트는 `model: sonnet`, Workflow는 `agent()`의 `model: 'sonnet'`) | `/discuss`, `/brief`, `/sync`, `/mission`의 코드 조사(Explore) | Claude Code 하위 에이전트나 Workflow. 다른 하네스에서는 세션 모델 |
+| Sonnet 5.5 | `templates/parallel.md`의 모델 표(서브에이전트는 `model: sonnet`, Workflow는 `agent()`의 `model: 'sonnet'`) | `/discuss`, `/brief`, `/sync`의 코드 조사(Explore) | Claude Code 하위 에이전트나 Workflow. 다른 하네스에서는 세션 모델 |
 | Sonnet 5.5, medium effort | `agents/builder-fast.md` | 규모는 있지만 정형화된 병렬 구현 트랙 | Claude Code 하위 에이전트나 Workflow(같은 `agentType`, `model`, `effort`) |
 | 세션 모델, medium effort | `agents/builder.md`의 `model: inherit` | 범위가 분명한 병렬 구현 트랙 | Claude Code 하위 에이전트나 Workflow(같은 `agentType`, `model`, `effort`) |
 | 세션 모델, xhigh effort | `agents/builder-deep.md`의 `model: inherit` | 까다로운 병렬 구현 트랙 | Claude Code 하위 에이전트나 Workflow(같은 `agentType`, `model`, `effort`) |
 | 세션 모델 | 사용자가 Claude Code에서 고른 모델 | 모든 명령의 본 작업(조사 정리, 계획, 구현, 문서 작성) | Claude Code 세션 |
-| `/goal`의 평가 모델 | Claude Code가 정함 | `/mission`으로 시작한 무인 실행이 끝났는지 판단 | Claude Code의 `/goal` |
 
 - effort는 모델이 얼마나 깊이 생각할지 정하는 단계입니다(low, medium, high, xhigh, max).
 - 사용자가 환경 변수 `CLAUDE_CODE_SUBAGENT_MODEL`에 모델을 적고 `CLAUDE_CODE_SUBAGENT_MODEL_FORCE=1`을 켜면, 위 설정보다 그 모델이 앞섭니다. `FORCE` 없이 적기만 하면 위 설정이 앞섭니다.

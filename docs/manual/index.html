@@ -143,7 +143,7 @@
       <a href="#system"><span>06</span>프로젝트 문서</a>
       <a href="#adopt"><span>07</span>기존 프로젝트</a>
       <a href="#hooks"><span>08</span>hook</a>
-      <a href="#goal"><span>09</span>/mission과 /goal</a>
+      <a href="#epic"><span>09</span>에픽</a>
       <a href="#outputs"><span>10</span>산출물</a>
       <a href="#platforms"><span>11</span>플랫폼</a>
       <a href="#faq"><span>12</span>문제 해결</a>
@@ -156,7 +156,7 @@
     <h2>logbook은 에이전트가 개발을 맡고, 사람은 정해야 할 것만 정하는 개발 흐름입니다</h2>
     <p class="sub">요청이 들어오면 에이전트가 코드와 자료를 조사하고, 다른 개발자가 알아야 하거나 꼭 남길 작업이면 이슈를 만듭니다. 사용 흐름이 달라지는 선택은 사람에게 묻고, 계획은 슬라이드로 보고해 착수 승인을 받습니다. PR을 연 뒤에는 증거와 별도 리뷰를 담은 결과 보고로 머지를 고르게 합니다.</p>
     <div class="tiles">
-      <div class="tile"><div class="num">6</div><div class="what">명령(스킬)</div><div class="how">rulebook · discuss · brief · mission · debrief · sync</div></div>
+      <div class="tile"><div class="num">5</div><div class="what">명령(스킬)</div><div class="how">rulebook · discuss · brief · debrief · sync</div></div>
       <div class="tile"><div class="num">2</div><div class="what">자동 검사(hook)</div><div class="how">플랜 미리보기 · 결과 보고 확인</div></div>
       <div class="tile"><div class="num">5</div><div class="what">사람이 정하는 때</div><div class="how">토론 끝맺음 · 흐름이 달라지는 선택 · 화면 시안 · 착수 · 머지</div></div>
     </div>
@@ -227,17 +227,16 @@ flowchart LR
           <tr><td>직접 요청</td><td>조사와 질문 뒤, 구현 전</td><td>"진행" 답변</td></tr>
           <tr><td><code>/logbook:discuss</code>에서 넘김</td><td>토론 요약을 받은 <code>/brief</code>가 남은 질문만 물은 뒤</td><td>"진행" 답변</td></tr>
           <tr><td>플랜 모드</td><td>플랜을 낼 때 브라우저로 미리보기</td><td>플랜 승인</td></tr>
-          <tr><td><code>/logbook:mission</code></td><td>목표 문장을 만들 때</td><td>출력된 <code>/goal</code> 실행</td></tr>
         </tbody>
       </table>
     </div>
-    <p class="sub">플랜 모드는 코드를 고치기 전에 계획만 세우는 Claude Code의 읽기 전용 모드입니다. 이슈는 다른 개발자가 알아야 하거나 꼭 남길 작업에만 만듭니다. 한 문장으로 설명되는 작은 수정은 이슈와 브리핑 없이 PR만 열고, 계획 문서의 진행 기록처럼 다른 작업에 따라오는 문서 갱신은 관련 작업의 PR에 얹습니다. 저장소를 고치지 않는 로컬 작업(도구 설치, 로컬 서비스 정지)은 채팅으로만 보고합니다.</p>
+    <p class="sub">플랜 모드는 코드를 고치기 전에 계획만 세우는 Claude Code의 읽기 전용 모드입니다. 승인한 뒤에는 에이전트가 다시 승인을 묻지 않고 PR과 결과 보고까지 진행합니다. 이슈는 다른 개발자가 알아야 하거나 꼭 남길 작업에만 만듭니다. 한 문장으로 설명되는 작은 수정은 이슈와 브리핑 없이 PR만 열고, 계획 문서의 진행 기록처럼 다른 작업에 따라오는 문서 갱신은 관련 작업의 PR에 얹습니다. 저장소를 고치지 않는 로컬 작업(도구 설치, 로컬 서비스 정지)은 채팅으로만 보고합니다.</p>
   </section>
 
   <!-- 04 -->
   <section class="slide" id="skills">
     <div class="slide-head"><span class="no">04 / 12</span><span>명령</span></div>
-    <h2>명령 여섯 개가 흐름의 각 단계를 맡습니다</h2>
+    <h2>명령 다섯 개가 흐름의 각 단계를 맡습니다</h2>
     <div class="cards">
       <div class="card">
         <div class="name">/logbook:rulebook</div>
@@ -248,20 +247,14 @@ flowchart LR
       <div class="card">
         <div class="name">/logbook:discuss</div>
         <div class="when">스펙을 정하기 전</div>
-        <p>아이디어를 에이전트와 따져 봅니다. 에이전트는 코드와 웹을 읽기만 하며 근거를 대고, 동의하거나 자신 있게 반론합니다. 파일, 이슈, 브랜치는 건드리지 않습니다. 끝나면 요약을 보이고 <code>/brief</code>·<code>/mission</code>으로 넘기기, backlog 이슈로 남기기, 남기지 않기 중 권장안과 함께 고르게 합니다. 명령 없이 의견만 물어도 같은 방식으로 답합니다.</p>
+        <p>아이디어를 에이전트와 따져 봅니다. 에이전트는 코드와 웹을 읽기만 하며 근거를 대고, 동의하거나 자신 있게 반론합니다. 파일, 이슈, 브랜치는 건드리지 않습니다. 끝나면 요약을 보이고 <code>/brief</code>로 넘기기, backlog 이슈로 남기기, 남기지 않기 중 권장안과 함께 고르게 합니다. 명령 없이 의견만 물어도 같은 방식으로 답합니다.</p>
         <dl><dt>예</dt><dd><code>/logbook:discuss 로그인에 속도 제한이 필요할까?</code></dd></dl>
       </div>
       <div class="card">
         <div class="name">/logbook:brief</div>
         <div class="when">구현 전</div>
-        <p>조사하고, 흐름이 달라지는 선택은 묻고, 화면이 바뀌면 시안을 승인받습니다. 상세 문서와 브리핑 슬라이드를 만들어 이슈에 링크한 뒤 승인을 기다립니다.</p>
-        <dl><dt>예</dt><dd><code>/logbook:brief 로그인에 속도 제한 추가</code> · <code>/logbook:brief #42</code></dd></dl>
-      </div>
-      <div class="card">
-        <div class="name">/logbook:mission</div>
-        <div class="when">/goal을 맡길 때</div>
-        <p>플랜 모드처럼 계획을 승인받고, 화면 시안까지 승인받은 뒤 바로 붙여 넣을 <code>/goal</code> 문장을 냅니다. 구현은 하지 않습니다. 에픽이면 에픽 브랜치를 만들고, 단계 전체를 한 세션에서 도는 <code>/goal</code> 문장 하나를 냅니다.</p>
-        <dl><dt>예</dt><dd><code>/logbook:mission #42</code> · <code>/logbook:mission #3</code>(에픽)</dd></dl>
+        <p>조사하고, 흐름이 달라지는 선택은 묻고, 화면이 바뀌면 시안을 승인받습니다. 상세 문서와 브리핑 슬라이드를 만들어 이슈에 링크한 뒤 승인을 기다립니다. 여러 단계로 나뉘는 작업은 에픽 이슈와 단계 이슈로 계획합니다. 승인하면 PR과 결과 보고까지, 에픽이면 모든 단계를 거쳐 에픽 PR까지 진행합니다.</p>
+        <dl><dt>예</dt><dd><code>/logbook:brief 로그인에 속도 제한 추가</code> · <code>/logbook:brief #42</code> · <code>/logbook:brief #3</code>(에픽)</dd></dl>
       </div>
       <div class="card">
         <div class="name">/logbook:debrief</div>
@@ -387,26 +380,21 @@ flowchart LR
   </section>
 
   <!-- 09 -->
-  <section class="slide" id="goal">
-    <div class="slide-head"><span class="no">09 / 12</span><span>/mission과 /goal</span></div>
-    <h2>무인 실행은 /logbook:mission으로 계획과 시안을 승인받고 /goal로 맡깁니다</h2>
+  <section class="slide" id="epic">
+    <div class="slide-head"><span class="no">09 / 12</span><span>에픽</span></div>
+    <h2>여러 단계로 나뉘는 작업은 /logbook:brief가 에픽으로 계획하고, 승인하면 마지막 에픽 PR까지 진행합니다</h2>
     <ol class="steps">
-      <li><p><code>/logbook:mission &lt;목표 또는 #이슈&gt;</code>를 실행합니다. 플랜 모드로 들어가 조사하고, 흐름이 달라지는 선택은 이때 모두 묻습니다. 무인 실행 중에는 물을 수 없기 때문입니다.</p></li>
-      <li><p>플랜 승인 화면이 뜨면 브라우저의 브리핑을 확인하고 승인합니다.</p></li>
-      <li><p>화면이 바뀌는 계획이면 시안을 만들어 승인을 받습니다. 플랜 모드에서는 시안을 올릴 수 없어서 승인 뒤에 합니다.</p></li>
-      <li><p>이슈, 상세 문서, 작업 브랜치, 브리핑 링크가 준비되고 <code>/goal</code> 문장이 코드 블록으로 나옵니다.</p></li>
-      <li><p>저장소에서 새 세션을 열어 <code>/goal …</code>을 붙여 넣습니다. 이것이 착수 승인입니다.</p></li>
+      <li><p><code>/logbook:brief &lt;요청 또는 #이슈&gt;</code>를 실행합니다. 조사해 보니 단계마다 따로 리뷰받을 만하고 뒤 단계가 앞 단계의 결과를 쓰는 작업이면, 에이전트가 에픽(<code>epic</code> 라벨 이슈)으로 나누자고 제안합니다.</p></li>
+      <li><p>에픽 브리핑의 단계 표(순서, 단계 이슈, 브랜치, 전달하는 것)를 보고 "진행"을 답합니다. 이것이 유일한 착수 승인입니다.</p></li>
+      <li><p>에이전트가 단계 이슈와 단계별 계획 문서를 만들고 <code>epic/&lt;번호&gt;-&lt;slug&gt;</code> 브랜치에 커밋합니다. 단계 계획 문서에는 슬라이드를 만들지 않습니다.</p></li>
+      <li><p>단계마다 구현하고 에픽 브랜치로 PR을 열어, 증거와 별도 리뷰를 거칩니다. 완료 조건이 모두 ✅이고 확인된 심각한 지적이 없으면 에이전트가 에픽 브랜치에 합치고 다음 단계로 갑니다. 단계 사이에서는 멈추지 않습니다.</p></li>
+      <li><p>마지막 단계 뒤에 에픽 브랜치 → 기본 브랜치 PR을 열고, 에픽 리뷰와 결과 보고를 한 번 올립니다. 사람이 머지를 고릅니다.</p></li>
     </ol>
-    <div class="code"><button class="copy" type="button">복사</button><pre>/goal 이슈 owner/repo#42를 완료한다. 브랜치 feat/42-rate-limit에 있는 docs/plans/42-rate-limit.md의 계획대로 구현하고 PR을 연다.
-완료 조건. 항목마다 확인한 명령과 출력을 대화에 그대로 보인다.
-1. `pnpm test`가 종료 코드 0이다.
-2. PR 본문에 Closes #42, 수용 기준 체크리스트와 증거, 디브리핑 링크, &lt;!-- logbook:debrief --&gt;가 있다.
-지킬 것: main에 직접 커밋하지 않는다. 테스트를 약화하지 않는다. docs/system/이 설명하는 내용을 바꾸면 같은 PR에서 문서도 고친다.
-매 턴 끝에 남은 조건 번호를 적는다. 40턴 안에 끝나지 않으면 멈추고 보고한다.</pre></div>
     <ul class="plain">
-      <li><code>/goal</code>의 평가 모델은 대화만 읽습니다. 조건마다 명령과 출력을 대화에 남기게 합니다.</li>
-      <li>목표 문장은 4,000자까지입니다. 자세한 내용은 상세 문서에 두고 문장에는 경로만 적습니다.</li>
-      <li>에픽(<code>epic</code> 라벨, 여러 단계로 나뉜 긴 작업)은 <code>epic/&lt;번호&gt;-&lt;slug&gt;</code> 브랜치에서 한 세션이 단계를 차례로 진행합니다. 단계 PR은 에픽 브랜치를 향하고, 완료 조건이 모두 ✅이고 확인된 심각한 지적이 없으면 에이전트가 합칩니다. 아니면 그 단계에서 멈춥니다. 사람은 에픽 브리핑과 마지막 에픽 PR의 결과 보고만 봅니다.</li>
+      <li>단계가 조건을 못 채우면 그 단계에서 멈추고 이유를 보고한 뒤 "고친 뒤 이어서 / 중단"을 묻습니다. 이어서 하면 진행 기록에 체크되지 않은 첫 단계를 이어 갑니다. 그 단계의 브랜치와 PR이 있으면 거기서 고쳐 결과 보고를 다시 돌리고, 없으면 새로 시작합니다.</li>
+      <li>세션이 끊겼으면 새 세션에서 <code>/logbook:brief #&lt;에픽 번호&gt;</code>를 실행합니다. 진행 중인 에픽이면 브리핑을 다시 하지 않고 멈춘 곳부터 이어 갑니다.</li>
+      <li>구현을 서브에이전트나 Workflow로 나눌지는 에이전트가 규칙 블록의 "구현은 이득이 있을 때만 나눈다"대로 정합니다.</li>
+      <li>화면이 바뀌는 단계가 있으면 진행을 시작하기 전에 모든 단계의 시안을 승인받습니다.</li>
     </ul>
   </section>
 
@@ -418,10 +406,10 @@ flowchart LR
       <table>
         <thead><tr><th>산출물</th><th>위치</th><th>만드는 곳</th><th>시점</th></tr></thead>
         <tbody>
-          <tr><td>이슈 카드</td><td>GitHub Issues, <code>status:*</code> 라벨</td><td>discuss(backlog) · brief · mission · sync</td><td>토론 끝, 구현 전</td></tr>
-          <tr><td>상세 문서</td><td><code>docs/plans/&lt;번호&gt;-&lt;slug&gt;.md</code></td><td>brief · mission · debrief</td><td>구현 전에 쓰고 PR 뒤에 채움</td></tr>
+          <tr><td>이슈 카드</td><td>GitHub Issues, <code>status:*</code> 라벨</td><td>discuss(backlog) · brief · sync</td><td>토론 끝, 구현 전</td></tr>
+          <tr><td>상세 문서</td><td><code>docs/plans/&lt;번호&gt;-&lt;slug&gt;.md</code></td><td>brief · debrief</td><td>구현 전에 쓰고 PR 뒤에 채움</td></tr>
           <tr><td>프로젝트 문서</td><td><code>docs/system/</code></td><td>sync, 구현하는 PR</td><td>코드가 바뀔 때마다</td></tr>
-          <tr><td>화면 시안 사본</td><td><code>docs/designs/&lt;번호&gt;-&lt;slug&gt;/</code></td><td>brief · mission</td><td>시안 승인 뒤</td></tr>
+          <tr><td>화면 시안 사본</td><td><code>docs/designs/&lt;번호&gt;-&lt;slug&gt;/</code></td><td>brief</td><td>시안 승인 뒤</td></tr>
           <tr><td>브리핑·결과 보고</td><td>Artifact 링크(claude.ai에 올리는 비공개 웹 페이지), 로컬 <code>.logbook/briefs/</code></td><td>brief · debrief</td><td>구현 전, PR 직후</td></tr>
           <tr><td>핸드북</td><td>Artifact 링크, <code>overview.md</code> 머리말</td><td>sync · debrief</td><td>문서를 쓴 뒤, 머지 뒤</td></tr>
           <tr><td>로컬 상태</td><td><code>.logbook/</code> (git에서 제외)</td><td>rulebook · hook</td><td>수시로</td></tr>
@@ -440,11 +428,10 @@ flowchart LR
         <thead><tr><th>기능</th><th>Claude Code</th><th>Codex</th><th>Antigravity · OpenCode</th></tr></thead>
         <tbody>
           <tr><td>AGENTS.md 규칙</td><td class="yes">지원</td><td class="yes">지원</td><td class="yes">지원</td></tr>
-          <tr><td>명령 6개</td><td class="yes">플러그인</td><td class="yes">같은 매니페스트로 설치</td><td class="part">스킬 폴더 링크</td></tr>
+          <tr><td>명령 5개</td><td class="yes">플러그인</td><td class="yes">같은 매니페스트로 설치</td><td class="part">스킬 폴더 링크</td></tr>
           <tr><td>브리핑·결과 보고·핸드북 링크</td><td class="yes">Artifact</td><td class="part">로컬 HTML</td><td class="part">로컬 HTML</td></tr>
           <tr><td>화면 시안</td><td class="yes"><code>/design</code> 캔버스(2.1.265 이상)</td><td class="part">HTML 시안</td><td class="part">HTML 시안</td></tr>
           <tr><td>hook</td><td class="yes">2개</td><td class="part"><code>/hooks</code>에서 신뢰 등록 뒤 실행</td><td class="no">없음</td></tr>
-          <tr><td><code>/goal</code></td><td class="yes">별도 평가 모델</td><td class="yes">작업 모델이 완료 판정</td><td class="no">없음</td></tr>
         </tbody>
       </table>
     </div>

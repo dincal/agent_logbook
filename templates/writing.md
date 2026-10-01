@@ -1,13 +1,13 @@
 # Writing guide
 
-Everything logbook writes follows this guide: briefing and debriefing slides, plan documents, the project docs in `docs/system/`, issue and PR text and comments, `/goal` prompts, and commit messages.
+Everything logbook writes follows this guide: briefing and debriefing slides, plan documents, the project docs in `docs/system/`, issue and PR text and comments, and commit messages.
 
 ## The reader
 
 Write for someone with a computer-science bachelor's degree who does not know this project, its history, or the tools around it.
 
 - They know programming, data structures, databases and ERDs, HTTP and APIs, and git (branches, commits, pull requests, merges).
-- They do not know the project's internal names, the agent tools (Claude Code, logbook, hooks, Artifacts, plan mode, git worktrees, `/goal`), or shorthand invented along the way.
+- They do not know the project's internal names, the agent tools (Claude Code, logbook, hooks, Artifacts, plan mode, git worktrees), or shorthand invented along the way.
 - The text should read smoothly for them in one pass, without looking anything up.
 
 ## Rules

@@ -51,17 +51,17 @@ Paths below use `${CLAUDE_PLUGIN_ROOT}`. On harnesses that do not substitute it,
    - 남은 지적 고치기: fix the listed findings, redo step 2, then return to step 7.
    - PR 열어두기: stop and report.
    - Recommend 재리뷰 when step 7 says needed; otherwise 머지 when every criterion is ✅ and no confirmed serious finding is open; otherwise 남은 지적 고치기.
-   - In an unattended run such as `/goal`, skip the question: end with the verdict, the recommendation and the four options as text. An epic step is the exception: it merges by itself as "Epic steps and epics" says.
+   - An epic step skips the question: it merges by itself as "Epic steps and epics" says.
 
 ## Epic steps and epics
 
-An epic runs on an epic branch in one `/goal` session (see `/mission`). Its step PRs target the epic branch and are merged by the agent; the epic PR to the base branch gets the one debriefing the human reads.
+An epic runs on an epic branch in the session that carries out its approved briefing (see Epics in `/brief`). Its step PRs target the epic branch and are merged by the agent; the epic PR to the base branch gets the one debriefing the human reads.
 
 **Epic step** (base `epic/...`):
 - Run steps 2, 3 and 7 as usual, and fill the step doc's debrief block (step 4). Skip step 5: no HTML. Commit and push the step doc on the step branch, and give the PR body the evidence list, one line per review round (say when a round's fixes were not reviewed again) and the markers, as for a change without a plan doc.
 - When step 7 says a re-review is needed, run it without asking. After any fix, redo step 2 for the criteria the fix touches before deciding, then update the step doc and PR body and commit again.
 - Then decide without asking. When every criterion is ✅ and no confirmed serious finding is open, squash merge into the epic branch (`gh pr merge --squash --delete-branch`, or `--merge` when the repository does not allow squash merges), move the child issue to `status:done`, and comment on the child and the epic issue with the PR link and a one-line result. `Closes` does not fire on a branch other than the default branch, so the labels are set by hand.
-- Otherwise do not merge. Report the criteria and findings that block it, and in a `/goal` run stop the run there.
+- Otherwise do not merge. Report the criteria and findings that block it, and stop the epic run there.
 
 **Epic** (head `epic/...`, base the base branch):
 - Evidence covers the epic doc's completion conditions. Add a 단계 결과 table to its debrief block: step, PR, result, review rounds.
