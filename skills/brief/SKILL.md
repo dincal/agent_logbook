@@ -24,6 +24,7 @@ A change that one sentence fully describes (a typo, a rename, a small config twe
    - Read the given issue's comments too: follow-up work deferred to this issue, such as a doc update, is left there as a comment and belongs in this change.
    - Run gh with the account on that line: `GH_TOKEN="$(gh auth token --user <account>)" gh ...`. Without an account there, use the default login.
    - Slug: a short kebab-case summary. Branch: `<type>/<issue>-<slug>` (feat, fix, refactor, docs or chore), cut from the base branch.
+   - Work in the main checkout and switch branches there; an epic gets no git worktree either. When something makes the main checkout unfit (uncommitted changes, a service running from it, another session working there), say what and ask before making a worktree with `${CLAUDE_PLUGIN_ROOT}/scripts/worktree.sh add`; then do as the user picks: the worktree, the main checkout, or stop.
    - Work that splits into steps is planned as an epic (see Epics below): label the issue `epic` and use the branch `epic/<issue>-<slug>` instead. When research shows the split only later, relabel the issue and rename the branch then.
    - An `epic` issue already in `status:in-progress` was approved before: resume its run as "Stops and resuming" under Epics says, instead of these steps.
 2. **Research.**
@@ -48,7 +49,6 @@ A change that one sentence fully describes (a typo, a rename, a small config twe
    - The first paragraph of each section is that slide's headline: one sentence that states the conclusion.
    - 주요 결정 separates what the user decided, with the alternatives they rejected, from your own calls.
    - Close with `> 판단 필요: 없음`, or at most two items only the human can decide: irreversible choices, product direction, scope.
-   - When implementation will be split into tracks, 일정과 검증 names the tracks, their builder tier and whether they run as subagents or a Workflow.
    - Every acceptance criterion names the command or observation that proves it. When the change alters what `docs/system/` describes, name those docs and add a criterion proved by `${CLAUDE_PLUGIN_ROOT}/scripts/system-check.sh --range <base>...HEAD`.
    - Details that do not fit the slides go under `## 상세`.
 6. **Pictures.** Follow `${CLAUDE_PLUGIN_ROOT}/templates/diagram-kit.md`:
@@ -68,7 +68,7 @@ A change that one sentence fully describes (a typo, a rename, a small config twe
    - Walk-in request: ask "진행 / 수정 / 중단" and wait. Right after a plan-mode approval, the approval is already given.
    - On 중단, ask 나중에 하기 / 버리기. 나중에 하기 moves the issue to `status:backlog`, keeps the branch, and posts the whole plan doc as an issue comment whose first line is `계획 문서`, so `/brief #<issue>` picks it up again on any clone. 버리기 closes the issue as not planned (`gh issue close --reason "not planned"`) and deletes the branch, locally and on the remote where it was pushed. Then stop, and so does a calling `/sync`.
    - Once approved, move the issue to `status:in-progress` and carry the plan out to the end without asking for approval again: implement, open the PR with `Closes #<issue>` and run `/debrief`. The PR body carries what the plan doc cannot, since that stays local: 요약, 주요 결정 (the user's decisions with the alternatives set aside, any 알린 우려, your own calls), the mockup canvas link when step 4 ran, and the acceptance criteria. For an epic, do After approval and then Run under Epics.
-   - Split the work into parallel builder tracks only where the logbook rule says it pays, launched as subagents or a Workflow as `${CLAUDE_PLUGIN_ROOT}/templates/parallel.md` says.
+   - Split the work into parallel builder tracks only where the logbook rule says it pays, launched as subagents or a Workflow, in the shared working tree or in worktrees, as `${CLAUDE_PLUGIN_ROOT}/templates/parallel.md` says. You decide this while implementing; it is not part of the briefing and not a question for the user.
    - While carrying it out: do not weaken or delete tests; stop and ask before a schema change or data deletion the plan does not cover; record anything decided differently from the plan, with the reason, in the plan doc's 결정 기록 and the PR body; update `docs/system/` in the same PR when the change alters what it describes.
 
 ## Epics
@@ -86,10 +86,12 @@ An epic is an issue labelled `epic` whose child issues are its steps. The human 
   - reread the step doc and trust the docs and the code over what you remember from earlier steps, cut `<type>/<child>-<slug>` from the epic branch, move the child issue to `status:in-progress`, and implement;
   - open the PR against the epic branch with `Part of #<epic>` and the child issue number, and run `/debrief`, whose step path merges it into the epic branch or stops with the reason;
   - pull the epic branch, tick the step in the epic doc's 진행 기록 and in the epic issue's 단계 table, and write "단계 n/N 끝: <PR link>".
+- **Side by side.** Steps that wait on no unmerged step and touch different files may be built at once, each by a builder in its own worktree cut from the epic branch, as "Epic steps side by side" in `${CLAUDE_PLUGIN_ROOT}/templates/parallel.md` says. You decide it while running the epic. Their PRs still open, go through `/debrief` and merge one at a time in table order, each followed by the tick and the 끝 line above. A step whose builder stops with a question is taken over by the session in its worktree.
 - **Stops and resuming.** When a step stops, report the step, the reason and what would let it go on, then ask 고친 뒤 이어서 / 중단. To go on, in this session or in a new one started with `/brief #<epic>`:
   - read the epic doc's table and 진행 기록 (the epic issue's 단계 table when the doc is not on this machine), the child issues and the open PRs against the epic branch;
   - finish After approval first when child issues or step docs are missing; on another machine, rebuild the epic doc from the epic issue body and the step docs from the child issue bodies;
-  - for the first step not ticked, reuse its branch and PR when they exist (fix, push, run `/debrief` again), otherwise start it as Run says; tick it as Run's last item says, then continue with Run;
+  - check `git worktree list`: a step branch held by a worktree under `.logbook/worktrees/` is resumed inside that worktree;
+  - for the first step not ticked, reuse its branch and PR when they exist (fix, push, run `/debrief` again); a branch without a PR (a builder committed, then the run broke off) is checked, pushed and given its PR; otherwise start it as Run says; tick it as Run's last item says, then continue with Run;
   - the "While carrying it out" rules of step 9 apply throughout.
 - **End.** After the last step, open the epic PR from the epic branch to the base branch with `Closes` for the epic and every child and a body like step 9's (요약, 주요 결정, completion conditions), and run `/debrief` on it. The human picks the merge there.
 - The epic branch takes only merged step PRs, base-branch merges, and the doc and review fixes `/debrief` makes on the epic PR.

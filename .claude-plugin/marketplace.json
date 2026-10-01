@@ -10,7 +10,7 @@
       "name": "logbook",
       "source": "./",
       "description": "Briefing before implementation, debriefing after the PR, project docs kept in sync with the code, screen mockups approved before building, epics carried step by step to the epic PR, and GitHub Issues tracking, with the working rules added to every session by a hook instead of being copied into each project.",
-      "version": "0.9.0"
+      "version": "0.10.0"
     }
   ]
 }

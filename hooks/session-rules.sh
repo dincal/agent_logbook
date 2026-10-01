@@ -68,13 +68,13 @@ if [ -n "$plans_dir" ]; then
   note="${note}.claude/settings.json이 플랜 모드의 계획 파일을 \`${plans_dir}\`에 저장한다. logbook 0.8부터는 git이 무시하는 \`.logbook/plans\`에 두고, 0.9부터는 승인된 계획도 커밋하지 않고 원래 checkout의 \`.logbook/plans\`에 둔다. /rulebook을 다시 실행하면 바뀐다. 사람에게 한 번 알린다."
 fi
 
-python3 - "$PLUGIN_ROOT/templates/session-rules.md" "$version" "$repo" "$base" "$account" "$note" <<'EOF'
+python3 - "$PLUGIN_ROOT/templates/session-rules.md" "$version" "$repo" "$base" "$account" "$note" "$PLUGIN_ROOT" <<'EOF'
 import json, sys
-path, version, repo, base, account, note = sys.argv[1:7]
+path, version, repo, base, account, note, plugin_root = sys.argv[1:8]
 text = open(path, encoding="utf-8").read()
 if not account:
     text = text.replace(" · gh 계정 `{account}`", "")
-for key, value in (("version", version or "?"), ("repo", repo), ("base", base), ("account", account)):
+for key, value in (("version", version or "?"), ("repo", repo), ("base", base), ("account", account), ("plugin_root", plugin_root)):
     text = text.replace("{" + key + "}", value)
 text = text.rstrip("\n") + "\n"
 if note:

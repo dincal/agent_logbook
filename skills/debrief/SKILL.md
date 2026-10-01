@@ -32,7 +32,7 @@ The plan doc and the mockup copy are working files in `.logbook/plans/` and `.lo
    - 계획과 달라진 점, and why.
    - 구현된 주요 로직 when important logic was added or changed, and 데이터베이스 변경 when the schema changed, both redrawn from the code as built.
    - 검증 증거: a table of 기준, 결과 and 증거.
-   - 리뷰 포인트: at most five `file:line` spots worth a human look, and one line per review round (findings, fixed, refuted, left, and how long the review took). When builder agents implemented tracks, one line per track: the agent, what it built, whether its check passed or the main session took over, and how long it ran.
+   - 리뷰 포인트: at most five `file:line` spots worth a human look, and one line per review round (findings, fixed, refuted, left, and how long the review took). When builder agents implemented tracks or steps, one line per track: the agent, whether it ran in the shared tree or its own worktree, what it built, whether its check passed or the main session took over, and how long it ran.
    - 남은 위험과 후속 과제.
    - Show with pictures whatever pictures can show, such as a list of bold numbers (tiles on the slide) and a `mermaid` flow for plan versus actual, without forcing an ERD or a flowchart and without HTML in the doc (`${CLAUDE_PLUGIN_ROOT}/templates/diagram-kit.md`). A model call added or changed shows its model and prompt gist.
    - Update 진행 기록 and the doc status line.
@@ -49,7 +49,7 @@ The plan doc and the mockup copy are working files in `.logbook/plans/` and `.lo
    - behavior changed (code, hooks, scripts, prompts such as SKILL.md, configuration) and fewer than two rounds ran: needed;
    - two rounds already ran: not needed; the remaining changes go to 리뷰 포인트 for the human.
 8. **Decide.** Write one line with the verdict (재리뷰 필요 or 불필요) and its reason, one line with the option you recommend and why, then ask with exactly one option marked (권장). Use the question tool, or numbered options in prose where there is none.
-   - 머지: squash merge (a merge commit for an epic) and delete the branch, move the issue to `status:done` and comment on it when there is one. When the PR changed `docs/system/`, render the handbook from the updated base branch (`render-system.sh`) and republish it to the URL in `docs/system/overview.md`.
+   - 머지: when the work ran in a worktree made by `${CLAUDE_PLUGIN_ROOT}/scripts/worktree.sh`, `cd` to the main checkout and remove it first (`worktree.sh remove <branch>`); when it refuses with exit 3, stop and report. Then squash merge (a merge commit for an epic) and delete the branch, move the issue to `status:done` and comment on it when there is one. When the PR changed `docs/system/`, render the handbook from the updated base branch (`render-system.sh`) and republish it to the URL in `docs/system/overview.md`.
    - 재리뷰: run step 3 on the diff since the last reviewed SHA, then return to step 7.
    - 남은 지적 고치기: fix the listed findings, redo step 2, then return to step 7.
    - PR 열어두기: stop and report.
@@ -63,7 +63,9 @@ An epic runs on an epic branch in the session that carries out its approved brie
 **Epic step** (base `epic/...`):
 - Run steps 2, 3 and 7 as usual, and fill the step doc's debrief block (step 4). Skip step 5 and the changelog line: no HTML, and the epic PR writes one line for the whole epic. Give the PR body the evidence list, one line per review round (say when a round's fixes were not reviewed again) and the markers, as for a change without a plan doc.
 - When step 7 says a re-review is needed, run it without asking. After any fix, redo step 2 for the criteria the fix touches before deciding, then update the step doc and the PR body.
-- Then decide without asking. When every criterion is ✅ and no confirmed serious finding is open, squash merge into the epic branch (`gh pr merge --squash --delete-branch`, or `--merge` when the repository does not allow squash merges), move the child issue to `status:done`, and comment on the child and the epic issue with the PR link and a one-line result. `Closes` does not fire on a branch other than the default branch, so the labels are set by hand.
+- A step built in a worktree is debriefed inside it (`${CLAUDE_PLUGIN_ROOT}/scripts/worktree.sh path <step branch>`): evidence, `system-check.sh` and the epic-branch merge in the next item run there, since its branch cannot be checked out in the main checkout. The final PR merge runs from the main checkout, as the item after says.
+- Before deciding, when the epic branch has moved since this step was cut (a step built beside it merged first), merge the epic branch into the step branch, resolve conflicts, push, run the full tests and redo step 2 for the criteria the merge touches.
+- Then decide without asking. When every criterion is ✅ and no confirmed serious finding is open, first remove the step's worktree if it was built in one (`cd` to the main checkout, then `${CLAUDE_PLUGIN_ROOT}/scripts/worktree.sh remove <step branch>`; a branch checked out in a worktree cannot be deleted, and when it refuses with exit 3, stop here and report), then squash merge into the epic branch (`gh pr merge --squash --delete-branch`, or `--merge` when the repository does not allow squash merges), move the child issue to `status:done`, and comment on the child and the epic issue with the PR link and a one-line result. `Closes` does not fire on a branch other than the default branch, so the labels are set by hand.
 - Otherwise do not merge. Report the criteria and findings that block it, and stop the epic run there.
 
 **Epic** (head `epic/...`, base the base branch):

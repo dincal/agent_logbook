@@ -298,7 +298,7 @@ git -C "$SR" init -q -b main
 printf '# S\n' > "$SR/AGENTS.md"
 "$ROOT/scripts/rulebook.sh" --apply --no-labels --dir "$SR" --repo acme/session --account octo >/dev/null 2>&1
 git -C "$SR" add -A && git -C "$SR" -c user.email=t@example.com -c user.name=t commit -q -m init
-rules() { jq -cn --arg cwd "$1" '{hook_event_name: "SessionStart", source: "startup", cwd: $cwd}' | env -u CLAUDE_PROJECT_DIR "$ROOT/hooks/session-rules.sh"; }
+rules() { jq -cn --arg cwd "$1" '{hook_event_name: "SessionStart", source: "startup", cwd: $cwd}' | env -u CLAUDE_PROJECT_DIR -u CLAUDE_PLUGIN_ROOT "$ROOT/hooks/session-rules.sh"; }
 context() { printf '%s' "$1" | jq -r '.hookSpecificOutput.additionalContext // empty' 2>/dev/null; }
 VERSION="$(jq -r .version "$ROOT/.claude-plugin/plugin.json")"
 
@@ -666,6 +666,57 @@ printf '<!-- logbook:system sources="x" -->\n# 한눈에\n\n## 한눈에 보기\
 err="$("$ROOT/scripts/render-system.sh" "$HS" "$TMP/html-system.html" 2>&1 >/dev/null)"; rc=$?
 if [ $rc -eq 4 ] && printf '%s' "$err" | grep -q 'overview.md에 HTML이 있습니다'; then ok "render-system: a doc with HTML is refused (exit 4)"; else bad "render-system: a doc with HTML is refused (exit 4)" "rc=$rc $err"; fi
 
+# ---------------------------------------------------------------- worktree script
+echo "== worktree script =="
+W="$TMP/wtrepo"
+mkdir -p "$W"
+git -C "$W" init -q -b main
+printf '.env\n.env.local\n' > "$W/.gitignore"
+printf 'example\n' > "$W/.env.example"
+git -C "$W" add -A
+git -C "$W" -c user.email=t@example.com -c user.name=t commit -q -m init
+git -C "$W" switch -q -c epic/5-x
+git -C "$W" -c user.email=t@example.com -c user.name=t commit -q --allow-empty -m shared
+git -C "$W" switch -q main
+printf 'SECRET=1\n' > "$W/.env"
+printf 'LOCAL=1\n' > "$W/.env.local"
+WS="$ROOT/scripts/worktree.sh"
+out="$("$WS" add feat/6-a epic/5-x --dir "$W" 2>&1)"; rc=$?
+WP="$W/.logbook/worktrees/feat-6-a"
+if [ $rc -eq 0 ] && [ "$(printf '%s\n' "$out" | tail -1)" = "$(cd "$W" && pwd -P)/.logbook/worktrees/feat-6-a" ]; then ok "worktree: add prints the path under the main checkout's .logbook/worktrees"; else bad "worktree: add prints the path under the main checkout's .logbook/worktrees" "$out"; fi
+expect "worktree: add cuts the branch from the given base, not the default branch" bash -c "[ \"\$(git -C '$WP' rev-parse HEAD)\" = \"\$(git -C '$W' rev-parse epic/5-x)\" ] && [ \"\$(git -C '$WP' branch --show-current)\" = feat/6-a ]"
+expect "worktree: add links the git-ignored env files and leaves tracked ones alone" bash -c "[ -L '$WP/.env' ] && [ -L '$WP/.env.local' ] && [ ! -L '$WP/.env.example' ] && grep -q SECRET '$WP/.env'"
+expect "worktree: the main checkout's status stays clean" bash -c "[ -z \"\$(git -C '$W' status --porcelain)\" ]"
+out="$("$WS" add feat/6-a --dir "$WP" 2>&1)"
+expect "worktree: add from inside a worktree reuses the existing one" bash -c "printf '%s' \"\$1\" | grep -q 'reusing' && [ \"\$(git -C '$W' worktree list | wc -l | tr -d ' ')\" = 2 ]" _ "$out"
+printf 'x\n' > "$WP/new.txt"
+"$WS" remove feat/6-a --dir "$W" >/dev/null 2>&1; rc=$?
+expect "worktree: remove refuses with exit 3 while there are uncommitted changes" bash -c "[ $rc -eq 3 ] && [ -e '$WP/new.txt' ]"
+git -C "$WP" add new.txt && git -C "$WP" -c user.email=t@example.com -c user.name=t commit -q -m track
+out="$("$WS" remove feat/6-a --dir "$W" 2>&1)"; rc=$?
+expect "worktree: remove deletes a clean worktree with its env links and keeps the branch" bash -c "[ $rc -eq 0 ] && [ ! -e '$WP' ] && git -C '$W' show-ref --verify --quiet refs/heads/feat/6-a && [ -f '$W/.env' ]"
+out="$("$WS" add feat/7-b --dir "$W" 2>&1)"; rc=$?
+expect "worktree: add of a new branch without a base fails with exit 2" bash -c "[ $rc -eq 2 ]"
+out="$("$WS" add feat/6-a main --dir "$W" 2>&1)"
+expect "worktree: add of an existing branch says the base is not applied" bash -c "printf '%s' \"\$1\" | grep -q 'already exists; using it as it is, not cutting it from main'" _ "$out"
+"$WS" remove feat/6-a --dir "$W" --delete-branch >/dev/null 2>&1; rc=$?
+expect "worktree: remove --delete-branch keeps an unmerged branch and exits 4" bash -c "[ $rc -eq 4 ] && git -C '$W' show-ref --verify --quiet refs/heads/feat/6-a"
+git -C "$W" -c user.email=t@example.com -c user.name=t merge -q --no-edit feat/6-a
+out="$("$WS" remove feat/6-a --dir "$W" --delete-branch 2>&1)"; rc=$?
+expect "worktree: remove --delete-branch deletes a merged branch" bash -c "[ $rc -eq 0 ] && ! git -C '$W' show-ref --verify --quiet refs/heads/feat/6-a"
+out="$("$WS" remove feat/6-a --dir "$W" --delete-branch 2>&1)"
+expect "worktree: remove --delete-branch on a branch already gone says so" bash -c "printf '%s' \"\$1\" | grep -q 'is already gone'" _ "$out"
+"$WS" add feat/9-d main --dir "$W" >/dev/null 2>&1
+/bin/rm -rf "$W/.logbook/worktrees/feat-9-d"
+"$WS" remove feat/9-d --dir "$W" --delete-branch >/dev/null 2>&1; rc=$?
+expect "worktree: remove prunes a worktree folder deleted by hand so its branch can go" bash -c "[ $rc -eq 0 ] && ! git -C '$W' worktree list | grep -q feat-9-d && ! git -C '$W' show-ref --verify --quiet refs/heads/feat/9-d"
+W2="$TMP/wtrepo-noignore"
+mkdir -p "$W2"
+git -C "$W2" init -q -b main
+git -C "$W2" -c user.email=t@example.com -c user.name=t commit -q --allow-empty -m init
+"$WS" add fix/8-c main --dir "$W2" >/dev/null 2>&1
+expect "worktree: a repository that does not ignore .logbook/ yet gets it in .git/info/exclude" bash -c "grep -qx '.logbook/' '$W2/.git/info/exclude' && [ -z \"\$(git -C '$W2' status --porcelain)\" ]"
+
 # ---------------------------------------------------------------- plugin files
 echo "== plugin files =="
 expect "hooks.json is valid JSON with the four hooks" jq -e '.hooks.SessionStart and .hooks.PreToolUse and .hooks.PostToolUse and .hooks.Stop' "$ROOT/hooks/hooks.json"
@@ -689,7 +740,7 @@ for tier in "builder-fast sonnet medium" "builder inherit medium" "builder-deep 
   expect "$1 agent stays in its files, does not commit, and reports its check" bash -c "f='$ROOT/agents/$1.md'; grep -q 'Change only the files the brief lists' \"\$f\" && grep -q 'Do not commit' \"\$f\" && grep -q 'The check command and its output' \"\$f\""
 done
 expect "builder agents share one body" bash -c "cd '$ROOT/agents' && [ \"\$(sed '1,/^---\$/d' builder.md )\" = \"\$(sed '1,/^---\$/d' builder-fast.md )\" ] && [ \"\$(sed '1,/^---\$/d' builder.md )\" = \"\$(sed '1,/^---\$/d' builder-deep.md )\" ]"
-expect "builder agents keep their check command to the track" grep -q 'Other tracks are editing the same working tree' "$ROOT/agents/builder.md"
+expect "builder agents keep their check command to the track in the shared tree and commit only in their own worktree" bash -c "for f in '$ROOT'/agents/builder*.md; do grep -q 'other tracks are editing the same working tree' \"\$f\" && grep -q 'In a worktree of your own: work only inside that path' \"\$f\" && grep -q 'commit your work on the worktree.s branch. Do not push' \"\$f\" || exit 1; done"
 expect "no worker agent" test ! -e "$ROOT/agents/worker.md"
 expect "brief and sync send Explore on Sonnet, as subagents or a Workflow" bash -c "grep -q 'Explore subagents on Sonnet or a Workflow' '$ROOT/skills/brief/SKILL.md' && grep -q 'Explore agents on Sonnet, as subagents or a Workflow' '$ROOT/skills/sync/SKILL.md'"
 expect "debrief names the reviewer's model and records builder tracks" bash -c "grep -q 'runs on Opus at high effort' '$ROOT/skills/debrief/SKILL.md' && grep -q 'When builder agents implemented tracks' '$ROOT/skills/debrief/SKILL.md'"
@@ -733,7 +784,7 @@ expect "rule block no longer demands a flowchart and an ERD in every briefing" b
 expect "rule block keeps HTML out of markdown and details model calls" bash -c "grep -q 'md 파일에는 HTML을 넣지 않고' '$B' && grep -q 'AI 모델을 부르는 단계' '$B'"
 expect "rule block flags unreasonable decisions once and follows the user" bash -c "grep -q '비합리적인 결정은 알린다' '$B' && grep -q '그대로 가겠다고 하면 따르고' '$B' && grep -q '알린 우려' '$B'"
 expect "rule block splits implementation only when it pays, with three builder tiers" bash -c "grep -q '구현은 이득이 있을 때만 나눈다' '$B' && grep -q 'logbook:builder-fast' '$B' && grep -q 'logbook:builder\`' '$B' && grep -q 'logbook:builder-deep' '$B' && grep -q '세션이 이어받는다' '$B'"
-expect "rule block scopes a track's check command to its own files" grep -q '그 트랙의 파일만 검사하는 것으로 준다' "$B"
+expect "rule block scopes a shared-tree track's check command to its own files" grep -q '같은 폴더의 트랙은 다른 트랙이 쓰는 중이라 확인 명령을 그 트랙의 파일로 좁히고 커밋하지 않는다' "$B"
 expect "rule block answers a request for an opinion with a discussion" bash -c "grep -q '의견을 묻는 말에는 토론으로 답한다' '$B' && grep -q '이슈와 브랜치를 만들지 않고' '$B' && grep -q '애매하면 어느 쪽인지 한 줄로 묻는다' '$B' && grep -q 'backlog 이슈로 남기기' '$B'"
 expect "rule block creates issues only for work others need or that must be kept" bash -c "grep -q '이슈는 남길 일에만 만든다' '$B' && grep -q '다른 개발자가 알아야 하거나 꼭 남겨야 하는 작업' '$B' && ! grep -q '이슈부터 만든다' '$B'"
 expect "rule block reports local-only work in chat and rides follow-up doc updates on related PRs" bash -c "grep -q '이슈, 브랜치, PR 없이 하고 채팅으로 보고한다' '$B' && grep -q 'docs/system/stack.md' '$B' && grep -q '관련 작업의 PR에 얹는다' '$B' && grep -q '그 이슈에 할 일을 댓글로 남기고' '$B' && grep -q '둘 다 없으면 이슈 없는 PR로 연다' '$B'"
@@ -797,6 +848,17 @@ expect "the approved-plan hook keeps the plan in .logbook/plans and commits no p
 expect "sync looks for plan docs left by logbook before 0.9 on every run and puts 주요 결정 in its PR" bash -c "grep -q 'On every path, also check .git ls-files. for plan docs and mockup copies left by logbook before 0.9' '$ROOT/skills/sync/SKILL.md' && grep -q 'and the document table for their rows' '$ROOT/skills/sync/SKILL.md' && grep -q 'the plan.s 주요 결정 in its body' '$ROOT/skills/sync/SKILL.md'"
 expect "system doc templates link decisions to PRs, not plan docs" bash -c "! grep -q '계획 문서 링크' '$ROOT/templates/system/overview.md' '$ROOT/templates/system/stack.md'"
 expect "no skill or hook tells the agent to commit or push a plan doc" bash -c "test -z \"\$(grep -rniE '(commit|push)[a-z ]* (the|every) (plan|step|epic) doc|plan-doc updates' '$ROOT/skills' '$ROOT/hooks' '$ROOT/agents' '$ROOT/templates' | grep -viE 'do not commit')\""
+
+# ---------------------------------------------------------------- worktrees (0.10)
+expect "rules: work happens in the main checkout, an epic gets no worktree, and an unfit checkout is asked about" bash -c "grep -q '작업 폴더는 원래 checkout이다' '$B' && grep -q '에픽을 시작한다고 git worktree(한 저장소를 여러 폴더에 동시에 checkout하는 git 기능)를 만들지 않는다' '$B' && grep -q 'worktree를 만들기 전에 이유를 들어 묻고' '$B'"
+expect "rules: the agent decides parallel work while implementing, not in the briefing" bash -c "grep -q '구현할 때 에이전트가 정한다. 사람에게 묻거나 브리핑에 적지 않고' '$B' && ! grep -q '브리핑이나 채팅에 적는다' '$B'"
+expect "rules: worktree tracks come from worktree.sh, not Claude Code's isolation, and are removed after merging" bash -c "grep -q '{plugin_root}/scripts/worktree.sh' '$B' && grep -q 'isolation: worktree.는 기본 브랜치에서 worktree를 만들어' '$B' && grep -q '합친 트랙의 worktree와 트랙 브랜치는 원래 checkout에서 .worktree.sh remove <브랜치> --delete-branch.로 바로 지운다' '$B' && grep -q '강제로 지우지 않고 멈춰 경로를 보고한다' '$B' && grep -q '세션이 이어받은 트랙도 합친 뒤 같이 지운다' '$B'"
+expect "rules: epic steps that wait on no other step may run side by side, merged in table order" bash -c "grep -q '서로 기다리지 않는 단계는' '$B' && grep -q 'PR과 합치기는 표 순서대로 하나씩 한다' '$B'"
+expect "session-rules hook fills in the plugin root with a path to worktree.sh that exists" bash -c "p=\$(printf '%s' \"\$1\" | grep -o '[^\`]*/scripts/worktree.sh' | head -1) && [ -x \"\$p\" ] && ! printf '%s' \"\$1\" | grep -q '{plugin_root}'" _ "$ctx"
+expect "parallel guide: tracks run in the shared tree or a worktree, decided while implementing, never in the briefing" bash -c "grep -q '## Where tracks run' '$P' && grep -q 'do not put tracks in it and do not ask the user about them' '$P' && grep -q 'scripts/worktree.sh add <branch> <base>' '$P' && grep -q \"Do not use Claude Code's .isolation: 'worktree'.\" '$P' && ! grep -q \"briefing's 일정과 검증\" '$P'"
+expect "parallel guide: epic steps side by side are briefed with their step doc and merged in table order" bash -c "grep -q '## Epic steps side by side' '$P' && grep -q 'the session takes that step over in its worktree' '$P' && grep -q 'handles the steps in table order' '$P'"
+expect "brief: main checkout by default, asks before a worktree, no tracks in 일정과 검증" bash -c "grep -q 'an epic gets no git worktree either' '$BR' && grep -q 'say what and ask before making a worktree' '$BR' && grep -q 'it is not part of the briefing and not a question for the user' '$BR' && ! grep -q '일정과 검증 names the tracks' '$BR' && grep -q '^- \*\*Side by side.\*\*' '$BR'"
+expect "debrief: a step behind the epic branch merges it and rechecks; worktrees go before the merge" bash -c "grep -q 'when the epic branch has moved since this step was cut' '$DB' && grep -q 'first remove the step.s worktree if it was built in one' '$DB' && grep -q 'when the work ran in a worktree made by' '$DB'"
 
 echo
 echo "$PASS passed, $FAIL failed"

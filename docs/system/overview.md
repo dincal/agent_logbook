@@ -48,13 +48,14 @@ flowchart LR
 | 이슈는 남길 일에만 만든다 | 다른 개발자가 알아야 하거나 꼭 남길 작업만 이슈가 됩니다. 작은 수정은 이슈 없이 PR만 열고, 따라오는 문서 갱신은 관련 작업의 PR에 얹으며, 저장소를 고치지 않는 로컬 작업은 채팅으로만 보고합니다 | [#13 PR](https://github.com/dincal/agent_logbook/pull/14) |
 | 에픽은 에픽 브랜치에서 한 번에 진행한다 | `/brief`로 계획하고, 브리핑을 승인한 세션이 단계 PR을 에픽 브랜치에 합치며, 사람은 에픽 브리핑과 에픽 결과 보고만 봅니다. 완료 조건이 ❌이거나 확인된 심각한 지적이 남으면 그 단계에서 멈춥니다 | [#15 PR](https://github.com/dincal/agent_logbook/pull/16) |
 | 병렬 작업은 서브에이전트나 Workflow로 띄운다 | 트랙이나 조사 영역이 셋 이상이거나 긴 작업이면 Workflow, 아니면 서브에이전트입니다. 어느 쪽이든 같은 모델 등급을 쓰고, Workflow를 쓸 수 없으면 서브에이전트로 띄웁니다 | [#15 PR](https://github.com/dincal/agent_logbook/pull/16) |
+| 작업은 원래 checkout에서 하고, worktree는 병렬 개발과 물어본 경우에만 만든다 | 이슈와 에픽은 원래 checkout에서 브랜치만 바꿔 진행합니다. 병렬 트랙과 서로 기다리지 않는 에픽 단계에는 에이전트가 구현할 때 판단해 `.logbook/worktrees/`에 worktree를 만들고 합친 뒤 바로 지웁니다. 브리핑은 스펙만 정하므로 병렬 방식은 브리핑에 적지 않습니다. 원래 checkout을 쓰면 안 될 이유가 보이면 worktree를 만들기 전에 묻습니다 | [#27 PR](https://github.com/dincal/agent_logbook/pull/28) |
 | 계획 문서와 시안 사본은 저장소에 두지 않는다 | 계획 문서와 승인된 시안 사본은 원래 checkout(git worktree가 아닌 처음 clone한 폴더)의 `.logbook/plans/`, `.logbook/designs/`에 두고 커밋하지 않습니다. 저장소에는 logbook이 없는 사람도 읽을 문서만 남기고, 결정 이유는 PR 본문에, 변경 이력은 CHANGELOG에 이슈와 PR 링크로 남깁니다. 그 기기를 잃으면 계획 문서도 사라지므로, 미뤄 둔 계획은 이슈 댓글로 남깁니다 | [#25 PR](https://github.com/dincal/agent_logbook/pull/26) |
 | 위험: md 뷰어가 mermaid를 그려야 그림이 보인다 | GitHub와 흔한 편집기는 mermaid를 그리지만, 지원하지 않는 뷰어에서는 그림이 코드로 보입니다. 슬라이드에서는 늘 그림으로 보입니다 | `templates/diagram-kit.md` |
 | 위험: Artifact와 `/design`은 조건이 있다 | claude.ai 로그인, Anthropic API, 대화형 세션이 필요합니다. `claude -p` 같은 무인 실행에서는 게시하지 못합니다 | [#3 PR](https://github.com/dincal/agent_logbook/pull/4) |
 
 ## 용어
 
-logbook에서 쓰는 말 열세 개입니다.
+logbook에서 쓰는 말 열네 개입니다.
 
 | 용어 | 쉬운 설명 | 코드에서 부르는 이름 |
 |---|---|---|
@@ -69,5 +70,6 @@ logbook에서 쓰는 말 열세 개입니다.
 | 변경 이력 | 쓰는 사람이 알아챌 변경을 PR마다 한 줄씩, 이슈와 PR 링크와 함께 버전별이나 날짜별로 쌓는 파일 | `CHANGELOG.md`, `/debrief` |
 | 트랙 | 구현을 나눴을 때 한 에이전트가 맡는 독립된 부분. 다른 트랙과 파일이 겹치지 않습니다 | logbook 규칙의 "구현은 이득이 있을 때만 나눈다" |
 | 에픽 | 여러 단계(하위 이슈)로 나뉜 긴 작업. `epic` 라벨이 붙고 `epic/<번호>-<slug>` 브랜치에서 진행합니다 | `skills/brief/SKILL.md`의 Epics 절 |
+| worktree | 한 저장소를 여러 폴더에 동시에 checkout하는 git 기능. logbook은 병렬 트랙과 병렬 단계에만 원래 checkout의 `.logbook/worktrees/`에 만듭니다 | `scripts/worktree.sh` |
 | Workflow | 여러 하위 에이전트를 JavaScript 스크립트 하나로 순서대로, 동시에 띄우는 Claude Code 도구 | `templates/parallel.md` |
 | builder | 트랙 하나를 맡아 구현하는 하위 에이전트. 모델과 effort에 따라 세 등급(builder-fast, builder, builder-deep)이 있습니다 | `agents/builder*.md` |

@@ -1,5 +1,22 @@
 # 변경 이력
 
+## [0.10.0] - 2026-10-01
+
+이슈 [#27](https://github.com/dincal/agent_logbook/issues/27) · PR [#28](https://github.com/dincal/agent_logbook/pull/28)
+
+git worktree(한 저장소를 여러 폴더에 동시에 checkout하는 git 기능)는 물어보고 만들고, 병렬 트랙과 병렬 단계에만 에이전트 판단으로 쓰게 했습니다.
+
+### 바뀜
+
+- 이슈와 에픽은 원래 checkout에서 브랜치만 바꿔 진행합니다. 에픽을 시작한다고 worktree를 만들지 않고, 원래 checkout을 쓰면 안 될 이유(커밋하지 않은 변경, 그 폴더에서 돌아가는 서비스, 다른 세션의 작업)가 보이면 만들기 전에 묻습니다.
+- 병렬로 할지와 어디서 돌릴지는 구현할 때 에이전트가 정하고, 브리핑에 적거나 묻지 않습니다. 브리핑은 스펙만 정합니다.
+- builder 트랙은 같은 폴더에서 돌리거나 트랙마다 worktree를 받습니다. worktree 트랙은 전체 테스트를 돌리고 트랙 브랜치에 커밋합니다.
+- 서로 기다리지 않는 에픽 단계는 단계마다 worktree에서 동시에 만들 수 있습니다. PR과 합치기는 표 순서대로 하나씩 하고, 에픽 브랜치가 움직였으면 `/debrief`가 받아와 다시 확인합니다.
+
+### 추가
+
+- `scripts/worktree.sh`(add, remove, path): 원래 checkout의 `.logbook/worktrees/`에 기준 브랜치를 정해 worktree를 만들고, git이 무시하는 `.env` 파일을 링크합니다. 합친 뒤 바로 지우며, 커밋하지 않은 변경이 있으면 지우지 않습니다.
+
 ## [0.9.0] - 2026-10-01
 
 이슈 [#25](https://github.com/dincal/agent_logbook/issues/25) · PR [#26](https://github.com/dincal/agent_logbook/pull/26)
