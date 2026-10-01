@@ -1,5 +1,32 @@
 # 변경 이력
 
+## [0.8.0] - 2026-10-01
+
+전체 리뷰에서 찾은, 스킬 사용 흐름에서 틀리게 동작하는 부분을 고쳤습니다([#22](https://github.com/dincal/agent_logbook/issues/22)).
+
+### 고침
+
+- `/sync`가 문서 구조를 정한 뒤 `rulebook.sh`를 다시 실행하면서 `.logbook/config.json`의 gh 계정을 빈 값으로 덮던 문제를 고쳤습니다. `rulebook.sh`는 인자로 받지 않은 값(repo, 기본 브랜치, gh 계정)을 기존 `config.json`에서 이어받고, `/sync`는 더 이상 `rulebook.sh`를 부르지 않습니다.
+- 결과 보고가 없는 PR 브랜치에서 Stop hook이 턴마다 막던 문제를 고쳤습니다. 확인한 커밋을 기록해, 같은 커밋에서는 한 번만 막고 새 커밋이 생기면 다시 한 번 막습니다.
+- HTML 검사가 `<path>`, `<label>` 같은 자리표시자를 HTML로 보던 오탐을 고쳤습니다. 닫는 태그, 속성이 있는 태그, `<br>` 같은 빈 요소, 자리표시자로 쓰지 않는 이름(`div`, `span` 등)은 지금처럼 잡습니다.
+
+### 바뀜
+
+- 플랜 모드의 계획 파일 위치(`plansDirectory`)를 git이 무시하는 `.logbook/plans`로 바꿨습니다. 승인된 계획만 `docs/plans/<번호>-<slug>.md`로 옮기므로, 작은 수정의 계획 파일이 저장소에 남지 않습니다.
+- `/brief`에서 중단을 고르면 "나중에 하기 / 버리기"를 묻습니다. 나중에 하기는 이슈를 `status:backlog`로 돌리고 브랜치를 남겨 `/brief #<번호>`로 이어서 하게 하고, 버리기는 이슈를 not planned로 닫고 브랜치를 지웁니다.
+- 코드보다 뒤처졌다고 나온 문서가 그대로 맞으면 첫 줄 주석의 `checked` 날짜만 고쳐 커밋합니다. `/sync` 규칙, 문서 템플릿, `system-check.sh`의 안내에 적었습니다.
+- `/sync`가 문서 구조를 처음 정할 때는 이 변경의 계획 문서를 방금 고른 변경 기록 위치에 씁니다.
+- `render-brief.sh`와 `render-system.sh`에 `--standalone` 옵션을 더했습니다. 게시하지 않고 로컬 파일로 열 HTML에 doctype을 붙입니다.
+
+### 지움
+
+- `scripts/legacy-scan.sh`와 `scripts/legacy_scan.py`. paperclip에서 옮겨 오는 일이 끝나서, 옛 도구 이름이 나오기만 해도 걸리는 오탐만 남았습니다. `/sync`는 정리할 것을 `git ls-files`로 직접 찾습니다.
+- `rulebook.sh`의 `--plans` 옵션과 계획 폴더(`docs/plans/.gitkeep`) 만들기.
+
+### 옮기는 법
+
+- 0.8 이전에 설치한 프로젝트에서 `/logbook:rulebook`을 한 번 실행하면 `.claude/settings.json`의 `plansDirectory`가 `.logbook/plans`로 바뀝니다. 실행하기 전에는 세션 규칙에 안내가 붙고, 계획 파일은 지금처럼 예전 위치에 저장됩니다. 남아 있는 임의 이름의 계획 파일은 지워도 됩니다.
+
 ## [0.7.0] - 2026-10-01
 
 작업 규칙을 프로젝트에 복사하지 않고 플러그인이 세션마다 넣게 했습니다. 플러그인을 올린 뒤 프로젝트마다 `/rulebook`을 다시 실행할 필요가 없습니다.

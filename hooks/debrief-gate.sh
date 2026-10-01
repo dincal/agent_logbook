@@ -1,6 +1,7 @@
 #!/bin/sh
 # logbook debrief-gate hook (Stop). Acts only in projects set up with /rulebook.
-# Blocks once when the current branch's open PR has no debriefing marker.
+# Blocks once per HEAD when the current branch's open PR has no debriefing marker: the
+# checked HEAD is recorded either way, so later turns on the same commit pass.
 # Any infrastructure problem (no git, no gh, timeout) lets the turn end.
 set -u
 
@@ -79,11 +80,9 @@ else
 fi
 [ "$(json_key "$pr" state)" = "OPEN" ] || exit 0
 
+mkdir -p "$(dirname "$state_file")" && printf '%s\n' "$head" > "$state_file"
 case "$(json_key "$pr" body)" in
-  *'<!-- logbook:debrief -->'*)
-    mkdir -p "$(dirname "$state_file")" && printf '%s\n' "$head" > "$state_file"
-    exit 0
-    ;;
+  *'<!-- logbook:debrief -->'*) exit 0 ;;
 esac
 
 url="$(json_key "$pr" url)"

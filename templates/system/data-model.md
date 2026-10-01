@@ -1,4 +1,4 @@
-<!-- logbook:system sources="{스키마를 정의한 파일의 경로 패턴. 예: backend/app/models/** prisma/schema.prisma}" tables="{스키마에서 센 테이블 수}" -->
+<!-- logbook:system sources="{스키마를 정의한 파일의 경로 패턴. 예: backend/app/models/** prisma/schema.prisma}" tables="{스키마에서 센 테이블 수}" checked="{코드와 마지막으로 대조한 날짜}" -->
 # 데이터 모델
 
 <!-- DB가 있는 프로젝트에만 둔다. ERD에는 DB의 모든 테이블을 넣고, 테이블이 많으면 업무 영역별로 절을 나눠 모든 테이블이 적어도 한 그림에 나오게 한다. -->

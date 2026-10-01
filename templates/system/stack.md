@@ -1,4 +1,4 @@
-<!-- logbook:system sources="{기술 스택을 정하는 파일의 경로 패턴. 예: package.json pyproject.toml Dockerfile .github/workflows/**}" -->
+<!-- logbook:system sources="{기술 스택을 정하는 파일의 경로 패턴. 예: package.json pyproject.toml Dockerfile .github/workflows/**}" checked="{코드와 마지막으로 대조한 날짜}" -->
 # 기술 스택
 
 ## 구성과 기술 스택

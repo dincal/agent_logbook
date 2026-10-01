@@ -21,7 +21,7 @@ AGENTS.md holds the project's document rules as a plain paragraph, written from 
 | 승인된 화면 시안 | `docs/designs/` |
 | 사용 설명서 | `docs/manual/` |
 
-The places in that table replace the defaults everywhere below and in the scripts: pass them as `system-check.sh --dir`, the folder argument of `render-system.sh`, `legacy-scan.sh --system --plans --designs --manual`, and `rulebook.sh --plans`. A kind the project does not keep is left out of the table.
+The places in that table replace the defaults everywhere below and in the scripts: pass them as `system-check.sh --dir` and the folder argument of `render-system.sh`. A kind the project does not keep is left out of the table.
 
 ## The project docs
 
@@ -39,16 +39,17 @@ The 지금 시스템 place (`docs/system/` by default) holds the files the struc
 - The docs hold no HTML, so they read well in any markdown viewer: pictures are `mermaid` diagrams, tables and lists.
 - Each call to an LLM or another AI model is a point to explain in detail: the flow's picture names the model and gives the gist of the prompt (what goes in, what the model is asked, what comes back), and a table under it adds the setting that picks the model, where the prompt lives, how the answer is checked and what happens on failure. stack.md lists the models.
 - Code references appear only on a flow's `시작점` line and in the model-call table, as a file path plus a function, class or setting name, without line numbers.
-- Each doc starts with `<!-- logbook:system sources="<git path patterns>" -->` naming the code it describes. data-model.md adds `tables="<n>"`, the number of tables the schema defines.
+- Each doc starts with `<!-- logbook:system sources="<git path patterns>" checked="<date>" -->` naming the code it describes and the day it was last compared with that code. data-model.md adds `tables="<n>"`, the number of tables the schema defines.
+- When `system-check.sh` calls a doc stale but the doc still matches the code, set `checked` to today and commit; the commit clears the stale mark. Do not reword a doc only to clear it.
 - The ERD shows every table in the database. List the tables from the schema's source of truth (ORM models or schema files, not the migration history). When there are many, split the ERD by domain into several sections so that each table appears at least once. When the project already generates an ERD (prisma-erd-generator, paracelsus, tbls and the like), start from its output.
 - Without a database there is no data-model.md; overview.md says in one line where the data lives.
 - Keep each doc short, about 150 lines; the ERD's completeness comes before that limit.
 
 ## What does not fit
 
-`${CLAUDE_PLUGIN_ROOT}/scripts/legacy-scan.sh` lists it, one line per item: files and folders of earlier agent tools, their rule sections in AGENTS.md and CLAUDE.md, tracked files that mention them, their `.gitignore` lines, rule links such as GEMINI.md, and documents outside the document places. Those places are the ones in the table (`<plans>/<issue>-<slug>.md` and anything under the others), plus README, CHANGELOG, AGENTS.md and CLAUDE.md at the root.
+List it yourself from `git ls-files` and the untracked files: files and folders of earlier agent tools, their rule sections in AGENTS.md and CLAUDE.md, their `.gitignore` lines, rule links such as GEMINI.md, and documents outside the document places. For each tool path you remove, `git grep` for tracked files that still point at it, leaving out the change records and CHANGELOG, which keep history. Look for documents in `docs/`, in the folders that hold the places, and among the `*.md` files at the root; source, skill and template files are not documents. The places are the ones in the table (`<plans>/<issue>-<slug>.md` and anything under the others), plus README, CHANGELOG, AGENTS.md, CLAUDE.md, LICENSE, CONTRIBUTING, SECURITY and CODE_OF_CONDUCT at the root.
 
-Everything it lists is removed, except code and configuration that point at a removed path; change those instead, then run the tests that cover them. Mark the documents that hold knowledge the code does not show, and move their essentials into the project docs before they go.
+Everything listed is removed, except code and configuration that point at a removed path; change those instead, then run the tests that cover them. Mark the documents that hold knowledge the code does not show, and move their essentials into the project docs before they go.
 
 ## Steps
 
@@ -57,15 +58,15 @@ Everything it lists is removed, except code and configuration that point at a re
    - The table exists and the 지금 시스템 place holds docs that start with the `logbook:system` marker: the structure is in place. Go on with step 3.
    - Otherwise the structure is decided first (the structure path). Look at what the project already has (folders such as `docs/`, `documentation/`, `wiki/`, an ERD generator, a docs site) and ask, as the brief's questions: where each kind lives or whether the project keeps it at all, and which files the 지금 시스템 docs consist of. Recommend the defaults; when the project already keeps a kind somewhere, offer keeping that place as well. Ask 1 to 4 questions at a time, with options.
 3. **Scope.**
-   - The structure path, or `legacy-scan.sh` prints something: set up the structure, clean up and write the project docs (the adoption path).
+   - The structure path: set up the structure, clean up and write the project docs (the adoption path).
    - The 지금 시스템 docs are missing, or `$ARGUMENTS` is `full`: write all the docs.
-   - Otherwise run `${CLAUDE_PLUGIN_ROOT}/scripts/system-check.sh --dir <system place>` and rewrite only the stale docs and the sections its warnings name. Fixing stale docs, one or several, needs no issue and no briefing: it ends in a PR without an issue that still gets a review.
-4. **Brief.** Follow `${CLAUDE_PLUGIN_ROOT}/skills/brief/SKILL.md`. The adoption path and a first write take the full briefing: the chosen structure, the cleanup table (path, what it is, action, reason) and the planned docs are the plan, and nothing is deleted before the user approves it. A stale-doc fix skips it: ask what its step 3 would ask, cut a `docs/<slug>` branch from the base branch, and carry on with the steps below; step 10 opens a PR without an issue.
+   - Otherwise run `${CLAUDE_PLUGIN_ROOT}/scripts/system-check.sh --dir <system place>` and rewrite only the stale docs and the sections its warnings name. Fixing stale docs, one or several, needs no issue and no briefing: it ends in a PR without an issue that still gets a review. When something "What does not fit" lists turns up, show it as a cleanup table and ask once whether this PR removes it.
+4. **Brief.** Follow `${CLAUDE_PLUGIN_ROOT}/skills/brief/SKILL.md`. The adoption path and a first write take the full briefing: the chosen structure, the cleanup table (path, what it is, action, reason) and the planned docs are the plan, and nothing is deleted before the user approves it. On the structure path the plan doc goes in the plans place just chosen, not the default. When the user stops the briefing, stop here too. A stale-doc fix skips it: ask what its step 3 would ask, cut a `docs/<slug>` branch from the base branch, and carry on with the steps below; step 10 opens a PR without an issue.
 5. **Survey.** Send three parallel Explore agents on Sonnet, as subagents or a Workflow by `${CLAUDE_PLUGIN_ROOT}/templates/parallel.md`: stack and runtime (manifests, build and deploy files, CI, infrastructure, outside services); flows (entry points and the flows that carry the business); data (the schema's source of truth, every table and relation, status fields).
-6. **Write** the docs by the rules above. On the structure path, write the document rules paragraph into AGENTS.md from `templates/docs-rules.md` with the chosen places, dropping the rows of kinds the project does not keep (create AGENTS.md when missing), and run `rulebook.sh --apply --plans <plans place>` so plan mode saves there. Move rules that still hold from CLAUDE.md into AGENTS.md, and leave CLAUDE.md as the `@AGENTS.md` import.
+6. **Write** the docs by the rules above. On the structure path, write the document rules paragraph into AGENTS.md from `templates/docs-rules.md` with the chosen places, dropping the rows of kinds the project does not keep (create AGENTS.md when missing). Move rules that still hold from CLAUDE.md into AGENTS.md. On any path, CLAUDE.md ends up as the `@AGENTS.md` import; create it when missing.
 7. **Clean up.** Delete tracked items with `git rm` on the work branch, so the PR is where they are reviewed. Move untracked leftovers to the Trash instead of deleting them. Remove a git worktree under a legacy folder only when it has no changes; otherwise ask.
-8. **Check.** `legacy-scan.sh` (with the places) prints nothing, `system-check.sh --dir <system place>` reports no stale doc and no warning, and the tests touched in step 7 pass. Read the handbook once as its reader would.
-9. **Publish.** `${CLAUDE_PLUGIN_ROOT}/scripts/render-system.sh <system place> .logbook/system/handbook.html`. On Claude Code, publish it as an Artifact: when overview.md's header has a 핸드북 link, read that artifact and republish to the same URL; otherwise publish a new one and write its link into the header. Elsewhere, the local path is the link.
+8. **Check.** Nothing the user approved removing is left in `git ls-files`, `system-check.sh --dir <system place>` reports no stale doc and no warning, and the tests touched in step 7 pass. Read the handbook once as its reader would.
+9. **Publish.** `${CLAUDE_PLUGIN_ROOT}/scripts/render-system.sh <system place> .logbook/system/handbook.html`. On Claude Code, publish it as an Artifact: when overview.md's header has a 핸드북 link, read that artifact and republish to the same URL; otherwise publish a new one and write its link into the header. Elsewhere, render with `--standalone` and the local path is the link.
 10. **Finish.** Link the overview doc from README in one line; AGENTS.md gets no copy of the docs, since its table already points at them. Commit, open the PR with the cleanup table in its body, and run `/debrief`.
 
 ## Called from other skills

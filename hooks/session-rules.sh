@@ -57,6 +57,16 @@ note=""
 if logbook_old_block "$top"; then
   note="AGENTS.md에 logbook 0.7 이전의 규칙 블록이 남아 있다. 이 규칙이 그 블록보다 우선한다. /rulebook을 실행하면 블록을 지우고 그 안의 문서 규칙을 AGENTS.md 문서 규칙 문단으로 옮긴다. 사람에게 한 번 알린다."
 fi
+# Before 0.8, /rulebook pointed plan mode at a tracked folder, where unmoved plans piled up.
+plans_dir="$(json_key "$top/.claude/settings.json" plansDirectory)"
+case "$(printf '%s' "$plans_dir" | sed 's#^\./##; s#/*$##')" in
+  ""|.logbook/plans) plans_dir="" ;;
+esac
+if [ -n "$plans_dir" ]; then
+  [ -z "$note" ] || note="$note
+"
+  note="${note}.claude/settings.json이 플랜 모드의 계획 파일을 \`${plans_dir}\`에 저장한다. logbook 0.8부터는 git이 무시하는 \`.logbook/plans\`에 두고, 승인된 계획만 변경 기록 위치로 옮긴다. /rulebook을 다시 실행하면 바뀐다. 사람에게 한 번 알린다."
+fi
 
 python3 - "$PLUGIN_ROOT/templates/session-rules.md" "$version" "$repo" "$base" "$account" "$note" <<'EOF'
 import json, sys

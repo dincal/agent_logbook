@@ -1,4 +1,4 @@
-<!-- logbook:system sources="{이 문서가 설명하는 코드의 경로 패턴. 예: README.md package.json}" -->
+<!-- logbook:system sources="{이 문서가 설명하는 코드의 경로 패턴. 예: README.md package.json}" checked="{코드와 마지막으로 대조한 날짜}" -->
 # {프로젝트 이름}
 
 > 핸드북: {게시한 핸드북 링크. 처음 쓸 때는 이 항목을 지운다} · 저장소: {저장소 링크}

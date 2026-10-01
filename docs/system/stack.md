@@ -20,7 +20,7 @@ flowchart LR
 | 플러그인 정의 | JSON(`.claude-plugin/plugin.json`, `.claude-plugin/marketplace.json`) | 이름, 버전, 설치 정보 | Claude Code와 Codex가 같은 파일로 설치합니다 |
 | 명령 5개 | Markdown(`skills/<이름>/SKILL.md`) | rulebook, discuss, brief, debrief, sync의 절차 | 에이전트가 읽는 설명서라서 코드가 필요 없습니다 |
 | hook 3개 | POSIX sh와 jq(없으면 python3), 공통 함수 `hooks/lib.sh` | 세션 규칙 넣기, 플랜 미리보기, 결과 보고 확인 | 어느 환경에서나 도는 가장 흔한 셸입니다. 세션 규칙 hook은 규칙 원문을 채울 때 python3를 씁니다 |
-| 스크립트 | bash, Python 3 표준 라이브러리 | logbook 켜기와 옛 규칙 블록 옮기기, 브리핑과 핸드북 렌더, 문서와 코드 대조, 옛 흔적 검사 | 따로 설치할 패키지가 없습니다 |
+| 스크립트 | bash, Python 3 표준 라이브러리 | logbook 켜기와 옛 규칙 블록 옮기기, 브리핑과 핸드북 렌더, 문서와 코드 대조 | 따로 설치할 패키지가 없습니다 |
 | 템플릿 | Markdown, HTML과 CSS | 계획 문서, 세션 규칙, 문서 규칙 문단, 슬라이드 모양, 프로젝트 문서의 뼈대, 글쓰기와 그림 안내, 병렬 실행 안내 | 한 곳을 고치면 모든 프로젝트에 적용됩니다 |
 | 리뷰어 | Markdown(`agents/reviewer.md`) | PR을 새 컨텍스트에서 읽기만 하며 검토 | 품질 검사라 Claude Code에서는 Opus 모델, high effort로 실행합니다 |
 | builder 3개 | Markdown(`agents/builder-fast.md`, `builder.md`, `builder-deep.md`) | 나눈 구현 트랙을 동시에 구현 | Agent 도구는 호출할 때 effort를 넘길 수 없어서 등급마다 파일을 따로 둡니다 |
@@ -65,7 +65,7 @@ logbook은 역할마다 모델을 정해 두고, 본 작업은 사용자가 고�
 |---|---|
 | 테스트 | `bash tests/run.sh` |
 | 플러그인 구조 검사 | `claude plugin validate .` |
-| 브리핑 렌더 | `scripts/render-brief.sh <계획 문서> brief <출력 파일>` |
-| 핸드북 렌더 | `scripts/render-system.sh docs/system <출력 파일>` |
+| 브리핑 렌더 | `scripts/render-brief.sh [--standalone] <계획 문서> brief <출력 파일>`. `--standalone`은 로컬에서 열 파일에 doctype을 붙입니다 |
+| 핸드북 렌더 | `scripts/render-system.sh [--standalone] docs/system <출력 파일>` |
 | 문서와 코드 대조 | `scripts/system-check.sh` |
 | 개발 환경 준비 | git, `gh`(GitHub CLI), `claude`(Claude Code CLI), bash, python3가 있으면 됩니다. hook은 jq가 없으면 python3로 대신하지만, `tests/run.sh`는 jq를 직접 부르므로 테스트를 돌리려면 jq도 필요합니다 |

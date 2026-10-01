@@ -1,6 +1,6 @@
 #!/usr/bin/env bash
 # logbook tests: rulebook script, render-brief, plan-preview hook, debrief-gate hook,
-# system-check, legacy-scan, render-system, plugin files.
+# system-check, render-system, plugin files.
 # Exit code 0 only when every check passes.
 set -uo pipefail
 
@@ -35,9 +35,9 @@ if [ $rc -eq 0 ]; then ok "rulebook: --apply exits 0"; else bad "rulebook: --app
 expect "rulebook: AGENTS.md without an old block is left alone" cmp -s "$R/AGENTS.md" "$TMP/agents-before"
 expect "rulebook: no rule block is written" bash -c "! grep -q 'logbook:begin' '$R/AGENTS.md'"
 expect "rulebook: CLAUDE.md imports AGENTS.md" grep -qx '@AGENTS.md' "$R/CLAUDE.md"
-expect "rulebook: plansDirectory merged, existing keys kept" jq -e '.plansDirectory == "docs/plans" and .model == "opus"' "$R/.claude/settings.json"
+expect "rulebook: plansDirectory is the git-ignored .logbook/plans, existing keys kept" jq -e '.plansDirectory == ".logbook/plans" and .model == "opus"' "$R/.claude/settings.json"
 expect "rulebook: .gitignore lists .logbook/" grep -qx '.logbook/' "$R/.gitignore"
-expect "rulebook: docs/plans/ created" test -d "$R/docs/plans"
+expect "rulebook: no plans folder is created" test ! -e "$R/docs/plans"
 expect "rulebook: .logbook/config.json records repo from origin and base" jq -e '.repo == "acme/demo" and .base == "main" and .account == ""' "$R/.logbook/config.json"
 expect "rulebook: existing file keeps its mode (644)" test "$(mode_of "$R/AGENTS.md")" = 644
 expect "rulebook: new files are readable by others" test "$(( 0$(mode_of "$R/CLAUDE.md") & 04 ))" -ne 0
@@ -53,6 +53,10 @@ else
 fi
 "$ROOT/scripts/rulebook.sh" --apply --no-labels --dir "$R" --account octo >/dev/null 2>&1
 expect "rulebook: --account is recorded in .logbook/config.json, not in AGENTS.md" bash -c "jq -e '.account == \"octo\"' '$R/.logbook/config.json' >/dev/null && cmp -s '$R/AGENTS.md' '$TMP/agents-before'"
+out="$("$ROOT/scripts/rulebook.sh" --apply --no-labels --dir "$R" 2>&1)"
+expect "rulebook: a rerun without --account keeps the recorded account" bash -c "jq -e '.account == \"octo\" and .repo == \"acme/demo\"' '$R/.logbook/config.json' >/dev/null && printf '%s' \"\$1\" | grep -q '변경 없음'" _ "$out"
+"$ROOT/scripts/rulebook.sh" --apply --no-labels --dir "$R" --base trunk >/dev/null 2>&1
+expect "rulebook: an option still replaces the recorded value" jq -e '.base == "trunk" and .account == "octo"' "$R/.logbook/config.json"
 
 MG="$TMP/migrate"
 mkdir -p "$MG"
@@ -67,11 +71,13 @@ out="$("$ROOT/scripts/rulebook.sh" --apply --no-labels --dir "$MG" --repo acme/o
 if printf '%s' "$out" | grep -q '변경 없음'; then ok "rulebook: a migrated project needs nothing on the next run"; else bad "rulebook: a migrated project needs nothing on the next run" "$out"; fi
 
 PL="$TMP/plans-place"
-mkdir -p "$PL"
+mkdir -p "$PL/.claude"
 git -C "$PL" init -q -b main
-printf '# P\n\n%s\nold\n<!-- logbook:end -->\n' "$BLOCK_LINE" > "$PL/AGENTS.md"
-"$ROOT/scripts/rulebook.sh" --apply --no-labels --dir "$PL" --repo acme/p --plans documentation/records/ >/dev/null 2>&1
-expect "rulebook: --plans sets plansDirectory, the plans folder and the table row" bash -c "jq -e '.plansDirectory == \"documentation/records\"' '$PL/.claude/settings.json' >/dev/null && test -f '$PL/documentation/records/.gitkeep' && grep -q '\`documentation/records/\`' '$PL/AGENTS.md' && test ! -e '$PL/docs/plans'"
+printf '{\n  "plansDirectory": "docs/plans"\n}\n' > "$PL/.claude/settings.json"
+"$ROOT/scripts/rulebook.sh" --apply --no-labels --dir "$PL" --repo acme/p >/dev/null 2>&1
+expect "rulebook: a plansDirectory from before 0.8 moves to .logbook/plans" jq -e '.plansDirectory == ".logbook/plans"' "$PL/.claude/settings.json"
+out="$("$ROOT/scripts/rulebook.sh" --apply --no-labels --dir "$PL" --plans docs/plans 2>&1)"; rc=$?
+expect "rulebook: --plans is no longer an option" test $rc -eq 2
 
 NA="$TMP/no-agents"
 mkdir -p "$NA"
@@ -269,6 +275,20 @@ expect "render-brief: a <br> inside a mermaid label is refused" test $rc -eq 4
 html_doc $'<!--\n여러 줄 주석 안의 <div>는 보이지 않습니다\n-->\n\n| 조각 | 설명 |\n|---|---|\n| 웹 | `<main>` 영역 |'
 "$ROOT/scripts/render-brief.sh" "$TMP/html.md" brief "$TMP/html.html" >/dev/null 2>&1; rc=$?
 expect "render-brief: HTML comments and inline code in tables are allowed" test $rc -eq 0
+html_doc $'- 플랜 파일을 <path>에 두고 <label>을 붙인다\n- 이름은 <issue>-<slug>.md'
+"$ROOT/scripts/render-brief.sh" "$TMP/html.md" brief "$TMP/html.html" >/dev/null 2>&1; rc=$?
+expect "render-brief: placeholders such as <path> and <label> are not HTML" test $rc -eq 0
+html_doc $'- 플랜을 <label>에 둔다\n\n```tsx\n<label>x</label>\n```'
+"$ROOT/scripts/render-brief.sh" "$TMP/html.md" brief "$TMP/html.html" >/dev/null 2>&1; rc=$?
+expect "render-brief: a closing tag inside a code block does not turn a placeholder into HTML" test $rc -eq 0
+for tag in '<div>' '줄<br>바꿈' '</span>' '<a href="x">' '<path> 와 </path>' '<img/>'; do
+  html_doc "본문 $tag 끝"
+  "$ROOT/scripts/render-brief.sh" "$TMP/html.md" brief "$TMP/html.html" >/dev/null 2>&1; rc=$?
+  expect "render-brief: $tag is still HTML" test $rc -eq 4
+done
+"$ROOT/scripts/render-brief.sh" "$DOC" brief "$TMP/plain.html" >/dev/null 2>&1
+"$ROOT/scripts/render-brief.sh" --standalone "$DOC" brief "$TMP/standalone.html" >/dev/null 2>&1; rc=$?
+expect "render-brief: --standalone adds a doctype, and the default leaves it to the Artifact" bash -c "[ $rc -eq 0 ] && head -1 '$TMP/standalone.html' | grep -qx '<!doctype html>' && ! grep -qi '<!doctype' '$TMP/plain.html'"
 
 # ---------------------------------------------------------------- session-rules hook
 echo "== session-rules hook =="
@@ -329,6 +349,17 @@ printf '# O\n\n%s\n- old rules\n\n트래커: repo `acme/old` · 라벨 `x` · �
 ctx="$(context "$(rules "$OB")")"
 expect "session-rules: an unmigrated project gets the rules with the tracker from its old block" bash -c "printf '%s' \"\$1\" | grep -qF 'repo \`acme/old\`' && printf '%s' \"\$1\" | grep -qF '기본 브랜치 \`trunk\` · gh 계정 \`olduser\`'" _ "$ctx"
 expect "session-rules: an old block adds a note to run /rulebook" bash -c "printf '%s' \"\$1\" | grep -q '0.7 이전의 규칙 블록' && printf '%s' \"\$1\" | grep -q '/rulebook'" _ "$ctx"
+
+OP="$TMP/old-plans"
+mkdir -p "$OP/.claude"
+git -C "$OP" init -q -b main
+"$ROOT/scripts/rulebook.sh" --apply --no-labels --dir "$OP" --repo acme/op >/dev/null 2>&1
+printf '{\n  "plansDirectory": "./.logbook/plans/"\n}\n' > "$OP/.claude/settings.json"
+expect "session-rules: ./ and a trailing slash still count as .logbook/plans" bash -c "! printf '%s' \"\$1\" | grep -q '플랜 모드의 계획 파일'" _ "$(context "$(rules "$OP")")"
+"$ROOT/scripts/rulebook.sh" --apply --no-labels --dir "$OP" --repo acme/op >/dev/null 2>&1
+expect "session-rules: no plans note when plansDirectory is .logbook/plans" bash -c "! printf '%s' \"\$1\" | grep -q '플랜 모드의 계획 파일'" _ "$(context "$(rules "$OP")")"
+printf '{\n  "plansDirectory": "docs/plans"\n}\n' > "$OP/.claude/settings.json"
+expect "session-rules: a plansDirectory from before 0.8 adds a note to rerun /rulebook" bash -c "printf '%s' \"\$1\" | grep -q '계획 파일을 \`docs/plans\`에 저장한다' && printf '%s' \"\$1\" | grep -q '/rulebook을 다시 실행하면'" _ "$(context "$(rules "$OP")")"
 
 NAC="$TMP/no-account"
 mkdir -p "$NAC"
@@ -463,8 +494,10 @@ chmod +x "$BIN/gh"
 stop_input() { jq -cn --argjson active "$1" --arg cwd "${3:-$G}" --argjson bg "${2:-[]}" '{hook_event_name: "Stop", stop_hook_active: $active, cwd: $cwd, background_tasks: $bg}'; }
 gate() { PATH="$BIN:$PATH" GH_LOG="$TMP/gh.log" FAKE_GH="$1" "$ROOT/hooks/debrief-gate.sh"; }
 
+GATE_STATE="$G/.logbook/state/debrief-feat_9-demo"
 for engine in jq python; do
   force=""; [ "$engine" = python ] && force=1
+  rm -f "$GATE_STATE"
   res="$(stop_input false | LOGBOOK_FORCE_PYTHON="$force" gate nomarker)"; rc=$?
   if [ $rc -eq 0 ] && printf '%s' "$res" | jq -e '.decision == "block" and (.reason | test("/debrief"))' >/dev/null 2>&1; then
     ok "debrief-gate [$engine]: open PR without the marker blocks"
@@ -475,6 +508,12 @@ for engine in jq python; do
   expect "debrief-gate [$engine]: stop_hook_active=true passes" test $rc -eq 0 -a -z "$res"
 done
 expect "debrief-gate: gh account comes from .logbook/config.json" grep -qx octo "$TMP/gh.log"
+res="$(stop_input false | gate nomarker)"; rc=$?
+expect "debrief-gate: a later turn on the same HEAD passes" test $rc -eq 0 -a -z "$res"
+git -C "$G" -c user.email=t@example.com -c user.name=t commit -q --allow-empty -m next
+res="$(stop_input false | gate nomarker)"
+expect "debrief-gate: a new commit blocks once more" bash -c "printf '%s' \"\$1\" | jq -e '.decision == \"block\"' >/dev/null" _ "$res"
+rm -f "$GATE_STATE"
 res="$(stop_input false '[{"id":"t1","type":"shell"}]' | gate nomarker)"; rc=$?
 expect "debrief-gate: running background work passes" test $rc -eq 0 -a -z "$res"
 res="$(stop_input false | gate fail)"; rc=$?
@@ -562,6 +601,11 @@ out="$(sc)"
 if has_row "$out" "뒤처짐" "flows.md"; then ok "system-check: a committed code change without a doc update is behind"; else bad "system-check: a committed code change without a doc update is behind" "$out"; fi
 sc --strict >/dev/null; rc=$?
 expect "system-check: --strict exits 1 when a doc is behind" test $rc -eq 1
+expect "system-check: a stale doc points at the checked date" bash -c "printf '%s' \"\$1\" | grep -q 'checked 날짜를 오늘로 고쳐 커밋하세요'" _ "$out"
+python3 -c 'import pathlib,sys; p=pathlib.Path(sys.argv[1]); l=p.read_text().split("\n",1); p.write_text(l[0].replace(" -->", " checked=\"2026-10-01\" -->",1)+"\n"+l[1])' "$S/docs/system/flows.md"
+scommit "checked flows"
+out="$(sc)"
+if has_row "$out" "정상" "flows.md"; then ok "system-check: committing a new checked date clears a stale doc"; else bad "system-check: committing a new checked date clears a stale doc" "$out"; fi
 printf '\n- 실패하면: 오류를 보여 줍니다.\n' >> "$S/docs/system/flows.md"
 out="$(sc)"
 if has_row "$out" "정상" "flows.md"; then ok "system-check: a doc being edited counts as updated"; else bad "system-check: a doc being edited counts as updated" "$out"; fi
@@ -600,73 +644,6 @@ expect "system-check: without docs/system it points to /sync and exits 0" bash -
 (cd "$E" && "$ROOT/scripts/system-check.sh" --strict >/dev/null); rc=$?
 expect "system-check: without docs/system --strict exits 1" test $rc -eq 1
 
-# ---------------------------------------------------------------- legacy-scan
-echo "== legacy-scan =="
-LG="$TMP/legacy"
-mkdir -p "$LG/.agent-conventions" "$LG/.paperclip/state" "$LG/docs/flows" "$LG/docs/plans" "$LG/docs/system" "$LG/src"
-git -C "$LG" init -q -b main
-printf '# P\n\n## 1. 문서 맵 (Document Map)\n\n표\n\n## 빌드\n\nnpm run build\n' > "$LG/AGENTS.md"
-ln -s AGENTS.md "$LG/CLAUDE.md"
-ln -s AGENTS.md "$LG/GEMINI.md"
-printf 'rules\n' > "$LG/.agent-conventions/diagram-convention.md"
-printf '{}\n' > "$LG/.paperclip/state/run.json"
-printf '# Paperclip local runtime artifacts\n.paperclip/\nnode_modules/\n' > "$LG/.gitignore"
-printf 'erd\n' > "$LG/docs/erd.md"
-printf 'flow\n' > "$LG/docs/flows/orders.md"
-printf 'plan\n' > "$LG/docs/plans/3-orders.md"
-printf 'map\n' > "$LG/docs/system/overview.md"
-printf "export const out = '.paperclip/e2e';\n" > "$LG/src/config.ts"
-printf 'notes\n' > "$LG/NOTES.md"
-printf 'readme\n' > "$LG/README.md"
-git -C "$LG" add -A && git -C "$LG" -c user.email=t@example.com -c user.name=t commit -q -m init
-out="$("$ROOT/scripts/legacy-scan.sh" --dir "$LG")"
-printf '%s\n' "$out" | sed 's/^/      /'
-if has_row "$out" "옛 도구 파일" ".paperclip" && has_row "$out" "옛 도구 파일" ".agent-conventions"; then ok "legacy-scan: finds earlier tools' folders, ignored or tracked"; else bad "legacy-scan: finds earlier tools' folders, ignored or tracked" "$out"; fi
-if has_row "$out" "옛 규칙" "AGENTS.md:3" && ! has_row "$out" "옛 규칙" "AGENTS.md:7"; then ok "legacy-scan: flags paperclip's rule sections and keeps the project's own"; else bad "legacy-scan: flags paperclip's rule sections and keeps the project's own" "$out"; fi
-if has_row "$out" "옛 도구 언급" "src/config.ts"; then ok "legacy-scan: finds code that still points at paperclip paths"; else bad "legacy-scan: finds code that still points at paperclip paths" "$out"; fi
-if has_row "$out" "옛 무시 목록" ".gitignore:1" && has_row "$out" "옛 무시 목록" ".gitignore:2" && ! has_row "$out" "옛 무시 목록" ".gitignore:3"; then ok "legacy-scan: flags only the old .gitignore lines"; else bad "legacy-scan: flags only the old .gitignore lines" "$out"; fi
-if has_row "$out" "다른 규칙 링크" "GEMINI.md" && ! printf '%s' "$out" | grep -q 'CLAUDE.md'; then ok "legacy-scan: flags a GEMINI.md link but not the CLAUDE.md link"; else bad "legacy-scan: flags a GEMINI.md link but not the CLAUDE.md link" "$out"; fi
-if has_row "$out" "자리 밖 문서" "docs/erd.md" && has_row "$out" "자리 밖 문서" "docs/flows/orders.md" && has_row "$out" "자리 밖 문서" "NOTES.md"; then ok "legacy-scan: flags documents outside logbook's places"; else bad "legacy-scan: flags documents outside logbook's places" "$out"; fi
-expect "legacy-scan: leaves plans, project docs and README alone" bash -c "! printf '%s' \"\$1\" | grep -qE 'docs/plans/3-orders.md|docs/system/overview.md|README.md'" _ "$out"
-CL="$TMP/legacy-clean"
-mkdir -p "$CL/docs/plans" "$CL/docs/system"
-git -C "$CL" init -q -b main
-sed -e 's#{system}#docs/system/#; s#{plans}#docs/plans/#; s#{designs}#docs/designs/#; s#{manual}#docs/manual/#' "$ROOT/templates/docs-rules.md" > "$CL/AGENTS.md"
-printf '@AGENTS.md\n' > "$CL/CLAUDE.md"
-printf 'readme\n' > "$CL/README.md"
-printf 'plan\n' > "$CL/docs/plans/1-start.md"
-printf 'map\n' > "$CL/docs/system/overview.md"
-git -C "$CL" add -A && git -C "$CL" -c user.email=t@example.com -c user.name=t commit -q -m init
-out="$("$ROOT/scripts/legacy-scan.sh" --dir "$CL")"
-expect "legacy-scan: prints nothing for a repository that fits logbook" test -z "$out"
-CP="$TMP/legacy-places"
-mkdir -p "$CP/documentation/system" "$CP/documentation/records" "$CP/docs"
-git -C "$CP" init -q -b main
-printf 'map\n' > "$CP/documentation/system/overview.md"
-printf 'plan\n' > "$CP/documentation/records/4-start.md"
-printf 'note\n' > "$CP/documentation/records/notes.md"
-printf 'loose\n' > "$CP/documentation/loose.md"
-printf 'old\n' > "$CP/docs/old.md"
-git -C "$CP" add -A && git -C "$CP" -c user.email=t@example.com -c user.name=t commit -q -m init
-out="$("$ROOT/scripts/legacy-scan.sh" --dir "$CP" --system documentation/system --plans documentation/records/)"
-printf '%s\n' "$out" | sed 's/^/      /'
-if has_row "$out" "자리 밖 문서" "docs/old.md" && has_row "$out" "자리 밖 문서" "documentation/loose.md" && has_row "$out" "자리 밖 문서" "documentation/records/notes.md" \
-   && ! printf '%s' "$out" | grep -qE 'documentation/system/overview.md|documentation/records/4-start.md'; then
-  ok "legacy-scan: document places come from the options, as AGENTS.md's table sets them"
-else
-  bad "legacy-scan: document places come from the options, as AGENTS.md's table sets them" "$out"
-fi
-mkdir -p "$CP/docs/manual"
-printf '<html></html>\n' > "$CP/docs/manual/index.html"
-printf 'extra\n' > "$CP/docs/manual/extra.md"
-git -C "$CP" add -A && git -C "$CP" -c user.email=t@example.com -c user.name=t commit -q -m manual
-out="$("$ROOT/scripts/legacy-scan.sh" --dir "$CP" --system ./documentation/system/ --plans ./documentation/records --manual docs/manual/index.html)"
-if has_row "$out" "자리 밖 문서" "docs/manual/extra.md" && ! printf '%s' "$out" | grep -qE 'docs/manual/index.html|documentation/system/overview.md|documentation/records/4-start.md'; then
-  ok "legacy-scan: a place can be a single file, and ./ or a trailing slash is accepted"
-else
-  bad "legacy-scan: a place can be a single file, and ./ or a trailing slash is accepted" "$out"
-fi
-
 # ---------------------------------------------------------------- render-system
 echo "== render-system =="
 SYS="$ROOT/docs/system"
@@ -681,6 +658,8 @@ expect "render-system: the page is titled after the project" grep -q '<title>log
 expect "render-system: the cover shows the commit it was rendered from" grep -q '기준: ' "$TMP/handbook.html"
 expect "render-system: slide heads name the doc and the section" grep -q '기술 스택 · 구성과 기술 스택' "$TMP/handbook.html"
 expect "render-system: no template placeholders left" bash -c "! grep -qE '\\{\\{[A-Z_]+\\}\\}' '$TMP/handbook.html'"
+"$ROOT/scripts/render-system.sh" --standalone "$SYS" "$TMP/handbook-standalone.html" >/dev/null 2>&1; rc=$?
+expect "render-system: --standalone adds a doctype" bash -c "[ $rc -eq 0 ] && head -1 '$TMP/handbook-standalone.html' | grep -qx '<!doctype html>' && ! grep -qi '<!doctype' '$TMP/handbook.html'"
 HS="$TMP/html-system"
 mkdir -p "$HS"
 printf '<!-- logbook:system sources="x" -->\n# 한눈에\n\n## 한눈에 보기\n\n요약.\n\n```svg\n<svg></svg>\n```\n' > "$HS/overview.md"
@@ -763,14 +742,14 @@ expect "brief, debrief and sync handle a PR without an issue" bash -c "grep -q '
 expect "brief and plan mode read comments deferred to the issue" bash -c "grep -q 'deferred to this issue' '$ROOT/skills/brief/SKILL.md' && grep -q 'read its comments before writing' '$ROOT/skills/brief/SKILL.md'"
 expect "a small change given an issue still closes it" grep -q 'put `Closes #<issue>` in the PR body' "$ROOT/skills/brief/SKILL.md"
 expect "debrief reviews bigger changes without a plan doc and skips only the HTML" bash -c "grep -q '^## Changes without a plan doc' '$ROOT/skills/debrief/SKILL.md' && grep -q 'Anything bigger, such as a follow-up doc update or a \`/sync\` fix, runs step 3 and step 7' '$ROOT/skills/debrief/SKILL.md'"
-expect "an approved brief:skip plan follows the skip path and is not committed" grep -q 'leave the plan file out of the commit' "$ROOT/skills/brief/SKILL.md"
+expect "an approved brief:skip plan follows the skip path and stays in the git-ignored plans folder" grep -q 'the plan file stays in .\.logbook/plans/., which git ignores' "$ROOT/skills/brief/SKILL.md"
 expect "this repository's AGENTS.md has no rule block and keeps the document table" bash -c "! grep -q 'logbook:begin' '$ROOT/AGENTS.md' && grep -qx '## 문서' '$ROOT/AGENTS.md' && grep -q '| 지금 시스템' '$ROOT/AGENTS.md'"
 DR="$ROOT/templates/docs-rules.md"
 expect "document rules paragraph: four places, no logbook marker and no logbook command" bash -c "for k in system plans designs manual; do grep -q \"{\$k}\" '$DR' || exit 1; done; ! grep -qiE 'logbook|/sync|/brief|<!--' '$DR'"
 expect "the rules defer document places to AGENTS.md's table" bash -c "grep -q '문서는 AGENTS.md의 문서 규칙을 따른다' '$B' && ! grep -q '문서는 정해진 자리에 둔다' '$B'"
 expect "skills read the tracker line from the logbook rules, not from AGENTS.md" bash -c "! grep -rq 'AGENTS.md tracker line' '$ROOT/skills' && grep -q 'the tracker line in the logbook rules the session started with' '$ROOT/skills/brief/SKILL.md' && grep -q 'the tracker line in the logbook rules the session started with' '$ROOT/skills/debrief/SKILL.md' && grep -q 'the tracker line in the logbook rules the session started with' '$ROOT/skills/discuss/SKILL.md'"
 expect "rulebook runs once per clone and writes no rule block" bash -c "grep -q 'once per clone' '$ROOT/skills/rulebook/SKILL.md' && grep -q 'A plugin update needs no rerun' '$ROOT/skills/rulebook/SKILL.md'"
-expect "sync asks for the document structure when it is not in place" bash -c "grep -q '^2. \*\*Structure.\*\*' '$ROOT/skills/sync/SKILL.md' && grep -q 'templates/docs-rules.md' '$ROOT/skills/sync/SKILL.md' && grep -q 'rulebook.sh --apply --plans' '$ROOT/skills/sync/SKILL.md'"
+expect "sync asks for the document structure when it is not in place" bash -c "grep -q '^2. \*\*Structure.\*\*' '$ROOT/skills/sync/SKILL.md' && grep -q 'templates/docs-rules.md' '$ROOT/skills/sync/SKILL.md' && ! grep -q 'rulebook.sh' '$ROOT/skills/sync/SKILL.md'"
 T="$ROOT/templates/plan.md"
 expect "plan template records concerns raised about the user's decisions" grep -q '^알린 우려:' "$T"
 expect "plan template: conditional slides for logic, database and screens, no ERD filler" bash -c "grep -q '^## 주요 로직 흐름 (주요 로직이' '$T' && grep -q '^## 데이터베이스 변경 (DB 스키마가' '$T' && grep -q '^## 화면 시안 (' '$T' && ! grep -q 'ERD 변화 없음' '$T'"
@@ -794,6 +773,13 @@ expect "plan template has the epic step table and results" bash -c "grep -q '^##
 for doc in overview stack flows data-model; do
   expect "system template $doc starts with its marker" bash -c "head -1 '$ROOT/templates/system/$doc.md' | grep -q '^<!-- logbook:system sources='"
 done
+expect "brief: 중단 asks 나중에 하기 or 버리기, and a set-aside branch is picked up again" bash -c "grep -q 'On 중단, ask 나중에 하기 / 버리기' '$ROOT/skills/brief/SKILL.md' && grep -q 'status:backlog. and keeps the branch' '$ROOT/skills/brief/SKILL.md' && grep -q 'not planned' '$ROOT/skills/brief/SKILL.md' && grep -q 'When its branch already exists' '$ROOT/skills/brief/SKILL.md'"
+expect "sync: only the structure path cleans up without asking, root docs such as CONTRIBUTING stay, history is not grepped" bash -c "grep -q '^   - The structure path: set up the structure' '$ROOT/skills/sync/SKILL.md' && grep -q 'ask once whether this PR removes it' '$ROOT/skills/sync/SKILL.md' && grep -q 'CONTRIBUTING, SECURITY and CODE_OF_CONDUCT' '$ROOT/skills/sync/SKILL.md' && grep -q 'leaving out the change records and CHANGELOG' '$ROOT/skills/sync/SKILL.md'"
+expect "sync: a stale doc that still matches gets a new checked date, not new wording" bash -c "grep -q 'set .checked. to today and commit' '$ROOT/skills/sync/SKILL.md'"
+for f in "$ROOT"/templates/system/*.md; do
+  expect "system template $(basename "$f") records when it was checked" bash -c "head -1 '$f' | grep -q 'checked='"
+done
+expect "no skill, hook, script or template runs legacy-scan or passes --plans" bash -c "! grep -rqE 'legacy-scan|legacy_scan|--plans' '$ROOT/skills' '$ROOT/hooks' '$ROOT/scripts' '$ROOT/templates' '$ROOT/agents'"
 expect "system template data-model declares the table count" bash -c "head -1 '$ROOT/templates/system/data-model.md' | grep -q 'tables='"
 
 echo

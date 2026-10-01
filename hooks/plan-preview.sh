@@ -75,11 +75,10 @@ case "$(field '.hook_event_name // empty' 'd.get("hook_event_name")')" in
     out="$root/.logbook/briefs/plan-preview.html"
     tmp="$(mktemp "${TMPDIR:-/tmp}/logbook-plan.XXXXXX")" || exit 0
     printf '%s\n' "$plan" > "$tmp"
-    err="$("$PLUGIN_ROOT/scripts/render-brief.sh" "$tmp" brief "$out" 2>&1 >/dev/null)"
+    # The preview opens as a local file, without the Artifact skeleton, so it needs a doctype.
+    err="$("$PLUGIN_ROOT/scripts/render-brief.sh" --standalone "$tmp" brief "$out" 2>&1 >/dev/null)"
     status=$?
     if [ "$status" -eq 0 ]; then
-      # The local file opens without the Artifact skeleton, so give it a doctype.
-      { printf '<!doctype html>\n'; cat "$out"; } > "$tmp" && cat "$tmp" > "$out"
       if [ -z "${LOGBOOK_NO_OPEN:-}" ]; then
         if [ "$(uname -s)" = Darwin ]; then
           open "$out" >/dev/null 2>&1 || true

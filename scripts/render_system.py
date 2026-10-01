@@ -21,6 +21,7 @@ from render_brief import (  # noqa: E402
     render_meta,
     render_slide,
     split_sections,
+    standalone,
 )
 
 ORDER = ["overview.md", "stack.md", "flows.md", "data-model.md"]
@@ -48,8 +49,9 @@ def meta_line(text):
 
 
 def main(argv):
+    argv, doctype = standalone(argv)
     if len(argv) != 3:
-        fail("usage: render-system.sh <docs/system> <out.html>", 2)
+        fail("usage: render-system.sh [--standalone] <docs/system> <out.html>", 2)
     folder, out = pathlib.Path(argv[1]), pathlib.Path(argv[2])
     if not folder.is_dir():
         fail(f"no such folder: {folder}", 2)
@@ -113,7 +115,7 @@ def main(argv):
     for key, value in replacements.items():
         page = page.replace(key, value)
     out.parent.mkdir(parents=True, exist_ok=True)
-    out.write_text(page, encoding="utf-8")
+    out.write_text(doctype + page, encoding="utf-8")
     print(f"rendered {total} slides (system) -> {out}")
 
 

@@ -1,4 +1,4 @@
-<!-- logbook:system sources="{흐름의 시작점과 핵심 로직이 있는 경로 패턴. 예: src/api/** src/services/**}" -->
+<!-- logbook:system sources="{흐름의 시작점과 핵심 로직이 있는 경로 패턴. 예: src/api/** src/services/**}" checked="{코드와 마지막으로 대조한 날짜}" -->
 # 주요 흐름
 
 ## 흐름 목록

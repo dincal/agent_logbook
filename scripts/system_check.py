@@ -9,7 +9,9 @@ Each doc starts with a marker comment such as
 behind the code when that code changed after the doc did. By default the
 baseline is the last commit that touched the doc, and uncommitted edits count.
 `--range A...B` checks a pull request instead: code a doc describes changed in
-the range while the doc did not. `tables` is the number of database tables the
+the range while the doc did not. A doc that still matches the code after such a
+change is marked as checked by setting `checked` to the date and committing it;
+the commit is what clears it. `tables` is the number of database tables the
 schema defines; the ERD in data-model.md must show that many tables. A doc that
 carries HTML gets a warning, since markdown viewers show it as raw code.
 
@@ -189,7 +191,8 @@ def main():
         changed, warnings = check_doc(args, root, f"{folder_rel}/{name}", doc_paths)
         if changed:
             stale_count += 1
-            print(f"뒤처짐\t{name}\t설명하는 코드가 바뀌었습니다: {describe(changed)}")
+            print(f"뒤처짐\t{name}\t설명하는 코드가 바뀌었습니다: {describe(changed)}. "
+                  "내용이 그대로 맞으면 첫 줄 주석의 checked 날짜를 오늘로 고쳐 커밋하세요")
         for warning in warnings:
             warn_count += 1
             print(f"경고\t{name}\t{warning}")

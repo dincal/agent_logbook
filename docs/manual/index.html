@@ -242,7 +242,7 @@ flowchart LR
         <div class="name">/logbook:rulebook</div>
         <div class="when">clone마다 한 번</div>
         <p>저장소에서 logbook을 켭니다. 다시 실행해도 바뀐 게 없으면 "변경 없음"을 출력합니다. 0.7 이전의 규칙 블록이 있으면 지우고 그 안의 문서 규칙을 AGENTS.md 문단으로 옮깁니다. 문서 구조가 없거나 기존 프로젝트면 <code>/sync</code>를 이어서 실행하라고 알려 줍니다.</p>
-        <dl><dt>결과</dt><dd><code>.logbook/config.json</code>, 라벨, 플랜 폴더</dd></dl>
+        <dl><dt>결과</dt><dd><code>.logbook/config.json</code>, 라벨, 플랜 저장 위치(<code>.logbook/plans</code>)</dd></dl>
       </div>
       <div class="card">
         <div class="name">/logbook:discuss</div>
@@ -253,7 +253,7 @@ flowchart LR
       <div class="card">
         <div class="name">/logbook:brief</div>
         <div class="when">구현 전</div>
-        <p>조사하고, 흐름이 달라지는 선택은 묻고, 화면이 바뀌면 시안을 승인받습니다. 상세 문서와 브리핑 슬라이드를 만들어 이슈에 링크한 뒤 승인을 기다립니다. 여러 단계로 나뉘는 작업은 에픽 이슈와 단계 이슈로 계획합니다. 승인하면 PR과 결과 보고까지, 에픽이면 모든 단계를 거쳐 에픽 PR까지 진행합니다.</p>
+        <p>조사하고, 흐름이 달라지는 선택은 묻고, 화면이 바뀌면 시안을 승인받습니다. 상세 문서와 브리핑 슬라이드를 만들어 이슈에 링크한 뒤 승인을 기다립니다. 중단하면 나중에 할지(이슈를 backlog로 돌리고 브랜치 유지) 버릴지(이슈를 닫고 브랜치 삭제)를 묻습니다. 여러 단계로 나뉘는 작업은 에픽 이슈와 단계 이슈로 계획합니다. 승인하면 PR과 결과 보고까지, 에픽이면 모든 단계를 거쳐 에픽 PR까지 진행합니다.</p>
         <dl><dt>예</dt><dd><code>/logbook:brief 로그인에 속도 제한 추가</code> · <code>/logbook:brief #42</code> · <code>/logbook:brief #3</code>(에픽)</dd></dl>
       </div>
       <div class="card">
@@ -349,7 +349,7 @@ flowchart LR
         </tbody>
       </table>
     </div>
-    <p class="sub">예전 경로를 쓰는 코드와 설정은 지우지 않고 고친 뒤 해당 테스트를 돌립니다. git이 관리하는 파일은 작업 브랜치에서 지우므로 머지 전까지 되돌릴 수 있고, git이 관리하지 않는 로컬 파일은 휴지통으로 옮깁니다. 목록은 <code>scripts/legacy-scan.sh</code>가 만듭니다.</p>
+    <p class="sub">예전 경로를 쓰는 코드와 설정은 지우지 않고 고친 뒤 해당 테스트를 돌립니다. git이 관리하는 파일은 작업 브랜치에서 지우므로 머지 전까지 되돌릴 수 있고, git이 관리하지 않는 로컬 파일은 휴지통으로 옮깁니다. 목록은 에이전트가 git이 관리하는 파일과 관리하지 않는 파일 목록에서 찾아 만듭니다.</p>
   </section>
 
   <!-- 08 -->
@@ -374,7 +374,7 @@ flowchart LR
         <ul class="plain">
           <li>현재 브랜치의 열린 PR 본문에 <code>&lt;!-- logbook:debrief --&gt;</code>가 없으면 대화 종료를 막고 <code>/logbook:debrief</code>를 안내합니다.</li>
           <li>기본 브랜치, PR 없음, 머지된 PR, gh 오류, 이미 확인한 커밋은 그대로 통과합니다.</li>
-          <li>연속으로는 한 번만 막습니다.</li>
+          <li>같은 커밋에서는 한 번만 막고, 새 커밋이 생기면 다시 한 번 막습니다.</li>
         </ul>
       </div>
     </div>

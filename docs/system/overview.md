@@ -53,7 +53,7 @@ flowchart LR
 
 ## 용어
 
-logbook에서 쓰는 말 열세 개입니다.
+logbook에서 쓰는 말 열두 개입니다.
 
 | 용어 | 쉬운 설명 | 코드에서 부르는 이름 |
 |---|---|---|
@@ -65,7 +65,6 @@ logbook에서 쓰는 말 열세 개입니다.
 | logbook 규칙 | SessionStart hook이 세션마다 넣는 logbook 작업 규칙과 트래커 정보. 0.7 이전에는 AGENTS.md에 복사하는 규칙 블록이었습니다 | `templates/session-rules.md`, `hooks/session-rules.sh` |
 | 문서 규칙 문단 | 프로젝트의 AGENTS.md에 두는 문서와 위치 표. logbook과 상관없는 프로젝트의 약속입니다 | `templates/docs-rules.md` |
 | 시안 | 화면을 구현하기 전에 승인받는 화면 그림. Claude Code의 `/design` 캔버스로 만듭니다 | `docs/designs/<번호>-<slug>/` |
-| 옛 흔적 | 예전 에이전트 도구(paperclip 등)가 남긴 파일과 규칙 | `scripts/legacy-scan.sh` |
 | 트랙 | 구현을 나눴을 때 한 에이전트가 맡는 독립된 부분. 다른 트랙과 파일이 겹치지 않습니다 | logbook 규칙의 "구현은 이득이 있을 때만 나눈다" |
 | 에픽 | 여러 단계(하위 이슈)로 나뉜 긴 작업. `epic` 라벨이 붙고 `epic/<번호>-<slug>` 브랜치에서 진행합니다 | `skills/brief/SKILL.md`의 Epics 절 |
 | Workflow | 여러 하위 에이전트를 JavaScript 스크립트 하나로 순서대로, 동시에 띄우는 Claude Code 도구 | `templates/parallel.md` |

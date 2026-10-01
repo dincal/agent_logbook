@@ -18,6 +18,7 @@ claude plugin install logbook@agent-logbook
 - 저장소를 clone할 때마다 한 번 `/logbook:rulebook`을 실행해 logbook을 켭니다. 이 명령이 만드는 `.logbook/config.json`(git에서 제외)이 있는 저장소에만 hook이 작업 규칙을 넣습니다. 이어서 `/logbook:sync`를 실행하면 문서 구조를 정해 AGENTS.md에 문서 규칙 문단을 쓰고, 옛 문서를 정리하고, 프로젝트 문서를 씁니다.
 - 새 버전으로 올릴 때는 `claude plugin marketplace update agent-logbook`과 `claude plugin update logbook@agent-logbook`을 실행합니다. 작업 규칙은 플러그인에서 세션마다 들어가므로 프로젝트에서 따로 할 일은 없습니다.
 - 0.7 이전에 `/rulebook`으로 AGENTS.md에 규칙 블록을 넣은 프로젝트는 `/logbook:rulebook`을 한 번 더 실행합니다. 블록을 지우고, 그 안의 문서 규칙을 AGENTS.md의 일반 문단으로 옮깁니다.
+- 0.8 이전에 `/rulebook`을 실행한 프로젝트는 `/logbook:rulebook`을 한 번 더 실행하면 플랜 모드의 계획 파일이 git이 무시하는 `.logbook/plans`에 저장됩니다. 실행하기 전까지는 세션을 시작할 때 안내가 붙습니다.
 
 Codex(기본 지원):
 
@@ -32,7 +33,7 @@ Antigravity·OpenCode(안내만): `skills/` 아래 폴더를 각 하네스의 �
 
 | 명령 | 쓰는 때 | 하는 일 |
 |---|---|---|
-| `/logbook:rulebook` | clone마다 한 번 | logbook을 켜는 표시(`.logbook/config.json`), 이슈 라벨, 플랜 폴더 준비. 0.7 이전의 규칙 블록은 문서 규칙 문단으로 옮김. 문서 구조가 없거나 기존 프로젝트면 `/sync`를 안내 |
+| `/logbook:rulebook` | clone마다 한 번 | logbook을 켜는 표시(`.logbook/config.json`), 이슈 라벨, 플랜 저장 위치(`.logbook/plans`) 준비. 0.7 이전의 규칙 블록은 문서 규칙 문단으로 옮김. 문서 구조가 없거나 기존 프로젝트면 `/sync`를 안내 |
 | `/logbook:discuss` | 스펙을 정하기 전 | 코드와 웹을 읽기만 하며 아이디어를 토론. 끝에 `/brief`로 넘기기, backlog 이슈, 남기지 않기 중 선택 |
 | `/logbook:brief` | 구현 전 | 조사, 흐름이 달라지는 선택 질문, 화면 시안 승인, 상세 문서와 브리핑 슬라이드, 이슈 링크. 여러 단계로 나뉘는 작업은 에픽 이슈와 단계 이슈로 계획. 승인 뒤에는 PR과 디브리핑까지, 에픽이면 모든 단계를 에픽 브랜치에 합치고 에픽 PR까지 진행 |
 | `/logbook:debrief` | PR 직후 | 기준별 검증 증거, 프로젝트 문서와 코드 대조, 독립 리뷰, 결과 보고 슬라이드, 머지·재리뷰 선택지. 에픽 단계 PR은 슬라이드 없이 조건을 채우면 에픽 브랜치에 스스로 머지 |

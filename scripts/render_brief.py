@@ -40,7 +40,27 @@ HTML_NAMES = {
     "sub", "summary", "sup", "svg", "table", "tbody", "td", "text", "textarea", "tfoot", "th",
     "thead", "tr", "u", "ul", "video",
 }
-HTML_TAG = re.compile(r"<\s*/?\s*([A-Za-z][A-Za-z0-9-]*)\b[^<>]*>")
+HTML_TAG = re.compile(r"<\s*(/?)\s*([A-Za-z][A-Za-z0-9-]*)\b([^<>]*)>")
+CLOSING_TAG = re.compile(r"<\s*/\s*([A-Za-z][A-Za-z0-9-]*)")
+VOID_NAMES = {"br", "hr", "img", "wbr"}
+# Names that double as placeholders in prose, such as `<path>` or `<label>`. A bare opening
+# tag with one of these names counts only when the document also closes it somewhere.
+PLACEHOLDER_NAMES = {
+    "a", "article", "aside", "audio", "button", "canvas", "caption", "circle", "code", "defs",
+    "details", "ellipse", "embed", "figure", "font", "footer", "form", "g", "header", "input",
+    "label", "line", "link", "main", "mark", "meta", "nav", "object", "option", "path", "picture",
+    "polygon", "polyline", "rect", "section", "select", "small", "source", "summary", "text", "video",
+}
+
+
+def is_html_tag(match, closed):
+    """True for a tag a viewer would treat as HTML, false for a placeholder like `<path>`."""
+    slash, name, rest = match.group(1), match.group(2).lower(), match.group(3)
+    if name not in HTML_NAMES:
+        return False
+    if slash or name in VOID_NAMES or "=" in rest or rest.rstrip().endswith("/"):
+        return True
+    return name not in PLACEHOLDER_NAMES or name in closed
 
 
 def html_in_markdown(text):
@@ -50,7 +70,20 @@ def html_in_markdown(text):
     HTML comments are markers that viewers hide, and tags inside inline code or
     inside other code blocks are examples, so neither counts.
     """
-    found, fence, in_comment = [], None, False
+    found = []
+    scanned = visible_lines(text, found)
+    closed = {name.lower() for _, scan in scanned for name in CLOSING_TAG.findall(scan)}
+    for number, scan in scanned:
+        tag = next((m for m in HTML_TAG.finditer(scan) if is_html_tag(m, closed)), None)
+        if tag:
+            found.append((number, tag.group(0)))
+    return sorted(found)
+
+
+def visible_lines(text, found):
+    """(line number, text) a viewer renders as prose, tables or mermaid, without inline
+    code and HTML comments. `html`/`svg`/`xml` code blocks are added to `found`."""
+    scanned, fence, in_comment = [], None, False
     for number, line in enumerate(text.splitlines(), start=1):
         stripped = line.strip()
         if fence is None and not in_comment and stripped.startswith("```"):
@@ -72,10 +105,8 @@ def html_in_markdown(text):
         scan = re.sub(r"<!--.*?-->", "", scan)
         if "<!--" in scan:
             scan, in_comment = scan.split("<!--", 1)[0], True
-        tag = next((m for m in HTML_TAG.finditer(scan) if m.group(1).lower() in HTML_NAMES), None)
-        if tag:
-            found.append((number, tag.group(0)))
-    return found
+        scanned.append((number, scan))
+    return scanned
 
 
 def html_problem(name, found):
@@ -333,9 +364,17 @@ def render_meta(line):
     return "\n".join(chips)
 
 
+def standalone(argv):
+    """Remove `--standalone` from argv; it asks for a doctype, for a file opened locally.
+    An Artifact gets no doctype, since publishing wraps the page in its own document."""
+    flag = "--standalone" in argv
+    return [a for a in argv if a != "--standalone"], ("<!doctype html>\n" if flag else "")
+
+
 def main(argv):
+    argv, doctype = standalone(argv)
     if len(argv) != 4 or argv[2] not in KINDS:
-        fail("usage: render-brief.sh <plan-doc.md> <brief|debrief> <out.html>", 2)
+        fail("usage: render-brief.sh [--standalone] <plan-doc.md> <brief|debrief> <out.html>", 2)
     doc, kind, out = pathlib.Path(argv[1]), argv[2], pathlib.Path(argv[3])
     if not doc.is_file():
         fail(f"no such file: {doc}", 2)
@@ -373,7 +412,7 @@ def main(argv):
     for key, value in replacements.items():
         page = page.replace(key, value)
     out.parent.mkdir(parents=True, exist_ok=True)
-    out.write_text(page, encoding="utf-8")
+    out.write_text(doctype + page, encoding="utf-8")
     print(f"rendered {total} slides ({kind}) -> {out}")
 
 

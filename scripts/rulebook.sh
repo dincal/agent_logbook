@@ -8,17 +8,20 @@ set -euo pipefail
 usage() {
   cat <<'EOF'
 Usage: rulebook.sh (--dry-run | --apply) [--dir DIR] [--repo OWNER/NAME] [--base BRANCH]
-                   [--account GH_USER] [--plans DIR] [--no-labels]
+                   [--account GH_USER] [--no-labels]
 
 Writes .logbook/config.json (the marker the logbook hooks look for), the tracker labels
-on GitHub, plansDirectory into .claude/settings.json, .logbook/ into .gitignore, the plans
-folder, and an @AGENTS.md import into CLAUDE.md when AGENTS.md exists. Replaces a rule
-block from logbook before 0.7 with the document rules paragraph. --plans is the change
-record folder named in AGENTS.md's document table (default docs/plans).
+on GitHub, plansDirectory (.logbook/plans, git-ignored) into .claude/settings.json,
+.logbook/ into .gitignore, and an @AGENTS.md import into CLAUDE.md when AGENTS.md exists.
+Replaces a rule block from logbook before 0.7 with the document rules paragraph.
+Repo, base and account not given as options keep their values from an existing
+.logbook/config.json, and are otherwise read from the repository.
 EOF
 }
 
-MODE="" DIR="" REPO="" BASE="" ACCOUNT="" PLANS="docs/plans" LABELS=1
+MODE="" DIR="" REPO="" BASE="" ACCOUNT="" LABELS=1
+# Plan-mode plans land in the git-ignored .logbook/; /brief moves an approved one to the plans place.
+PLANS_DIR=.logbook/plans
 while [ $# -gt 0 ]; do
   case "$1" in
     --dry-run) MODE=dry ;;
@@ -27,7 +30,6 @@ while [ $# -gt 0 ]; do
     --repo) REPO="${2:?--repo needs a value}"; shift ;;
     --base) BASE="${2:?--base needs a value}"; shift ;;
     --account) ACCOUNT="${2:?--account needs a value}"; shift ;;
-    --plans) PLANS="${2:?--plans needs a value}"; PLANS="${PLANS%/}"; shift ;;
     --no-labels) LABELS=0 ;;
     -h|--help) usage; exit 0 ;;
     *) echo "rulebook: unknown option $1" >&2; usage >&2; exit 2 ;;
@@ -53,6 +55,19 @@ fi
 # .logbook/ there through the untracked .git/info/exclude.
 EXCLUDE=""
 [ "$CONFIG" = .logbook/config.json ] || EXCLUDE="$common/info/exclude"
+
+# An existing config keeps what the options leave out, so a rerun never drops the gh account.
+config_value() {
+  [ -f "$CONFIG" ] || return 0
+  if command -v jq >/dev/null 2>&1; then
+    jq -r --arg k "$1" '.[$k] // empty' "$CONFIG" 2>/dev/null || true
+  else
+    python3 -c 'import json,sys; v=json.load(open(sys.argv[1])).get(sys.argv[2]); print("" if v is None else v)' "$CONFIG" "$1" 2>/dev/null || true
+  fi
+}
+[ -n "$REPO" ] || REPO="$(config_value repo)"
+[ -n "$BASE" ] || BASE="$(config_value base)"
+[ -n "$ACCOUNT" ] || ACCOUNT="$(config_value account)"
 
 if [ -z "$REPO" ]; then
   origin="$(git remote get-url origin 2>/dev/null || true)"
@@ -87,12 +102,12 @@ write_if_changed() {
   note "$action" "$path"
 }
 
-# The document rules paragraph, with the default places and the plans folder given.
+# The document rules paragraph, with the default places.
 render_docs_rules() {
   local text
   text="$(cat "$DOCS_RULES")"
   text="${text//\{system\}/docs/system/}"
-  text="${text//\{plans\}/$PLANS/}"
+  text="${text//\{plans\}/docs/plans/}"
   text="${text//\{designs\}/docs/designs/}"
   text="${text//\{manual\}/docs/manual/}"
   printf '%s' "$text"
@@ -154,17 +169,17 @@ ensure_claude_import() {
 
 json_set_plans_dir() {
   if command -v jq >/dev/null 2>&1; then
-    jq --arg p "$PLANS" '.plansDirectory = $p' "$1"
+    jq --arg p "$PLANS_DIR" '.plansDirectory = $p' "$1"
   else
-    python3 -c 'import json,sys; d=json.load(open(sys.argv[1])); d["plansDirectory"]=sys.argv[2]; print(json.dumps(d, indent=2, ensure_ascii=False))' "$1" "$PLANS"
+    python3 -c 'import json,sys; d=json.load(open(sys.argv[1])); d["plansDirectory"]=sys.argv[2]; print(json.dumps(d, indent=2, ensure_ascii=False))' "$1" "$PLANS_DIR"
   fi
 }
 
 json_has_plans_dir() {
   if command -v jq >/dev/null 2>&1; then
-    jq -e --arg p "$PLANS" '.plansDirectory == $p' "$1" >/dev/null 2>&1
+    jq -e --arg p "$PLANS_DIR" '.plansDirectory == $p' "$1" >/dev/null 2>&1
   else
-    python3 -c 'import json,sys; sys.exit(0 if json.load(open(sys.argv[1])).get("plansDirectory")==sys.argv[2] else 1)' "$1" "$PLANS" 2>/dev/null
+    python3 -c 'import json,sys; sys.exit(0 if json.load(open(sys.argv[1])).get("plansDirectory")==sys.argv[2] else 1)' "$1" "$PLANS_DIR" 2>/dev/null
   fi
 }
 
@@ -178,7 +193,7 @@ ensure_plans_setting() {
     new="$(json_set_plans_dir "$file")" || { echo "rulebook: cannot parse $file" >&2; exit 1; }
     write_if_changed "$file" "$new"$'\n'
   else
-    write_if_changed "$file" "{"$'\n'"  \"plansDirectory\": \"$PLANS\""$'\n'"}"$'\n'
+    write_if_changed "$file" "{"$'\n'"  \"plansDirectory\": \"$PLANS_DIR\""$'\n'"}"$'\n'
   fi
 }
 
@@ -193,14 +208,6 @@ ensure_gitignore() {
   else
     write_if_changed "$file" ".logbook/"$'\n'
   fi
-}
-
-ensure_plans_dir() {
-  if [ -d "$PLANS" ] && [ -n "$(ls -A "$PLANS" 2>/dev/null)" ]; then
-    note unchanged "$PLANS/"
-    return 0
-  fi
-  write_if_changed "$PLANS/.gitkeep" ""
 }
 
 config_json() {
@@ -252,12 +259,11 @@ epic|3E4B9E|Epic / Large initiative
 EOF
 }
 
-echo "logbook rulebook ($MODE): dir=$DIR repo=${REPO:-none} base=$BASE account=${ACCOUNT:-default} plans=$PLANS"
+echo "logbook rulebook ($MODE): dir=$DIR repo=${REPO:-none} base=$BASE account=${ACCOUNT:-default}"
 migrate_agents_block
 ensure_claude_import
 ensure_plans_setting
 ensure_gitignore
-ensure_plans_dir
 write_config
 ensure_labels
 

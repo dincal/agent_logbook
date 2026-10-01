@@ -18,7 +18,7 @@ A change that one sentence fully describes (a typo, a rename, a small config twe
 
 1. **Issue and branch.**
    - Use the issue number in `$ARGUMENTS` when given. Otherwise create one labelled `status:todo` in the repo named on the tracker line in the logbook rules the session started with (the SessionStart hook adds them from `.logbook/config.json`). When the session got no logbook rules (for instance `/rulebook` ran in this session), read repo, base and account from `.logbook/config.json` in the main checkout instead.
-   - An issue given in `status:backlog` (one `/discuss` left for later, for instance) moves to `status:todo`.
+   - An issue given in `status:backlog` (one `/discuss` left for later, for instance) moves to `status:todo`. When its branch already exists (a plan set aside with 나중에 하기 in step 9), check it out and start from the plan doc on it when there is one.
    - Read the given issue's comments too: follow-up work deferred to this issue, such as a doc update, is left there as a comment and belongs in this change.
    - Run gh with the account on that line: `GH_TOKEN="$(gh auth token --user <account>)" gh ...`. Without an account there, use the default login.
    - Slug: a short kebab-case summary. Branch: `<type>/<issue>-<slug>` (feat, fix, refactor, docs or chore), cut from the base branch.
@@ -38,7 +38,7 @@ A change that one sentence fully describes (a typo, a rename, a small config twe
 4. **Screen mockup.** When the change adds a screen or visibly reshapes one:
    - On Claude Code with artifacts, draft a Design canvas, the same canvas `/design` makes: `Artifact` quickstart with intent `design`, then create one from the Design type. Draw one artboard per screen and state (default, empty, error), after reading the project's design tokens and components.
    - Elsewhere, write a static HTML mockup to `docs/designs/<issue>-<slug>/index.html` and open it in the browser.
-   - Ask 승인 / 고쳐 달라 / 시안 없이 진행 / 중단. On a change request, read the canvas again first (the user may have edited it), apply the feedback, republish to the same URL and ask again.
+   - Ask 승인 / 고쳐 달라 / 시안 없이 진행 / 중단 (중단 is handled as in step 9). On a change request, read the canvas again first (the user may have edited it), apply the feedback, republish to the same URL and ask again.
    - After approval, read the canvas back and save `project/canvas.json` and the `project/*.dc.html` artboards to `docs/designs/<issue>-<slug>/`. Implementation follows that copy.
 5. **Plan document.**
    - Write `docs/plans/<issue>-<slug>.md` from `${CLAUDE_PLUGIN_ROOT}/templates/plan.md`, by `${CLAUDE_PLUGIN_ROOT}/templates/writing.md`.
@@ -56,7 +56,7 @@ A change that one sentence fully describes (a typo, a rename, a small config twe
    - Always include the main logic flow the change adds or alters, and an ERD of any database schema change.
 7. **Render and publish.**
    - `${CLAUDE_PLUGIN_ROOT}/scripts/render-brief.sh docs/plans/<issue>-<slug>.md brief .logbook/briefs/<issue>-brief.html`
-   - On Claude Code, publish that file as an Artifact and keep the link. Where publishing is unavailable, use the local file path as the link.
+   - On Claude Code, publish that file as an Artifact and keep the link. Where publishing is unavailable, render with `--standalone` (it adds a doctype) and use the local file path as the link.
 8. **Link.**
    - Put the briefing link and the doc link in the doc header and in the issue body's link list. Read the body first; an edit replaces it whole.
    - Comment on the issue with a three-line summary, the briefing link and the 판단 필요 items.
@@ -64,6 +64,7 @@ A change that one sentence fully describes (a typo, a rename, a small config twe
 9. **Approval.**
    - Called by `/sync`: ask "진행 / 수정 / 중단" and wait, then hand back to `/sync`, which carries out the approved plan itself under the "While carrying it out" rules below.
    - Walk-in request: ask "진행 / 수정 / 중단" and wait. Right after a plan-mode approval, the approval is already given.
+   - On 중단, ask 나중에 하기 / 버리기. 나중에 하기 moves the issue to `status:backlog` and keeps the branch, so `/brief #<issue>` picks it up again. 버리기 closes the issue as not planned (`gh issue close --reason "not planned"`) and deletes the branch, locally and on the remote where it was pushed. Then stop, and so does a calling `/sync`.
    - Once approved, move the issue to `status:in-progress` and carry the plan out to the end without asking for approval again: implement, open the PR with `Closes #<issue>` and run `/debrief`. For an epic, do After approval and then Run under Epics.
    - Split the work into parallel builder tracks only where the logbook rule says it pays, launched as subagents or a Workflow as `${CLAUDE_PLUGIN_ROOT}/templates/parallel.md` says.
    - While carrying it out: do not weaken or delete tests; stop and ask before a schema change or data deletion the plan does not cover; record anything decided differently from the plan, with the reason, in the plan doc's 결정 기록; update `docs/system/` in the same PR when the change alters what it describes.
@@ -96,7 +97,7 @@ An epic is an issue labelled `epic` whose child issues are its steps. The human 
 
 - Write the plan file itself in the plan.md format, brief block included. The logbook hook renders it in the browser when the approval screen appears, and denies a plan without a complete block.
 - When the plan starts from an existing issue, read its comments before writing, as step 1 says.
-- For a change that "When to skip" covers, put a `<!-- brief:skip -->` line in the plan instead. After approval, follow "When to skip" rather than the steps below, and leave the plan file out of the commit.
+- For a change that "When to skip" covers, put a `<!-- brief:skip -->` line in the plan instead. After approval, follow "When to skip" rather than the steps below; the plan file stays in `.logbook/plans/`, which git ignores.
 - Plan mode is read-only, so step 4 cannot run there; list the screens to mock up in the plan. After approval and before editing code: do step 1 if the issue or branch does not exist yet, run step 4 when the plan has screens, move the plan file to `docs/plans/<issue>-<slug>.md`, then do steps 7 and 8, and for an epic the After approval items under Epics.
 
 ## Language
