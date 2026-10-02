@@ -1,4 +1,4 @@
-<!-- logbook:system sources=".claude-plugin/** hooks/** scripts/** templates/** tests/** agents/**" checked="2026-10-01" -->
+<!-- logbook:system sources=".claude-plugin/** hooks/** scripts/** templates/** tests/** agents/**" checked="2026-10-02" -->
 # 기술 스택
 
 ## 구성과 기술 스택
@@ -24,7 +24,7 @@ flowchart LR
 | 템플릿 | Markdown, HTML과 CSS | 계획 문서, 세션 규칙, 문서 규칙 문단, 슬라이드 모양, 프로젝트 문서의 뼈대, 글쓰기와 그림 안내, 병렬 실행 안내 | 한 곳을 고치면 모든 프로젝트에 적용됩니다 |
 | 리뷰어 | Markdown(`agents/reviewer.md`) | PR을 새 컨텍스트에서 읽기만 하며 검토 | 품질 검사라 Claude Code에서는 Opus 모델, high effort로 실행합니다 |
 | builder 3개 | Markdown(`agents/builder-fast.md`, `builder.md`, `builder-deep.md`) | 나눈 구현 트랙을 동시에 구현 | Agent 도구는 호출할 때 effort를 넘길 수 없어서 등급마다 파일을 따로 둡니다 |
-| Workflow | Claude Code의 Workflow 도구(JavaScript 스크립트) | 트랙이나 조사 영역이 셋 이상이거나 긴 작업일 때 에이전트를 한 스크립트로 띄움 | 트랙마다 결과를 정해진 형식으로 받고, 끊기면 이어서 실행합니다. 스크립트 틀은 `templates/parallel.md`에 있고, 쓸 수 없으면 서브에이전트로 띄웁니다 |
+| Workflow | Claude Code의 Workflow 도구(JavaScript 스크립트) | 트랙, 조사 영역, 나눠 보는 리뷰의 리뷰어가 셋 이상이거나 긴 작업일 때 에이전트를 한 스크립트로 띄움 | 트랙마다 결과를 정해진 형식으로 받고, 끊기면 이어서 실행합니다. 스크립트 틀은 `templates/parallel.md`에 있고, 쓸 수 없으면 서브에이전트로 띄웁니다 |
 
 ## 배포와 실행 환경
 
@@ -48,7 +48,7 @@ logbook은 역할마다 모델을 정해 두고, 본 작업은 사용자가 고�
 
 | 모델 | 고르는 설정(기본값) | 쓰는 곳 | 부르는 방법 |
 |---|---|---|---|
-| Opus 5.5, high effort | `agents/reviewer.md`의 `model: opus`, `effort: high` | 구현 후 결과 보고의 별도 리뷰, 에픽 PR의 에픽 리뷰 | Claude Code 하위 에이전트. 다른 하네스에서는 세션 모델 |
+| Opus 5.5, high effort | `agents/reviewer.md`의 `model: opus`, `effort: high` | 구현 후 결과 보고의 별도 리뷰(큰 PR은 영역 리뷰와 이음새 리뷰로 나눠 동시에), 에픽 PR의 에픽 리뷰 | Claude Code 하위 에이전트, 리뷰를 셋 이상으로 나누면 Workflow. 다른 하네스에서는 세션 모델 |
 | Sonnet 5.5 | `templates/parallel.md`의 모델 표(서브에이전트는 `model: sonnet`, Workflow는 `agent()`의 `model: 'sonnet'`) | `/discuss`, `/brief`, `/sync`의 코드 조사(Explore) | Claude Code 하위 에이전트나 Workflow. 다른 하네스에서는 세션 모델 |
 | Sonnet 5.5, medium effort | `agents/builder-fast.md` | 규모는 있지만 정형화된 병렬 구현 트랙 | Claude Code 하위 에이전트나 Workflow(같은 `agentType`, `model`, `effort`) |
 | 세션 모델, medium effort | `agents/builder.md`의 `model: inherit` | 범위가 분명한 병렬 구현 트랙 | Claude Code 하위 에이전트나 Workflow(같은 `agentType`, `model`, `effort`) |
