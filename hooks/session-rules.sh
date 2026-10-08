@@ -28,7 +28,7 @@ json_key() { # file key
   fi
 }
 
-project="$(field '.cwd // empty' 'd.get("cwd")')"
+project="$(field '.cwd // .workspacePaths[0] // empty' 'd.get("cwd") or (d.get("workspacePaths") or [None])[0]')"
 [ -n "$project" ] || project="${CLAUDE_PROJECT_DIR:-$PWD}"
 # Outside git, the folder itself is both the working tree and the main checkout.
 top="$(git -C "$project" rev-parse --show-toplevel 2>/dev/null)" || top="$project"
@@ -68,9 +68,9 @@ if [ -n "$plans_dir" ]; then
   note="${note}.claude/settings.json이 플랜 모드의 계획 파일을 \`${plans_dir}\`에 저장한다. logbook 0.8부터는 git이 무시하는 \`.logbook/plans\`에 두고, 0.9부터는 승인된 계획도 커밋하지 않고 원래 checkout의 \`.logbook/plans\`에 둔다. /rulebook을 다시 실행하면 바뀐다. 사람에게 한 번 알린다."
 fi
 
-python3 - "$PLUGIN_ROOT/templates/session-rules.md" "$version" "$repo" "$base" "$account" "$note" "$PLUGIN_ROOT" <<'EOF'
+python3 - "$PLUGIN_ROOT/templates/session-rules.md" "$version" "$repo" "$base" "$account" "$note" "$PLUGIN_ROOT" "$INPUT" <<'EOF'
 import json, sys
-path, version, repo, base, account, note, plugin_root = sys.argv[1:8]
+path, version, repo, base, account, note, plugin_root, raw_input = sys.argv[1:9]
 text = open(path, encoding="utf-8").read()
 if not account:
     text = text.replace(" · gh 계정 `{account}`", "")
@@ -79,6 +79,17 @@ for key, value in (("version", version or "?"), ("repo", repo), ("base", base), 
 text = text.rstrip("\n") + "\n"
 if note:
     text += "\n" + note + "\n"
-print(json.dumps({"hookSpecificOutput": {"hookEventName": "SessionStart", "additionalContext": text}}, ensure_ascii=False))
+
+try:
+    data = json.loads(raw_input) if raw_input else {}
+except Exception:
+    data = {}
+
+if data.get("workspacePaths") or data.get("conversationId"):
+    out = {"injectSteps": [{"ephemeralMessage": text}]}
+else:
+    out = {"hookSpecificOutput": {"hookEventName": "SessionStart", "additionalContext": text}}
+
+print(json.dumps(out, ensure_ascii=False))
 EOF
 exit 0

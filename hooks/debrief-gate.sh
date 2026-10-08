@@ -38,10 +38,11 @@ run_timeout() { # seconds command...
 }
 
 [ "$(field '.stop_hook_active // false' 'd.get("stop_hook_active", False)')" = "true" ] && exit 0
+[ "$(field '.fullyIdle // true' 'd.get("fullyIdle", True)')" = "false" ] && exit 0
 bg="$(field '(.background_tasks // []) | length' 'len(d.get("background_tasks") or [])')"
 [ -n "$bg" ] && [ "$bg" != "0" ] && exit 0
 
-cwd="$(field '.cwd // empty' 'd.get("cwd")')"
+cwd="$(field '.cwd // .workspacePaths[0] // empty' 'd.get("cwd") or (d.get("workspacePaths") or [None])[0]')"
 [ -n "$cwd" ] && cd "$cwd" 2>/dev/null
 git rev-parse --is-inside-work-tree >/dev/null 2>&1 || exit 0
 branch="$(git symbolic-ref --quiet --short HEAD 2>/dev/null)" || exit 0
@@ -87,9 +88,12 @@ esac
 
 url="$(json_key "$pr" url)"
 reason="PR ${url}에 디브리핑이 없습니다. /debrief를 실행해 수용 기준별 증거를 PR 본문에 남기세요. 계획 문서가 있는 PR은 결과 HTML도 PR과 이슈에 붙입니다(에픽 단계 PR은 HTML 없이 PR 본문에만 남깁니다)."
+is_agy="$(field '.workspacePaths // .conversationId // empty' 'd.get("workspacePaths") or d.get("conversationId")')"
+decision="block"
+[ -n "$is_agy" ] && decision="continue"
 if have_jq; then
-  jq -cn --arg r "$reason" '{decision: "block", reason: $r}'
+  jq -cn --arg d "$decision" --arg r "$reason" '{decision: $d, reason: $r}'
 else
-  python3 -c "import json,sys; print(json.dumps({'decision': 'block', 'reason': sys.argv[1]}, ensure_ascii=False))" "$reason"
+  python3 -c "import json,sys; print(json.dumps({'decision': sys.argv[1], 'reason': sys.argv[2]}, ensure_ascii=False))" "$decision" "$reason"
 fi
 exit 0

@@ -28,7 +28,13 @@ codex plugin marketplace add <이 저장소의 로컬 경로>
 codex plugin add logbook@agent-logbook
 ```
 
-Antigravity·OpenCode(안내만): `skills/` 아래 폴더를 각 하네스의 스킬 경로에 링크합니다. hook이 없으므로 `scripts/rulebook.sh --apply`로 logbook을 켠 뒤, `echo '{}' | hooks/session-rules.sh`가 출력하는 `additionalContext`의 규칙을 프로젝트 `AGENTS.md`에 직접 붙여 넣습니다. 이 경우에는 플러그인을 올릴 때마다 다시 붙여 넣어야 합니다.
+Antigravity(agy):
+
+```bash
+agy plugin install <이 저장소의 로컬 경로>
+```
+
+OpenCode(안내만): `skills/` 아래 폴더를 각 하네스의 스킬 경로에 링크합니다. hook이 없으므로 `scripts/rulebook.sh --apply`로 logbook을 켠 뒤, `echo '{}' | hooks/session-rules.sh`가 출력하는 `additionalContext`의 규칙을 프로젝트 `AGENTS.md`에 직접 붙여 넣습니다. 이 경우에는 플러그인을 올릴 때마다 다시 붙여 넣어야 합니다.
 
 ## 명령(스킬)
 

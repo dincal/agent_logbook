@@ -47,7 +47,7 @@ has_line() { printf '%s\n' "$1" | grep -qE "^[[:space:]]*$2[[:space:]]*\$"; }
 [ -z "$(field '.agent_id // empty' 'd.get("agent_id")')" ] || exit 0
 
 project="${CLAUDE_PROJECT_DIR:-}"
-[ -n "$project" ] || project="$(field '.cwd // empty' 'd.get("cwd")')"
+[ -n "$project" ] || project="$(field '.cwd // .workspacePaths[0] // empty' 'd.get("cwd") or (d.get("workspacePaths") or [None])[0]')"
 [ -n "$project" ] || project="$PWD"
 # Outside git, the project folder itself is both the working tree and the main checkout.
 top="$(git -C "$project" rev-parse --show-toplevel 2>/dev/null)" || top="$project"

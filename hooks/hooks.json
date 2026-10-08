@@ -6,7 +6,7 @@
         "hooks": [
           {
             "type": "command",
-            "command": "\"${CLAUDE_PLUGIN_ROOT}\"/hooks/session-rules.sh",
+            "command": "\"${CLAUDE_PLUGIN_ROOT:-$PLUGIN_ROOT}\"/hooks/session-rules.sh",
             "timeout": 10
           }
         ]
@@ -18,7 +18,7 @@
         "hooks": [
           {
             "type": "command",
-            "command": "\"${CLAUDE_PLUGIN_ROOT}\"/hooks/plan-preview.sh",
+            "command": "\"${CLAUDE_PLUGIN_ROOT:-$PLUGIN_ROOT}\"/hooks/plan-preview.sh",
             "timeout": 30
           }
         ]
@@ -30,7 +30,7 @@
         "hooks": [
           {
             "type": "command",
-            "command": "\"${CLAUDE_PLUGIN_ROOT}\"/hooks/plan-preview.sh",
+            "command": "\"${CLAUDE_PLUGIN_ROOT:-$PLUGIN_ROOT}\"/hooks/plan-preview.sh",
             "timeout": 10
           }
         ]
@@ -41,7 +41,7 @@
         "hooks": [
           {
             "type": "command",
-            "command": "\"${CLAUDE_PLUGIN_ROOT}\"/hooks/debrief-gate.sh",
+            "command": "\"${CLAUDE_PLUGIN_ROOT:-$PLUGIN_ROOT}\"/hooks/debrief-gate.sh",
             "timeout": 20
           }
         ]
