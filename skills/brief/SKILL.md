@@ -62,7 +62,7 @@ A change that one sentence fully describes (a typo, a rename, a small config twe
    - Do not commit the plan doc.
 9. **Approval.**
    - Ask in the chat as `${CLAUDE_PLUGIN_ROOT}/templates/briefing.md` says: one sentence of summary, your calls that change behavior or cost, the risks and 판단 필요, the number of acceptance criteria and the page link, then "진행 / 수정 / 중단" with the question tool.
-   - Called by `/sync`: ask the same; once approved, move the issue to `status:in-progress` and hand back to `/sync`, which carries out the approved plan itself; do not invoke `/build`.
+   - Called by `/sync`: ask the same and hand back to `/sync`, which carries out the approved plan itself. Leave the issue's label to `/sync` and do not invoke `/build`, so that a rerun of `/sync` briefs again instead of handing its plan to `/build`.
    - On 수정, change the plan, rewrite the issue body's text briefing, republish the page to the same URL and ask again.
    - On 중단, ask 나중에 하기 / 버리기 with the question tool. 나중에 하기 moves the issue to `status:backlog`, keeps the branch, and posts the whole plan doc as an issue comment whose first line is `계획 문서`, so `/brief #<issue>` picks it up again on any clone. 버리기 closes the issue as not planned (`gh issue close --reason "not planned"`) and deletes the branch, locally and on the remote where it was pushed. Then stop, and so does a calling `/sync`.
    - Otherwise, once approved, move the issue to `status:in-progress` and invoke `/build #<issue>` without asking for approval again. The briefing page stays as approved; later changes to the plan appear in the debriefing.
