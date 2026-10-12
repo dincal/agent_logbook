@@ -49,7 +49,7 @@ logbook은 역할마다 모델을 정해 두고, 본 작업은 사용자가 고�
 
 | 모델 | 고르는 설정(기본값) | 쓰는 곳 | 부르는 방법 |
 |---|---|---|---|
-| Opus 5.5, high effort | `agents/reviewer.md`의 `model: opus`, `effort: high` | 구현 후 결과 보고의 별도 리뷰(큰 PR은 영역 리뷰와 이음새 리뷰로 나눠 동시에), `/build`에서 합치기 전의 위험한 트랙 리뷰(영역 모드) | Claude Code 하위 에이전트, 리뷰를 셋 이상으로 나누면 Workflow. 다른 하네스에서는 세션 모델 |
+| Opus 5.5, high effort | `agents/reviewer.md`의 `model: opus`, `effort: high` | 구현 후 결과 보고의 별도 리뷰(큰 PR은 영역 리뷰와 이음새 리뷰로 나눠 동시에), `/build`에서 합치기 전의 위험한 트랙 리뷰(영역 모드) | Claude Code 하위 에이전트, 나눠 보는 리뷰는 Workflow. 다른 하네스에서는 세션 모델 |
 | Opus 5.5, high effort | `agents/checker.md`의 `model: opus`, `effort: high` | `/brief`의 독립 점검(계획 문서를 쓰기 전, 플랜 모드 포함) | Claude Code 하위 에이전트. 쓸 수 없으면 세션이 네 관점으로 한 번 더 훑고 점검하지 못했다고 브리핑에 적음 |
 | Sonnet 5.5 | `templates/parallel.md`의 모델 표(서브에이전트는 `model: sonnet`, Workflow는 `agent()`의 `model: 'sonnet'`) | `/discuss`, `/brief`, `/sync`의 코드 조사(Explore) | Claude Code 하위 에이전트나 Workflow. 다른 하네스에서는 세션 모델 |
 | Sonnet 5.5, medium effort | `agents/builder-fast.md` | 규모는 있지만 정형화된 병렬 구현 트랙 | Claude Code 하위 에이전트나 Workflow(같은 `agentType`, `model`, `effort`) |
@@ -68,7 +68,7 @@ logbook은 역할마다 모델을 정해 두고, 본 작업은 사용자가 고�
 |---|---|
 | 테스트 | `bash tests/run.sh` |
 | 플러그인 구조 검사 | `claude plugin validate .` |
-| markdown 슬라이드 렌더 | `scripts/render-brief.sh [--standalone] <계획 문서> brief <출력 파일>`. 브리핑과 결과 화면에는 쓰지 않고, 핸드북 렌더러와 문서 검사가 가져다 쓰며, 플랜 hook이 HTML 검사에 씁니다. `--standalone`은 로컬에서 열 파일에 doctype을 붙입니다 |
+| markdown 슬라이드 렌더 | `scripts/render-brief.sh [--standalone] <계획 문서> brief <출력 파일>`. 브리핑과 결과 화면에는 쓰지 않습니다. 핸드북 렌더러(`render_system.py`)와 문서 검사(`system_check.py`)가 Python 모듈 `render_brief.py`를 가져다 쓰고, 플랜 hook이 이 셸 스크립트로 HTML을 검사합니다. `--standalone`은 로컬에서 열 파일에 doctype을 붙입니다 |
 | 핸드북 렌더 | `scripts/render-system.sh [--standalone] docs/system <출력 파일>` |
 | 문서와 코드 대조 | `scripts/system-check.sh` |
 | 병렬용 worktree | `scripts/worktree.sh add <브랜치> [<기준 브랜치>]`, `remove <브랜치> [--delete-branch]`, `path <브랜치>`. 원래 checkout의 `.logbook/worktrees/`에 만들고, 커밋하지 않은 변경이 있으면 지우지 않고(종료 코드 3), 합치지 않은 브랜치는 남깁니다(종료 코드 4) |

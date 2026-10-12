@@ -21,7 +21,7 @@ The user is not asked about tracks, and the briefing page does not show the grap
 | | Subagents | Workflow |
 |---|---|---|
 | What it is | The session calls the Agent tool once per track or area, in one message | The session runs one Workflow script (Claude Code's tool that spawns agents from a JavaScript script with `agent()`, `parallel()` and `pipeline()`) |
-| Pick it when | Research or a split review with one or two areas, and any harness without the Workflow tool | Every `/build` wave that holds builder tracks, however many, and research or a split review with three or more areas or reviewers, when the Workflow tool is available |
+| Pick it when | Research with one or two areas, and any harness without the Workflow tool | Every `/build` wave that holds builder tracks, however many, research with three or more areas, and every split review (it has at least three reviewers: two areas and the seam), when the Workflow tool is available |
 | What it adds | Nothing to set up | Each track returns a result in a fixed shape (schema), an interrupted run resumes with `resumeFromRunId`, and `/workflows` shows progress |
 
 - Either way, each track runs in the shared working tree or in a git worktree of its own; see Where tracks run.
@@ -90,5 +90,5 @@ One `parallel()` over the areas, each an Explore agent on Sonnet that returns fi
 - Areas: one per track, by the files each track changed; files no track changed (the session's own edits, docs, glue after merging) form one more area. Without tracks, split by top-level folder or module so that each area is a few hundred to about 1,500 lines. Merge small areas so the reviewers, the seam one included, stay within the Workflow size setting.
 - Area reviewer: `logbook:reviewer` in area mode, given the PR body, the full diff stat and the diff of its area's files. It may read any other file from the checkout.
 - Seam reviewer: `logbook:reviewer` in seam mode, given the PR body, the full diff stat, the area list with its files, the diff of the shared parts (the commit made before the tracks, or files that several areas use) and the diff of every file two or more areas changed.
-- Launch them as the table under Two ways to launch says: subagents for two, a Workflow for three or more. In a Workflow, each reviewer is `agent()` with `agentType: 'logbook:reviewer', model: 'opus', effort: 'high'`, the values its frontmatter carries.
+- Launch them at once as a Workflow, since a split review always has three or more reviewers; without the Workflow tool, as subagents in one message. In a Workflow, each reviewer is `agent()` with `agentType: 'logbook:reviewer', model: 'opus', effort: 'high'`, the values its frontmatter carries.
 - The session merges their findings, drops duplicates, and filters them as `/debrief` step 3 says. The PR body's review line names the areas.

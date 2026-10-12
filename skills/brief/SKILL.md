@@ -26,7 +26,7 @@ A change that one sentence fully describes (a typo, a rename, a small config twe
    - Run gh with the account on that line: `GH_TOKEN="$(gh auth token --user <account>)" gh ...`. Without an account there, use the default login.
    - Slug: a short kebab-case summary. Branch: `<type>/<issue>-<slug>` (feat, fix, refactor, docs or chore), cut from the base branch.
    - One request is one issue and one PR, however large, and even when it mixes unrelated features. Large work is split into tracks inside it (step 5), never into child issues.
-   - Work in the main checkout and switch branches there. When something makes the main checkout unfit (uncommitted changes, a service running from it, another session working there), say what and ask before making a worktree with `${CLAUDE_PLUGIN_ROOT}/scripts/worktree.sh add`; then do as the user picks: the worktree, the main checkout, or stop.
+   - Work in the main checkout and switch branches there. When something makes the main checkout unfit (uncommitted changes, a service running from it, another session working there), say what and ask with the question tool before making a worktree with `${CLAUDE_PLUGIN_ROOT}/scripts/worktree.sh add`; then do as the user picks: the worktree, the main checkout, or stop.
 2. **Research.**
    - Start from `docs/system/` when it exists; it describes the system as it is, and `rules.md` there holds the domain rules users settled before. Note which of those docs the change will alter.
    - Code: research areas that do not depend on each other in parallel, with Explore subagents on Sonnet or a Workflow as `${CLAUDE_PLUGIN_ROOT}/templates/parallel.md` says. They read and report, you check their findings, and you read the files the change touches yourself.
@@ -62,9 +62,9 @@ A change that one sentence fully describes (a typo, a rename, a small config twe
    - Do not commit the plan doc.
 9. **Approval.**
    - Ask in the chat as `${CLAUDE_PLUGIN_ROOT}/templates/briefing.md` says: one sentence of summary, your calls that change behavior or cost, the risks and 판단 필요, the number of acceptance criteria and the page link, then "진행 / 수정 / 중단" with the question tool.
-   - Called by `/sync`: ask the same and hand back to `/sync`, which carries out the approved plan itself; do not invoke `/build`.
-   - On 수정, change the plan, republish the page to the same URL and ask again.
-   - On 중단, ask 나중에 하기 / 버리기. 나중에 하기 moves the issue to `status:backlog`, keeps the branch, and posts the whole plan doc as an issue comment whose first line is `계획 문서`, so `/brief #<issue>` picks it up again on any clone. 버리기 closes the issue as not planned (`gh issue close --reason "not planned"`) and deletes the branch, locally and on the remote where it was pushed. Then stop, and so does a calling `/sync`.
+   - Called by `/sync`: ask the same; once approved, move the issue to `status:in-progress` and hand back to `/sync`, which carries out the approved plan itself; do not invoke `/build`.
+   - On 수정, change the plan, rewrite the issue body's text briefing, republish the page to the same URL and ask again.
+   - On 중단, ask 나중에 하기 / 버리기 with the question tool. 나중에 하기 moves the issue to `status:backlog`, keeps the branch, and posts the whole plan doc as an issue comment whose first line is `계획 문서`, so `/brief #<issue>` picks it up again on any clone. 버리기 closes the issue as not planned (`gh issue close --reason "not planned"`) and deletes the branch, locally and on the remote where it was pushed. Then stop, and so does a calling `/sync`.
    - Otherwise, once approved, move the issue to `status:in-progress` and invoke `/build #<issue>` without asking for approval again. The briefing page stays as approved; later changes to the plan appear in the debriefing.
 
 ## Plan mode
@@ -72,7 +72,7 @@ A change that one sentence fully describes (a typo, a rename, a small config twe
 - Run steps 2 and 3 in plan mode, the independent check included, then write the plan file itself in the plan.md format, brief block and track graph included. The logbook hook denies a plan without a complete block or with HTML in it.
 - When the plan starts from an existing issue, read its comments before writing, as step 1 says.
 - For a change that "When to skip" covers, put a `<!-- brief:skip -->` line in the plan instead. After approval, follow "When to skip" rather than the steps below; the plan file stays in `.logbook/plans/`, which git ignores.
-- Plan mode is read-only, so steps 4, 7 and 8 wait for the plan's approval. After it and before editing code: do step 1 if the issue or branch does not exist yet, run step 4 when the plan has screens, move the plan file to `<main>/.logbook/plans/<issue>-<slug>.md` (in a worktree, plan mode saved it in the worktree's own `.logbook/plans/`), do steps 7 and 8, then ask for approval once more in the chat as step 9 says. On 진행, hand it to `/build`.
+- Plan mode is read-only, so steps 4, 7 and 8 wait for the plan's approval. After it and before editing code: do step 1 if the issue or branch does not exist yet, run step 4 when the plan has screens, move the plan file to `<main>/.logbook/plans/<issue>-<slug>.md` (in a worktree, plan mode saved it in the worktree's own `.logbook/plans/`), do steps 7 and 8, then ask for approval once more in the chat as step 9 says. On 진행, move the issue to `status:in-progress` and invoke `/build #<issue>`.
 
 ## Language
 

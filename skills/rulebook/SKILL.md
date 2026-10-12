@@ -28,7 +28,7 @@ The rules themselves live in the plugin (`${CLAUDE_PLUGIN_ROOT}/templates/sessio
 2. Resolve the values.
    - Repo: `$ARGUMENTS` when given, otherwise the `origin` remote.
    - Base branch: the remote default branch, otherwise `main`.
-   - gh account: when `gh auth status` lists several accounts, pick the one whose name matches the repo owner. If none matches, ask which account owns the repository, with the accounts as options.
+   - gh account: when `gh auth status` lists several accounts, pick the one whose name matches the repo owner. If none matches, ask with the question tool which account owns the repository, with the accounts as options.
 3. Run `rulebook.sh --dry-run --repo <repo> --base <base> [--account <account>]` and show the planned changes. Ask for approval before writing, with the question tool as `${CLAUDE_PLUGIN_ROOT}/templates/questions.md` says.
 4. Run the same command with `--apply` and report every line it prints. A second run prints `변경 없음`.
 5. When files the repository tracks changed (anything but `.logbook/` and labels), commit them on a work branch with the next change, not directly on the base branch. A fresh clone of a logbook repository usually changes nothing tracked.

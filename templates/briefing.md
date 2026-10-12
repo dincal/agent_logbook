@@ -25,7 +25,7 @@ There is no template. Read the change and pick the pictures that explain it best
 
 ## Build and publish
 
-- On Claude Code, follow the artifact-design guidance (load the `artifact-design` skill), write the page to `<main>/.logbook/briefs/<issue>-brief.html` or `<issue>-debrief.html`, and publish it as an Artifact without runtime capabilities. Where publishing is unavailable (`claude -p`, no claude.ai login, other harnesses), write the same file as a complete HTML document with a doctype and a UTF-8 charset, open it in the browser, and use its path as the link.
+- On Claude Code, follow the artifact-design guidance (load the `artifact-design` skill), write the page to `<main>/.logbook/briefs/<issue>-brief.html` or `<issue>-debrief.html`, and publish it as an Artifact without runtime capabilities. Where publishing is unavailable (`claude -p`, no claude.ai login, other harnesses), write the same file as a complete HTML document with a doctype and a UTF-8 charset, open it in the browser, and use its path as the link. The Artifact viewer draws mermaid by itself; a local file loads mermaid from a pinned CDN version, or draws its pictures without it.
 - Look at the page once before publishing when the session offers a way, fix what the look shows, then publish.
 - Write in the project's language by `templates/writing.md`.
 - A briefing page records what was approved. Republish it to the same URL only before approval; after approval, changes to the plan appear on the debriefing page under 계획과 달라진 점.

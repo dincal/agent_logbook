@@ -315,7 +315,7 @@ flowchart LR
   <!-- 06 -->
   <section class="slide" id="system">
     <div class="slide-head"><span class="no">06 / 12</span><span>프로젝트 문서</span></div>
-    <h2>지금 시스템의 모습은 문서 서너 개에 담고, 핸드북 링크 하나로 봅니다</h2>
+    <h2>지금 시스템의 모습은 많아야 문서 다섯 개에 담고, 핸드북 링크 하나로 봅니다</h2>
     <div class="cards">
       <div class="card"><div class="name">overview.md</div><p>시스템이 하는 일과 쓰는 사람, 시스템 지도, 바꾸기 어려운 선택과 위험, 용어</p></div>
       <div class="card"><div class="name">stack.md</div><p>구성 요소와 기술 스택(구성도와 표), 배포와 실행 환경, 개발 도구</p></div>
@@ -398,8 +398,8 @@ flowchart LR
 <pre class="mermaid">
 flowchart LR
   G["계획 문서의 트랙 그래프"] --> W0["묶음 0: 공통 부분(세션)"]
-  W0 --> WN["묶음 n: builder 트랙을 Workflow 하나로 동시에"]
-  WN --> RV{"위험한 트랙인가"}
+  W0 --> RV{"위험한 트랙인가"}
+  WN["다음 묶음: builder 트랙을 Workflow 하나로 동시에"] --> RV
   RV -->|"예"| R["합치기 전에 리뷰어(영역 모드)"]
   RV -->|"아니오"| C["트랙마다 커밋"]
   R --> C
@@ -412,7 +412,7 @@ flowchart LR
       <li><p><code>/brief</code>가 계획 문서의 <code>## 상세</code>에 트랙 그래프를 씁니다. 표 한 줄이 트랙 하나이고, 묶음, 트랙, 맡을 에이전트(builder-fast, builder, builder-deep 또는 세션), 바꿀 파일, 기다리는 트랙, 위험, 확인 명령을 적습니다. 사람에게 묻지 않고 브리핑 화면에도 넣지 않습니다.</p></li>
       <li><p>채팅에서 "진행"을 고르면 이슈가 <code>status:in-progress</code>로 바뀌고 <code>/build</code>가 바로 시작합니다. 다시 승인을 묻지 않습니다.</p></li>
       <li><p>묶음 0의 공통 부분(타입, 인터페이스, 설정)은 세션이 만들고, 나머지 트랙은 보통 한 묶음으로 모아 Workflow 하나로 동시에 돌립니다. 묶음은 세션이 리뷰하고 합치는 단위라서, 앞 결과를 리뷰하고 합쳐야만 뒤 트랙을 시작할 수 있을 때만 더 나눕니다. 같은 묶음의 트랙끼리는 파일이 겹치지 않습니다.</p></li>
-      <li><p>다른 트랙이 기대는 위험한 트랙은 합치기 전에 리뷰어가 영역 모드로 보고, 확인된 심각한 지적을 먼저 고칩니다. 트랙마다 커밋 하나로 합치므로 merge commit으로 머지하면 트랙 하나만 되돌릴 수 있습니다.</p></li>
+      <li><p>그래프에 위험으로 표시한 트랙(까다로운 로직, 다른 트랙이 기대는 계약, 예외가 많은 수정)은 묶음 0이든 다른 묶음이든 합치기 전에 리뷰어가 영역 모드로 보고, 확인된 심각한 지적을 먼저 고칩니다. 트랙마다 커밋 하나로 합치므로 merge commit으로 머지하면 트랙 하나만 되돌릴 수 있습니다.</p></li>
       <li><p>묶음마다 전체 테스트를 돌리고 계획 문서의 진행 기록에 체크합니다. 마지막 묶음 뒤에 PR을 열고 <code>/debrief</code>를 실행합니다.</p></li>
     </ol>
     <ul class="plain">
@@ -423,7 +423,7 @@ flowchart LR
     </ul>
   </section>
 
-
+  <!-- 10 -->
   <section class="slide" id="outputs">
     <div class="slide-head"><span class="no">10 / 12</span><span>산출물</span></div>
     <h2>저장소에는 지금 시스템 문서와 CHANGELOG만 두고, 보고는 링크로 이슈와 PR에 붙습니다</h2>
