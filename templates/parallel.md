@@ -8,9 +8,11 @@ The user is not asked about tracks, and the briefing page does not show the grap
 
 `/brief` writes it under `### 트랙 그래프` in the plan doc's `## 상세`, after the questions are settled, as a mermaid flowchart and a table with one row per track: 묶음 (wave), 트랙, 맡을 에이전트, 바꿀 파일, 기다리는 트랙, 위험, 확인 명령.
 
-- Wave 0 holds the shared parts (types, interfaces, configuration) that the session builds and commits first. Every later wave holds the tracks whose dependencies are all in earlier waves; tracks of one wave share no files.
+- Keep waves few and large. A wave is the unit the session reviews, merges and tests, so a wave boundary goes only where the session really has to review and merge earlier results before later tracks can start. The default is two waves: wave 0 with the shared parts (types, interfaces, configuration) that the session builds and commits, then one wave with every other track at once.
+- Work that can be built from the plan doc alone, docs and tests included, goes into the same wave as the code it describes. A further wave needs one line in the graph saying why that review cannot wait until the wave is merged; a wave with a single track usually means the split is wrong.
+- Tracks of one wave share no files.
 - Pick the agent by the Models table below. Work that is design-heavy, a few steps long, or may need a question to the user stays with the session.
-- 위험 is 예 when the track has tricky logic, a contract other tracks rely on, or many edge cases, and a later track depends on it.
+- 위험 is 예 when the track has tricky logic, a contract other tracks rely on, or many edge cases. Such a track is reviewed before its wave is merged; it is no reason for a wave of its own.
 - `/build` follows the graph. After each wave it merges the tracks and runs the full test suite. A track marked 위험 is reviewed before it is merged: `logbook:reviewer` in area mode, given the plan's acceptance criteria in place of a PR body, the track's diff and the diff stat; confirmed serious findings are fixed before the next wave starts.
 - When reality differs from the graph (an unexpected shared file, a track that turns out tiny), change it and record what changed and why in the plan doc's 결정 기록 and the PR body.
 

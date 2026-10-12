@@ -112,7 +112,7 @@ erDiagram
 
 ### 트랙 그래프
 
-{트랙을 몇 개로 나눠 몇 묶음으로 만드는지 한 문장. 나누지 않으면 그 이유 한 줄. templates/parallel.md의 "Track graph"를 따른다}
+{트랙을 몇 개로 나눠 몇 묶음으로 만드는지 한 문장. 묶음은 공통 부분과 나머지 한 묶음이 기본이고, 더 나누면 그 이유를 한 줄 적는다. 나누지 않으면 그 이유 한 줄. templates/parallel.md의 "Track graph"를 따른다}
 
 ```mermaid
 flowchart LR
