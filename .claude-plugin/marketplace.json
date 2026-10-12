@@ -9,8 +9,8 @@
     {
       "name": "logbook",
       "source": "./",
-      "description": "Briefing before implementation, debriefing after the PR, project docs kept in sync with the code, screen mockups approved before building, epics carried step by step to the epic PR, and GitHub Issues tracking, with the working rules added to every session by a hook instead of being copied into each project.",
-      "version": "0.11.0"
+      "description": "Multiple-choice questions for every decision that is the user's, an independent check before planning, visual briefing pages before implementation, /build running the approved track graph through to the pull request, debriefing after the PR, project docs kept in sync with the code, screen mockups approved before building, and GitHub Issues tracking, with the working rules added to every session by a hook instead of being copied into each project.",
+      "version": "0.12.0"
     }
   ]
 }
