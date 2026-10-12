@@ -1,6 +1,6 @@
 # Writing guide
 
-Everything logbook writes follows this guide: briefing and debriefing slides, plan documents, the project docs (`docs/system/` unless AGENTS.md's document table names another place), issue and PR text and comments, and commit messages.
+Everything logbook writes follows this guide: briefing and debriefing pages, plan documents, the project docs (`docs/system/` unless AGENTS.md's document table names another place), issue and PR text and comments, and commit messages.
 
 ## The reader
 
@@ -19,7 +19,7 @@ Write for someone with a computer-science bachelor's degree who does not know th
 5. Keep commands, paths and identifiers in code format, and let the sentence say what they do.
 6. Use tables and lists to line items up, not to replace explanation. A bullet that states a fact is a full sentence.
 7. Prefer plain, everyday words to jargon and to literal translations from English. Avoid physical verbs for abstract things (무너지다, 드러나다, 착지하다), phrases that announce what comes next (살펴보겠습니다, 분명히 하자면), feelings supplied for the reader (놀랍게도, 안타깝게도), emphasis that overstates (이것이 핵심입니다), and frequent em dashes.
-8. Show with a picture whatever a picture can show, by `templates/diagram-kit.md`. Markdown files hold no HTML, so they read well in any markdown viewer: draw with `mermaid`, tables and lists, and let the slide renderer add the HTML. Do not force an ERD or a flowchart: an ERD holds database tables only, and a flowchart shows logic that matters to the reader. Briefings and debriefings always include the main logic flow and any database schema change. The ERD in the project docs (`docs/system/data-model.md`) covers every table in the database.
+8. Show with a picture whatever a picture can show, by `templates/diagram-kit.md`. Markdown files hold no HTML, so they read well in any markdown viewer: draw with `mermaid`, tables and lists; the briefing pages and the handbook renderer add the HTML. Do not force an ERD or a flowchart: an ERD holds database tables only, and a flowchart shows logic that matters to the reader. Briefings and debriefings always include the main logic flow and any database schema change. The ERD in the project docs (`docs/system/data-model.md`) covers every table in the database.
 9. Explain the important points of a flow in detail, above all every call to an LLM or another AI model. Its picture names the model and gives the gist of the prompt: what goes in, what the model is asked to do, and what comes back. The text adds the setting that picks the model, where the prompt lives, how the answer is checked, and what happens when the call fails or returns something unusable.
 10. Write in the project's language, Korean unless AGENTS.md says otherwise. Briefings and debriefings address the person who approves, in a polite report tone (~합니다, ~하겠습니다).
 11. Before publishing, read the text once as that reader. Rewrite any sentence you had to read twice and any term they would have to look up.

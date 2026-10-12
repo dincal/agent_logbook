@@ -1,6 +1,6 @@
 #!/bin/sh
 # logbook plan-preview hook for ExitPlanMode. Acts only in projects set up with /rulebook.
-# PreToolUse: deny a plan without a complete brief block; otherwise render the briefing and open it.
+# PreToolUse: deny a plan without a complete brief block or with HTML in it. No preview is written or opened.
 # PostToolUse: remind the session to finish the /brief steps before editing code.
 set -u
 
@@ -72,32 +72,25 @@ case "$(field '.hook_event_name // empty' 'd.get("hook_event_name")')" in
       respond deny '브리핑 블록의 끝 표식(<!-- brief:end -->)이 없습니다. 블록을 닫고 다시 제출하세요.'
       exit 0
     fi
-    out="$root/.logbook/briefs/plan-preview.html"
     tmp="$(mktemp "${TMPDIR:-/tmp}/logbook-plan.XXXXXX")" || exit 0
+    out="$(mktemp "${TMPDIR:-/tmp}/logbook-plan-check.XXXXXX")" || { rm -f "$tmp"; exit 0; }
     printf '%s\n' "$plan" > "$tmp"
-    # The preview opens as a local file, without the Artifact skeleton, so it needs a doctype.
+    # The renderer runs only as a check; its output file is discarded.
     err="$("$PLUGIN_ROOT/scripts/render-brief.sh" --standalone "$tmp" brief "$out" 2>&1 >/dev/null)"
     status=$?
-    if [ "$status" -eq 0 ]; then
-      if [ -z "${LOGBOOK_NO_OPEN:-}" ]; then
-        if [ "$(uname -s)" = Darwin ]; then
-          open "$out" >/dev/null 2>&1 || true
-        elif command -v xdg-open >/dev/null 2>&1; then
-          xdg-open "$out" >/dev/null 2>&1 || true
-        fi
-      fi
-    elif [ "$status" -eq 4 ]; then
+    rm -f "$tmp" "$out"
+    if [ "$status" -eq 4 ]; then
       # Exit 4: the plan carries HTML, which markdown viewers show as raw code.
       reason="$(printf '%s' "$err" | sed 's/^render-brief: [^ ]*에 HTML이/플랜에 HTML이/')"
       respond deny "$reason 고친 뒤 다시 제출하세요."
-    else
-      respond message "logbook: 브리핑 미리보기를 만들지 못했습니다. ${err}"
+    elif [ "$status" -ne 0 ] && { [ "$status" -ne 3 ] || printf '%s' "$err" | grep -q 'python3 not found'; }; then
+      # The check itself could not run (no python3, a script that cannot execute, a usage error); exit 3 for a block without sections passes.
+      respond message "logbook: 플랜의 HTML 검사를 하지 못했습니다. ${err}"
     fi
-    rm -f "$tmp"
     exit 0
     ;;
   PostToolUse)
-    respond context '플랜이 승인됐습니다. 코드를 고치기 전에 /brief 절차를 마치세요. 이슈와 작업 브랜치가 없으면 만들고, 플랜 파일을 원래 checkout의 .logbook/plans/<이슈번호>-<slug>.md로 옮긴 뒤(worktree에서는 플랜이 worktree의 .logbook/plans에 저장됩니다. 커밋하지 않습니다), 브리핑 HTML을 게시하고 이슈에 링크합니다. 화면을 새로 만들거나 크게 바꾸는 계획이면 코드를 고치기 전에 시안을 만들어 승인을 받습니다. 에픽이면 단계 이슈(본문에 그 단계의 완료 조건)와 단계 계획 문서를 만들고, 단계 표와 완료 조건, 주요 결정을 에픽 이슈 본문에 적은 뒤 에픽 브랜치를 올립니다. 그다음 다시 승인을 묻지 않고 PR과 결과 보고까지, 에픽이면 에픽 PR까지 진행합니다.'
+    respond context '플랜이 승인됐습니다. 코드를 고치기 전에 /brief 절차를 마치세요. 이슈와 작업 브랜치가 없으면 만들고, 플랜 파일을 원래 checkout의 .logbook/plans/<이슈번호>-<slug>.md로 옮긴 뒤(worktree에서는 플랜이 worktree의 .logbook/plans에 저장됩니다. 커밋하지 않습니다), 화면을 새로 만들거나 크게 바꾸는 계획이면 시안을 만들어 승인을 받습니다. 그다음 logbook의 templates/briefing.md대로 브리핑 화면을 만들어 게시하고, 이슈 본문에 글 브리핑과 화면 링크를 넣은 뒤, 채팅에서 진행 / 수정 / 중단을 질문 도구로 한 번 더 묻습니다. 진행이면 이슈를 status:in-progress로 옮기고 /build로 넘겨 PR과 결과 보고까지 다시 묻지 않고 진행합니다.'
     exit 0
     ;;
 esac

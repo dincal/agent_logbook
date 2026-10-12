@@ -7,7 +7,7 @@ disable-model-invocation: true
 
 # rulebook
 
-Set up this repository so every session follows the logbook flow: an issue for work others need to know about, a briefing before implementation, a debriefing after the PR, and a question wherever an open choice changes the user scenario.
+Set up this repository so every session follows the logbook flow: an issue for work others need to know about, a briefing before implementation, a debriefing after the PR, and a question wherever a decision is the user's to make.
 
 The rules themselves live in the plugin (`${CLAUDE_PLUGIN_ROOT}/templates/session-rules.md`). The SessionStart hook adds them, with this repository's tracker values, to every session whose repository has `.logbook/config.json`, including sessions in a git worktree of it. Run this skill once per clone: in a new project, in an existing one, and after cloning a repository that already uses logbook, since the marker is git-ignored and does not travel with a clone. A plugin update needs no rerun.
 
@@ -17,7 +17,7 @@ The rules themselves live in the plugin (`${CLAUDE_PLUGIN_ROOT}/templates/sessio
 
 - `.logbook/config.json`: repo, base branch and gh account. The hooks read it, and its presence is what turns logbook on. Run from a git worktree, it is written to the main checkout, where the hooks look. A value not passed as an option keeps what the existing file holds.
 - `.gitignore`: adds `.logbook/` (the marker, previews, hook state).
-- GitHub labels: `status:backlog`, `status:todo`, `status:in-progress`, `status:done`, `epic`.
+- GitHub labels: `status:backlog`, `status:todo`, `status:in-progress`, `status:done`.
 - `plansDirectory` in `.claude/settings.json`: `.logbook/plans`, so plan-mode plans land where git ignores them. `/brief` keeps an approved plan in the main checkout's `.logbook/plans/` too, under its issue number; a plan made in a git worktree is moved there.
 - `CLAUDE.md`: adds an `@AGENTS.md` import when AGENTS.md exists, so Claude Code reads the project's rules even in sessions that skip AGENTS.md.
 - `AGENTS.md`: touched only when it still holds a rule block from logbook before 0.7 (`<!-- logbook:begin` to `<!-- logbook:end -->`). The block is replaced, in place, by the document rules paragraph from `${CLAUDE_PLUGIN_ROOT}/templates/docs-rules.md`: the table of document places and the promise to update them with the code. That paragraph belongs to the project, not to logbook; logbook never rewrites it. Everything outside the block stays as it is.
@@ -28,8 +28,8 @@ The rules themselves live in the plugin (`${CLAUDE_PLUGIN_ROOT}/templates/sessio
 2. Resolve the values.
    - Repo: `$ARGUMENTS` when given, otherwise the `origin` remote.
    - Base branch: the remote default branch, otherwise `main`.
-   - gh account: when `gh auth status` lists several accounts, pick the one whose name matches the repo owner. If none matches, ask which account owns the repository.
-3. Run `rulebook.sh --dry-run --repo <repo> --base <base> [--account <account>]` and show the planned changes. Ask for approval before writing (question tool, or numbered options in prose where there is none).
+   - gh account: when `gh auth status` lists several accounts, pick the one whose name matches the repo owner. If none matches, ask with the question tool which account owns the repository, with the accounts as options.
+3. Run `rulebook.sh --dry-run --repo <repo> --base <base> [--account <account>]` and show the planned changes. Ask for approval before writing, with the question tool as `${CLAUDE_PLUGIN_ROOT}/templates/questions.md` says.
 4. Run the same command with `--apply` and report every line it prints. A second run prints `변경 없음`.
 5. When files the repository tracks changed (anything but `.logbook/` and labels), commit them on a work branch with the next change, not directly on the base branch. A fresh clone of a logbook repository usually changes nothing tracked.
 6. Next step:
@@ -39,6 +39,6 @@ The rules themselves live in the plugin (`${CLAUDE_PLUGIN_ROOT}/templates/sessio
 ## Notes
 
 - To change the rules for every project, change `templates/session-rules.md` in the plugin and release it. Projects need nothing.
-- When the project already keeps agent rules in another file that AGENTS.md does not import, point that out and ask before adding a second source of rules.
+- When the project already keeps agent rules in another file that AGENTS.md does not import, point that out and ask with the question tool before adding a second source of rules.
 - Harnesses without hooks (Antigravity, OpenCode) do not get the rules this way; the README says how to add them by hand.
 - Report to the user by `${CLAUDE_PLUGIN_ROOT}/templates/writing.md`, in the project's language.

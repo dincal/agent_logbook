@@ -157,7 +157,7 @@ mkdir -p "$LBIN"
 cat > "$LBIN/gh" <<'EOF'
 #!/bin/sh
 case "$1 $2" in
-  "label list") printf 'Epic\nSTATUS:TODO\nstatus:done\n' ;;
+  "label list") printf 'Status:Backlog\nSTATUS:TODO\nstatus:done\n' ;;
   "label create") echo "$3" >> "$LABEL_LOG" ;;
   "auth token") echo faketoken ;;
 esac
@@ -168,10 +168,10 @@ mkdir -p "$LB"
 git -C "$LB" init -q -b main
 LABEL_LOG="$TMP/labels.log" PATH="$LBIN:$PATH" "$ROOT/scripts/rulebook.sh" --apply --dir "$LB" --repo acme/labels >/dev/null 2>&1
 created="$(sort "$TMP/labels.log" 2>/dev/null | tr '\n' ' ')"
-if [ "$created" = "status:backlog status:in-progress " ]; then
-  ok "rulebook: labels compared case-insensitively, only missing ones created"
+if [ "$created" = "status:in-progress " ]; then
+  ok "rulebook: labels compared case-insensitively, only missing status labels created, no epic label"
 else
-  bad "rulebook: labels compared case-insensitively, only missing ones created" "created: $created"
+  bad "rulebook: labels compared case-insensitively, only missing status labels created, no epic label" "created: $created"
 fi
 
 # ---------------------------------------------------------------- render-brief
@@ -314,7 +314,7 @@ for engine in jq python; do
   fi
 done
 ctx="$(context "$(rules "$SR")")"
-expect "session-rules: the tracker line comes from .logbook/config.json" bash -c "printf '%s' \"\$1\" | grep -qF 'repo \`acme/session\` · 라벨 \`status:backlog|todo|in-progress|done\`, \`epic\` · 기본 브랜치 \`main\` · gh 계정 \`octo\`'" _ "$ctx"
+expect "session-rules: the tracker line comes from .logbook/config.json" bash -c "printf '%s' \"\$1\" | grep -qF 'repo \`acme/session\` · 라벨 \`status:backlog|todo|in-progress|done\` · 기본 브랜치 \`main\` · gh 계정 \`octo\`'" _ "$ctx"
 expect "session-rules: no placeholder is left" bash -c "! printf '%s' \"\$1\" | grep -qE '\\{(version|repo|base|account)\\}'" _ "$ctx"
 expect "session-rules: the rules point at AGENTS.md's document rules" bash -c "printf '%s' \"\$1\" | grep -q '문서는 AGENTS.md의 문서 규칙을 따른다'" _ "$ctx"
 size="$(printf '%s' "$ctx" | python3 -c 'import sys; print(len(sys.stdin.read()))')"
@@ -388,16 +388,16 @@ for engine in jq python; do
   fi
   rm -f "$P/.logbook/briefs/plan-preview.html"
   res="$(pre_input "$(cat "$DOC")" | hook "$P")"; rc=$?
-  if [ $rc -eq 0 ] && [ -z "$res" ] && head -1 "$P/.logbook/briefs/plan-preview.html" 2>/dev/null | grep -q '<!doctype html>'; then
-    ok "plan-preview [$engine]: brief block renders a standalone preview and leaves the decision to the user"
+  if [ $rc -eq 0 ] && [ -z "$res" ] && [ ! -e "$P/.logbook/briefs/plan-preview.html" ]; then
+    ok "plan-preview [$engine]: a valid brief block passes silently and writes no preview"
   else
-    bad "plan-preview [$engine]: brief block renders a standalone preview and leaves the decision to the user" "rc=$rc $res"
+    bad "plan-preview [$engine]: a valid brief block passes silently and writes no preview" "rc=$rc $res"
   fi
   res="$(jq -cn --arg cwd "$P" '{hook_event_name: "PostToolUse", tool_name: "ExitPlanMode", tool_input: {plan: "# p\n\nx"}, cwd: $cwd}' | hook "$P")"; rc=$?
-  if [ $rc -eq 0 ] && printf '%s' "$res" | jq -e '.hookSpecificOutput.additionalContext | test("/brief") and test("에픽") and test("PR")' >/dev/null 2>&1; then
-    ok "plan-preview [$engine]: approval adds a /brief reminder"
+  if [ $rc -eq 0 ] && printf '%s' "$res" | jq -e '.hookSpecificOutput.additionalContext | test("/brief") and test("templates/briefing.md") and test("질문 도구") and test("한 번 더") and test("/build") and test("PR") and (test("에픽") | not)' >/dev/null 2>&1; then
+    ok "plan-preview [$engine]: approval reminds the /brief steps, the briefing page, one more approval and /build"
   else
-    bad "plan-preview [$engine]: approval adds a /brief reminder" "$res"
+    bad "plan-preview [$engine]: approval reminds the /brief steps, the briefing page, one more approval and /build" "$res"
   fi
 done
 unset LOGBOOK_FORCE_PYTHON
@@ -409,17 +409,16 @@ else
   bad "plan-preview: a block without its end marker is denied" "$res"
 fi
 res="$(pre_input $'<!-- brief:begin -->\n```mermaid\nflowchart LR\n  A --> B\n```\n> ERD 변화 없음: 없음\n<!-- brief:end -->\n' | hook "$P")"; rc=$?
-if [ $rc -eq 0 ] && printf '%s' "$res" | jq -e '.systemMessage | test("미리보기")' >/dev/null 2>&1; then
-  ok "plan-preview: a render failure is reported, not swallowed"
+if [ $rc -eq 0 ] && [ -z "$res" ] && [ ! -e "$P/.logbook/briefs/plan-preview.html" ]; then
+  ok "plan-preview: a block the check cannot render as slides passes, since only markers and HTML are checked"
 else
-  bad "plan-preview: a render failure is reported, not swallowed" "$res"
+  bad "plan-preview: a block the check cannot render as slides passes, since only markers and HTML are checked" "rc=$rc $res"
 fi
-rm -f "$P/.logbook/briefs/plan-preview.html"
 res="$(pre_input $'<!-- brief:begin -->\n## 요약\n\n결론.\n<!-- brief:end -->\n' | hook "$P")"; rc=$?
-if [ $rc -eq 0 ] && [ -z "$res" ] && [ -s "$P/.logbook/briefs/plan-preview.html" ]; then
-  ok "plan-preview: a briefing without a flowchart or an ERD passes and gets a preview"
+if [ $rc -eq 0 ] && [ -z "$res" ] && [ ! -e "$P/.logbook/briefs/plan-preview.html" ]; then
+  ok "plan-preview: a briefing without a flowchart or an ERD passes and writes no preview"
 else
-  bad "plan-preview: a briefing without a flowchart or an ERD passes and gets a preview" "rc=$rc $res"
+  bad "plan-preview: a briefing without a flowchart or an ERD passes and writes no preview" "rc=$rc $res"
 fi
 res="$(pre_input $'<!-- brief:begin -->\n## 요약\n\n결론.\n\n<div class="tiles">4</div>\n<!-- brief:end -->\n' | hook "$P")"
 if printf '%s' "$res" | jq -e '.hookSpecificOutput.permissionDecision == "deny" and (.hookSpecificOutput.permissionDecisionReason | test("HTML") and test("6줄"))' >/dev/null 2>&1; then
@@ -433,10 +432,11 @@ if printf '%s' "$res" | jq -e '.hookSpecificOutput.permissionDecisionReason | te
 else
   bad "plan-preview: the deny message lists the briefing's parts without demanding pictures" "$res"
 fi
-cp "$DOC" "$TMP/plan-file.md"
-rm -f "$P/.logbook/briefs/plan-preview.html"
+printf '# P\n\n<!-- brief:begin -->\n## 요약\n\n결론.\n\n<div>x</div>\n<!-- brief:end -->\n' > "$TMP/plan-file.md"
 res="$(jq -cn --arg f "$TMP/plan-file.md" --arg cwd "$P" '{hook_event_name: "PreToolUse", tool_input: {planFilePath: $f}, cwd: $cwd}' | hook "$P")"
-expect "plan-preview: an empty plan falls back to planFilePath" bash -c "[ -z '$res' ] && [ -s '$P/.logbook/briefs/plan-preview.html' ]"
+cp "$DOC" "$TMP/plan-file-ok.md"
+res_ok="$(jq -cn --arg f "$TMP/plan-file-ok.md" --arg cwd "$P" '{hook_event_name: "PreToolUse", tool_input: {planFilePath: $f}, cwd: $cwd}' | hook "$P")"
+expect "plan-preview: an empty plan falls back to planFilePath" bash -c "printf '%s' \"\$1\" | jq -e '.hookSpecificOutput.permissionDecision == \"deny\" and (.hookSpecificOutput.permissionDecisionReason | test(\"HTML\"))' >/dev/null && [ -z \"\$2\" ] && [ ! -e '$P/.logbook/briefs/plan-preview.html' ]" _ "$res" "$res_ok"
 res="$(pre_input $'<!-- brief:skip -->\nfix a typo' | hook "$P")"; rc=$?
 expect "plan-preview: brief:skip passes" test $rc -eq 0 -a -z "$res"
 res="$(jq -cn --arg cwd "$P" '{hook_event_name: "PostToolUse", tool_input: {plan: "<!-- brief:skip -->\nfix"}, cwd: $cwd}' | hook "$P")"
@@ -675,16 +675,16 @@ printf '.env\n.env.local\n' > "$W/.gitignore"
 printf 'example\n' > "$W/.env.example"
 git -C "$W" add -A
 git -C "$W" -c user.email=t@example.com -c user.name=t commit -q -m init
-git -C "$W" switch -q -c epic/5-x
+git -C "$W" switch -q -c feat/5-shared
 git -C "$W" -c user.email=t@example.com -c user.name=t commit -q --allow-empty -m shared
 git -C "$W" switch -q main
 printf 'SECRET=1\n' > "$W/.env"
 printf 'LOCAL=1\n' > "$W/.env.local"
 WS="$ROOT/scripts/worktree.sh"
-out="$("$WS" add feat/6-a epic/5-x --dir "$W" 2>&1)"; rc=$?
+out="$("$WS" add feat/6-a feat/5-shared --dir "$W" 2>&1)"; rc=$?
 WP="$W/.logbook/worktrees/feat-6-a"
 if [ $rc -eq 0 ] && [ "$(printf '%s\n' "$out" | tail -1)" = "$(cd "$W" && pwd -P)/.logbook/worktrees/feat-6-a" ]; then ok "worktree: add prints the path under the main checkout's .logbook/worktrees"; else bad "worktree: add prints the path under the main checkout's .logbook/worktrees" "$out"; fi
-expect "worktree: add cuts the branch from the given base, not the default branch" bash -c "[ \"\$(git -C '$WP' rev-parse HEAD)\" = \"\$(git -C '$W' rev-parse epic/5-x)\" ] && [ \"\$(git -C '$WP' branch --show-current)\" = feat/6-a ]"
+expect "worktree: add cuts the branch from the given base, not the default branch" bash -c "[ \"\$(git -C '$WP' rev-parse HEAD)\" = \"\$(git -C '$W' rev-parse feat/5-shared)\" ] && [ \"\$(git -C '$WP' branch --show-current)\" = feat/6-a ]"
 expect "worktree: add links the git-ignored env files and leaves tracked ones alone" bash -c "[ -L '$WP/.env' ] && [ -L '$WP/.env.local' ] && [ ! -L '$WP/.env.example' ] && grep -q SECRET '$WP/.env'"
 expect "worktree: the main checkout's status stays clean" bash -c "[ -z \"\$(git -C '$W' status --porcelain)\" ]"
 out="$("$WS" add feat/6-a --dir "$WP" 2>&1)"
@@ -721,7 +721,7 @@ expect "worktree: a repository that does not ignore .logbook/ yet gets it in .gi
 echo "== plugin files =="
 expect "hooks.json is valid JSON with the four hooks" jq -e '.hooks.SessionStart and .hooks.PreToolUse and .hooks.PostToolUse and .hooks.Stop' "$ROOT/hooks/hooks.json"
 expect "SessionStart runs on every source (no matcher)" jq -e '.hooks.SessionStart[0] | has("matcher") | not' "$ROOT/hooks/hooks.json"
-for skill in rulebook discuss brief debrief sync; do
+for skill in rulebook discuss brief build debrief sync; do
   f="$ROOT/skills/$skill/SKILL.md"
   if [ ! -f "$f" ]; then bad "skill $skill exists"; continue; fi
   lines="$(wc -l < "$f" | tr -d ' ')"
@@ -777,18 +777,20 @@ expect "flows template has a model-call table" grep -q '| 모델 호출 | 모델
 expect "reviewer agent checks model calls and HTML in markdown" bash -c "grep -q 'LLM' '$ROOT/agents/reviewer.md' && grep -q 'hold no HTML' '$ROOT/agents/reviewer.md'"
 B="$ROOT/templates/session-rules.md"
 expect "no rule block template; the rules come from session-rules.md" bash -c "test ! -e '$ROOT/templates/agents-block.md' && ! grep -q 'logbook:begin' '$B' && head -1 '$B' | grep -qF '(플러그인 v{version})'"
-expect "rule block asks whenever a choice changes the user scenario" bash -c "grep -q '흐름이 달라지는 부분은 묻는다' '$B' && grep -q '사소한 것은 묻지 않고' '$B'"
-expect "rule block sets the reader and the picture rules" bash -c "grep -q '컴퓨터공학 학부' '$B' && grep -q 'ERD와 흐름도는 억지로 그리지 않는다' '$B' && grep -q '모든 테이블' '$ROOT/templates/docs-rules.md'"
+expect "rule block asks about every decision that is the user's, with the question tool and the questions guide" bash -c "grep -q '^- \*\*사용자가 정할 것은 묻는다.\*\*' '$B' && grep -q '도메인 규칙과 예외 상황, 득실이 있는 기술 선택' '$B' && grep -q '사용자가 신경 쓰지 않을 조정값은 정한 뒤 그렇게 표시한다' '$B' && grep -q '서로 다르면 고르지 않고 묻는다' '$B' && grep -q '질문 도구(Claude Code의 AskUserQuestion)' '$B' && grep -q '{plugin_root}/templates/questions.md' '$B'"
+expect "rule block: the question rule comes first" bash -c "grep -m1 '^- \*\*' '$B' | grep -q '사용자가 정할 것은 묻는다'"
+expect "rule block sets the reader and the picture rules" bash -c "grep -q '컴퓨터공학 학부' '$B' && grep -q 'ERD와 흐름도는 억지로 그리지 않' '$B' && grep -q '모든 테이블' '$ROOT/templates/docs-rules.md'"
 expect "rule block points at docs/system, /sync and /design" bash -c "grep -q 'docs/system/' '$B' && grep -q '/sync' '$B' && grep -q '/design' '$B'"
 expect "rule block no longer demands a flowchart and an ERD in every briefing" bash -c "! grep -q 'ERD 변화(없으면' '$B'"
 expect "rule block keeps HTML out of markdown and details model calls" bash -c "grep -q 'md 파일에는 HTML을 넣지 않고' '$B' && grep -q 'AI 모델을 부르는 단계' '$B'"
 expect "rule block flags unreasonable decisions once and follows the user" bash -c "grep -q '비합리적인 결정은 알린다' '$B' && grep -q '그대로 가겠다고 하면 따르고' '$B' && grep -q '알린 우려' '$B'"
-expect "rule block splits independent tracks by default, with three builder tiers" bash -c "grep -q '독립 트랙은 나눠서 동시에 만든다' '$B' && grep -q '둘 이상이면 나누는 것이 기본이다' '$B' && grep -q '나누지 않을 때는 시작할 때 채팅에 그 이유를 한 줄 적는다' '$B' && grep -q 'logbook:builder-fast' '$B' && grep -q 'logbook:builder\`' '$B' && grep -q 'logbook:builder-deep' '$B' && grep -q '세션이 이어받는다' '$B'"
+expect "rule block splits independent tracks by default, with three builder tiers" bash -c "grep -q '독립 트랙은 나눠서 동시에 만든다' '$B' && grep -q '둘 이상이면 나누는 것이 기본이다' '$B' && grep -q '나누지 않을 때는 그래프에 그 이유를 한 줄 적는다' '$B' && grep -q 'logbook:builder-fast' '$B' && grep -q 'logbook:builder\`' '$B' && grep -q 'logbook:builder-deep' '$B' && grep -q '세션이 이어받는다' '$B'"
+expect "rule block plans tracks in the track graph and runs each wave as a Workflow, with full tests and risky tracks reviewed" bash -c "grep -q '계획 문서 \`## 상세\`의 트랙 그래프' '$B' && grep -q '\`/build\`가 그대로 따른다' '$B' && grep -q '\`/build\`는 builder 트랙이 있는 묶음마다 트랙 수와 상관없이 Workflow로 돌리고(Workflow 크기 설정을 넘으면 여러 번에 나눠 차례로)' '$B' && grep -q '묶음을 합칠 때마다 전체 테스트를 돌리고' '$B' && grep -q '그래프에 위험으로 표시한 트랙(까다로운 로직, 다른 트랙이 기대는 계약, 예외가 많은 수정)은 합치기 전에 리뷰어가 본다' '$B'"
 expect "rule block scopes a shared-tree track's check command to its own files" grep -q '같은 폴더의 트랙은 다른 트랙이 쓰는 중이라 확인 명령을 그 트랙의 파일로 좁히고 커밋하지 않는다' "$B"
-expect "rule block answers a request for an opinion with a discussion" bash -c "grep -q '의견을 묻는 말에는 토론으로 답한다' '$B' && grep -q '이슈와 브랜치를 만들지 않고' '$B' && grep -q '애매하면 어느 쪽인지 한 줄로 묻는다' '$B' && grep -q 'backlog 이슈로 남기기' '$B'"
+expect "rule block answers a request for an opinion with a discussion" bash -c "grep -q '의견을 묻는 말에는 토론으로 답한다' '$B' && grep -q '이슈와 브랜치를 만들지 않고' '$B' && grep -q '애매하면 어느 쪽인지 질문 도구로 묻는다' '$B' && grep -q 'backlog 이슈로 남기기' '$B'"
 expect "rule block creates issues only for work others need or that must be kept" bash -c "grep -q '이슈는 남길 일에만 만든다' '$B' && grep -q '다른 개발자가 알아야 하거나 꼭 남겨야 하는 작업' '$B' && ! grep -q '이슈부터 만든다' '$B'"
 expect "rule block reports local-only work in chat and rides follow-up doc updates on related PRs" bash -c "grep -q '이슈, 브랜치, PR 없이 하고 채팅으로 보고한다' '$B' && grep -q 'docs/system/stack.md' '$B' && grep -q '관련 작업의 PR에 얹는다' '$B' && grep -q '그 이슈에 할 일을 댓글로 남기고' '$B' && grep -q '둘 다 없으면 이슈 없는 PR로 연다' '$B'"
-expect "rule block asks when unsure and gives small changes a PR only" bash -c "grep -q '이슈로 만들지 애매하면 작업 전에 한 줄로 묻는다' '$B' && grep -q '이슈와 브리핑 HTML 없이 PR만 남긴다' '$B' && grep -q '<type>/<slug>' '$B'"
+expect "rule block asks when unsure and gives small changes a PR only" bash -c "grep -q '이슈로 만들지 애매하면 작업 전에 질문 도구로 묻는다' '$B' && grep -q '이슈와 브리핑 화면 없이 PR만 남긴다' '$B' && grep -q '<type>/<slug>' '$B'"
 expect "brief, debrief and sync handle a PR without an issue" bash -c "grep -q 'open a PR without an issue' '$ROOT/skills/brief/SKILL.md' && grep -q 'deferred to this issue' '$ROOT/skills/brief/SKILL.md' && grep -q 'When no plan doc exists for the PR' '$ROOT/skills/debrief/SKILL.md' && grep -q 'a PR without an issue that still gets a review' '$ROOT/skills/sync/SKILL.md'"
 expect "brief and plan mode read comments deferred to the issue" bash -c "grep -q 'deferred to this issue' '$ROOT/skills/brief/SKILL.md' && grep -q 'read its comments before writing' '$ROOT/skills/brief/SKILL.md'"
 expect "a small change given an issue still closes it" grep -q 'put `Closes #<issue>` in the PR body' "$ROOT/skills/brief/SKILL.md"
@@ -805,27 +807,40 @@ T="$ROOT/templates/plan.md"
 expect "plan template records concerns raised about the user's decisions" grep -q '^알린 우려:' "$T"
 expect "plan template: conditional slides for logic, database and screens, no ERD filler" bash -c "grep -q '^## 주요 로직 흐름 (주요 로직이' '$T' && grep -q '^## 데이터베이스 변경 (DB 스키마가' '$T' && grep -q '^## 화면 시안 (' '$T' && ! grep -q 'ERD 변화 없음' '$T'"
 P="$ROOT/templates/parallel.md"
-expect "parallel guide: subagents by default, Workflow for three or more or long work, subagents as the fallback" bash -c "grep -q 'The default. Two tracks or two research areas' '$P' && grep -q 'three or more tracks or areas' '$P' && grep -q 'launch subagents instead' '$P'"
+expect "parallel guide: subagents for one or two research areas, a Workflow for every /build wave, three or more areas and every split review, subagents as the fallback" bash -c "grep -q 'Research with one or two areas' '$P' && grep -q 'Every \`/build\` wave that holds builder tracks, however many' '$P' && grep -q 'and every split review, when the Workflow tool is available' '$P' && grep -q 'launch subagents instead' '$P'"
 expect "parallel guide: Workflow agents keep the builder tiers and Explore on Sonnet" bash -c "grep -q \"agentType: 'logbook:builder-fast', model: 'sonnet', effort: 'medium'\" '$P' && grep -q \"agentType: 'logbook:builder-deep', effort: 'xhigh'\" '$P' && grep -q \"agentType: 'Explore', model: 'sonnet'\" '$P'"
 expect "brief, discuss and sync launch parallel work by the guide" bash -c "for s in brief discuss sync; do grep -q 'templates/parallel.md' '$ROOT/skills/'\$s'/SKILL.md' || exit 1; done"
 expect "rule block lets tracks and research run as subagents or a Workflow" bash -c "grep -q '서브에이전트나 Workflow' '$B' && grep -q 'Workflow를 쓸 수 없으면 서브에이전트로' '$B'"
-expect "rule block runs an epic on an epic branch and merges steps only when the evidence holds" bash -c "grep -q '에픽은 에픽 브랜치에서' '$B' && grep -q 'epic/<번호>-<slug>' '$B' && grep -q '확인된 심각한 지적이 없을 때만 에이전트가 squash로 합친' '$B' && grep -q '일반 머지' '$B'"
+expect "rule block: one request is one issue and one PR, split into tracks inside" bash -c "grep -q '^- \*\*요청 하나는 이슈 하나.\*\*' '$B' && grep -q '하위 이슈나 단계로 나누지 않고 이슈 하나, PR 하나로 하며' '$B' && grep -q '관련 없는 기능이 섞인 요청도 마찬가지다' '$B'"
+expect "rule block asks the merge method along with the merge" grep -q '머지를 고르면 squash와 merge commit 중에서도 고르게 한다' "$B"
+expect "rule block mentions no epic" bash -c "! grep -qiE 'epic|에픽' '$B'"
 DB="$ROOT/skills/debrief/SKILL.md"
-expect "debrief: an epic step merges itself into the epic branch without HTML, or stops" bash -c "grep -q '^## Epic steps and epics' '$DB' && grep -q 'Skip step 5 and the changelog line: no HTML' '$DB' && grep -q 'gh pr merge --squash --delete-branch' '$DB' && grep -q 'stop the epic run there' '$DB'"
-expect "debrief: an epic gets the epic review and a merge commit" bash -c "grep -q 'in epic mode' '$DB' && grep -q 'gh pr merge --merge --delete-branch' '$DB' && grep -q 'origin/<PR base>...HEAD' '$DB'"
-expect "reviewer has an epic mode that reads where steps meet" bash -c "grep -q '^## Epic mode' '$ROOT/agents/reviewer.md' && grep -q 'where steps meet' '$ROOT/agents/reviewer.md'"
+expect "debrief: one question call asks the next step and the merge method, and merges with the chosen gh flag" bash -c "grep -q 'two questions in one call: the next step' '$DB' && grep -q 'exactly one option marked (Recommended)' '$DB' && grep -q 'the merge method for when 머지 is picked: merge commit' '$DB' && grep -q 'gh pr merge --squash --delete-branch' '$DB' && grep -q 'gh pr merge --merge --delete-branch' '$DB' && grep -q 'squashMergeAllowed,mergeCommitAllowed' '$DB'"
+expect "debrief: the result page follows the briefing guide and is written to .logbook/briefs, with no slide renderer" bash -c "grep -q 'templates/briefing.md' '$DB' && grep -q '<main>/.logbook/briefs/<issue>-debrief.html' '$DB' && grep -q 'origin/<PR base>...HEAD' '$DB' && ! grep -q 'render-brief' '$DB'"
+expect "debrief mentions no epic" bash -c "! grep -qiE 'epic|에픽' '$DB'"
+expect "reviewer has no epic mode and reviews a risky /build track in area mode" bash -c "! grep -qiE 'epic|에픽' '$ROOT/agents/reviewer.md' && grep -q '\`/build\` also uses area mode for a risky track before merging it' '$ROOT/agents/reviewer.md'"
 BR="$ROOT/skills/brief/SKILL.md"
 expect "no /mission skill and no /goal template" bash -c "test ! -e '$ROOT/skills/mission' && test ! -e '$ROOT/templates/goal.md' && ! grep -q '^## Goal' '$ROOT/templates/plan.md'"
 expect "skills, agents, hooks, templates and the rule block no longer mention /mission or /goal" bash -c "! grep -rnE '/mission|/goal|goal\\.md' '$ROOT/skills' '$ROOT/agents' '$ROOT/hooks' '$ROOT/templates' '$ROOT/scripts' '$ROOT/AGENTS.md' '$ROOT/README.md' '$ROOT/.claude-plugin' '$ROOT/docs/system' '$ROOT/docs/manual'"
-expect "brief plans an epic: child issues, step docs without HTML, an epic branch" bash -c "grep -q '^## Epics' \"$BR\" && grep -q 'epic/<issue>-<slug>' \"$BR\" && grep -q 'Only the epic doc is rendered and published; step docs get no HTML' \"$BR\" && grep -q 'Create the missing child issues' \"$BR\""
-expect "brief carries an approved plan through, and an epic through every step to the epic PR" bash -c "grep -q 'carry the plan out to the end without asking for approval again' \"$BR\" && grep -q 'do not end the turn between steps' \"$BR\" && grep -q 'open the epic PR from the epic branch' \"$BR\" && grep -q '고친 뒤 이어서 / 중단' \"$BR\" && grep -q 'Stops and resuming' \"$BR\" && grep -q 'do not weaken or delete tests' \"$BR\" && grep -q 'open the PR with \`Closes #<issue>\`' \"$BR\""
-expect "rule block plans an epic with /brief and runs its steps without stopping" bash -c "grep -q '\`/brief\`가 \`epic\` 라벨 이슈와 단계 이슈로 계획하고' '$ROOT/templates/session-rules.md' && grep -q '단계 사이에서 멈추지 않고' '$ROOT/templates/session-rules.md'"
-expect "plan template has the epic step table and results" bash -c "grep -q '^## 단계 (에픽일 때)' '$T' && grep -q '^## 단계 결과 (에픽일 때)' '$T' && grep -q 'origin/{PR의 base 브랜치}' '$T'"
-for doc in overview stack flows data-model; do
+expect "brief finds decisions with the questions guide and its four lenses, and runs logbook:checker before the plan" bash -c "grep -q 'templates/questions.md' \"$BR\" && grep -q 'four lenses (structure, behavior, technique, contract)' \"$BR\" && grep -q 'independent check with \`logbook:checker\`' \"$BR\" && grep -q 'with the question tool' \"$BR\""
+expect "brief writes the track graph under 상세 and keeps it off the briefing page" bash -c "grep -q 'write the track graph by the \"Track graph\" section' \"$BR\" && grep -q 'stays off the briefing page' \"$BR\""
+expect "brief builds the page by the briefing guide and puts the text briefing in the issue body under a kept 원래 요청" bash -c "grep -q 'templates/briefing.md' \"$BR\" && grep -q 'Rewrite the issue body as the text briefing' \"$BR\" && grep -q '## 원래 요청' \"$BR\" && ! grep -q 'render-brief' \"$BR\""
+expect "brief hands an approved plan to /build, and plan mode asks for approval once more" bash -c "grep -q 'invoke \`/build #<issue>\` without asking for approval again' \"$BR\" && grep -q 'hand it to \`/build #<issue>\` instead of these steps' \"$BR\" && grep -q 'ask for approval once more in the chat as step 9 says' \"$BR\" && grep -q 'do not invoke \`/build\`' \"$BR\""
+expect "brief mentions no epic and no child issues but tracks" bash -c "! grep -qiE 'epic|에픽' \"$BR\" && grep -q 'never into child issues' \"$BR\""
+BU="$ROOT/skills/build/SKILL.md"
+expect "build runs only an approved plan and stops without a plan doc" bash -c "grep -q 'the issue must be in \`status:in-progress\`' '$BU' && grep -q 'say the plan is not approved and point to \`/brief #<issue>\`, then stop' '$BU' && grep -q 'Without it on this machine, say the plan was made on another machine' '$BU' && grep -q 'Then stop.' '$BU'"
+expect "build resumes with /build #issue, and an open PR goes on to /debrief" bash -c "grep -q 'argument-hint: \"\[#issue\]\"' '$BU' && grep -q 'When the branch already has an open PR, the run is past Finish: run \`/debrief\` instead' '$BU' && grep -q \"read the plan doc's 진행 기록\" '$BU' && grep -q '\`/build #<issue>\` picks it up later' '$BU'"
+expect "build runs each wave as a Workflow and reviews risky tracks in area mode before merging" bash -c "grep -q 'as a Workflow, however many there are' '$BU' && grep -q 'run them as several Workflows one after another; it is still one wave' '$BU' && grep -q 'Without the Workflow tool, launch them as subagents' '$BU' && grep -q 'Before merging a track marked 위험, spawn \`logbook:reviewer\` in area mode' '$BU' && grep -q 'templates/parallel.md' '$BU'"
+expect "build makes one commit per track and runs the full tests after every wave" bash -c "grep -q 'one commit per track' '$BU' && grep -q 'Every wave, wave 0 included' '$BU' && grep -q \"run the project's full tests\" '$BU' && grep -q 'Tick the wave' '$BU'"
+expect "build keeps tests intact, asks 고친 뒤 이어서 / 중단 when a wave stops, and opens the PR with Closes #issue" bash -c "grep -q 'do not weaken or delete tests' '$BU' && grep -q '고친 뒤 이어서 / 중단 with the question tool' '$BU' && grep -q 'open the PR with \`Closes #<issue>\`' '$BU' && grep -q 'Run \`/debrief\`.' '$BU' && grep -q 'Do not end the turn between waves' '$BU'"
+expect "rule block hands an approved plan from /brief to /build and asks once more after plan mode" bash -c "grep -q '승인하면 \`/brief\`가 \`/build\`로 넘기고' '$ROOT/templates/session-rules.md' && grep -q '플랜 모드에서는 플랜을 승인한 뒤 화면을 만들어 채팅에서 한 번 더 승인받고' '$ROOT/templates/session-rules.md' && grep -q 'logbook:checker' '$ROOT/templates/session-rules.md'"
+expect "plan template has a track graph with its table and no step sections" bash -c "grep -q '^### 트랙 그래프' '$T' && grep -qF '| 묶음 | 트랙 | 맡을 에이전트 | 바꿀 파일 | 기다리는 트랙 | 위험 | 확인 명령 |' '$T' && ! grep -q '^## 단계' '$T' && ! grep -qiE 'epic|에픽' '$T' && grep -q 'origin/{PR의 base 브랜치}' '$T'"
+for doc in overview stack flows rules data-model; do
   expect "system template $doc starts with its marker" bash -c "head -1 '$ROOT/templates/system/$doc.md' | grep -q '^<!-- logbook:system sources='"
 done
 expect "brief: 중단 asks 나중에 하기 or 버리기, and a set-aside branch is picked up again" bash -c "grep -q 'On 중단, ask 나중에 하기 / 버리기' '$ROOT/skills/brief/SKILL.md' && grep -q 'keeps the branch, and posts the whole plan doc as an issue comment' '$ROOT/skills/brief/SKILL.md' && grep -q 'not planned' '$ROOT/skills/brief/SKILL.md' && grep -q 'A plan set aside with 나중에 하기 in step 9 is picked up again' '$ROOT/skills/brief/SKILL.md'"
-expect "sync: only the structure path cleans up without asking, root docs such as CONTRIBUTING stay, history is not grepped" bash -c "grep -q '^   - The structure path: set up the structure' '$ROOT/skills/sync/SKILL.md' && grep -q 'ask once whether this PR removes it' '$ROOT/skills/sync/SKILL.md' && grep -q 'CONTRIBUTING, SECURITY and CODE_OF_CONDUCT' '$ROOT/skills/sync/SKILL.md' && grep -q 'leaving out CHANGELOG, which keeps history' '$ROOT/skills/sync/SKILL.md'"
+expect "sync: only the structure path cleans up without asking, root docs such as CONTRIBUTING stay, history is not grepped" bash -c "grep -q '^   - The structure path: set up the structure' '$ROOT/skills/sync/SKILL.md' && grep -q 'ask once, with the question tool, whether this PR removes it' '$ROOT/skills/sync/SKILL.md' && grep -q 'CONTRIBUTING, SECURITY and CODE_OF_CONDUCT' '$ROOT/skills/sync/SKILL.md' && grep -q 'leaving out CHANGELOG, which keeps history' '$ROOT/skills/sync/SKILL.md'"
+expect "sync drafts rules.md on the structure path and a full write only, confirming each rule" bash -c "grep -q 'Write it on the structure path and on a full write only; a stale-doc fix updates an existing \`rules.md\` and never creates one' '$ROOT/skills/sync/SKILL.md' && grep -q '확인 필요' '$ROOT/skills/sync/SKILL.md'"
 expect "sync: a stale doc that still matches gets a new checked date, not new wording" bash -c "grep -q 'set .checked. to today and commit' '$ROOT/skills/sync/SKILL.md'"
 for f in "$ROOT"/templates/system/*.md; do
   expect "system template $(basename "$f") records when it was checked" bash -c "head -1 '$f' | grep -q 'checked='"
@@ -836,11 +851,12 @@ expect "system template data-model declares the table count" bash -c "head -1 '$
 # ---------------------------------------------------------------- local plan docs and CHANGELOG (0.9)
 expect "this repository tracks no plan docs and no mockup copies" bash -c "cd '$ROOT' && test -z \"\$(git ls-files docs/plans docs/designs)\""
 expect "only sync's migration rule still names docs/plans or docs/designs" bash -c "test \"\$(grep -rlE 'docs/(plans|designs)' '$ROOT/skills' '$ROOT/hooks' '$ROOT/scripts' '$ROOT/templates' '$ROOT/agents')\" = '$ROOT/skills/sync/SKILL.md' && grep -q 'Plan docs and mockup copies that logbook before 0.9 committed' '$ROOT/skills/sync/SKILL.md'"
-expect "brief keeps the plan doc and the mockup copy in the main checkout's .logbook and never commits them" bash -c "grep -q '\`.logbook/plans/\` and \`.logbook/designs/\` of the main checkout' '$BR' && grep -q 'never committed' '$BR' && grep -q 'Write \`<main>/.logbook/plans/<issue>-<slug>.md\`' '$BR' && grep -q 'artboards to \`<main>/.logbook/designs/<issue>-<slug>/\`' '$BR' && grep -q 'render-brief.sh <main>/.logbook/plans/<issue>-<slug>.md brief <main>/.logbook/briefs/' '$BR' && grep -q 'render-brief.sh <doc> debrief <main>/.logbook/briefs/' '$DB' && grep -q 'Do not commit the plan doc' '$BR'"
-expect "brief puts the reasons in the PR body" bash -c "grep -q 'The PR body carries what the plan doc cannot' '$BR' && grep -q '알린 우려, your own calls' '$BR' && grep -q 'in the plan doc.s 결정 기록 and the PR body' '$BR'"
+expect "brief keeps the plan doc and the mockup copy in the main checkout's .logbook and never commits them" bash -c "grep -q '\`.logbook/plans/\` and \`.logbook/designs/\` of the main checkout' '$BR' && grep -q 'never committed' '$BR' && grep -q 'Write \`<main>/.logbook/plans/<issue>-<slug>.md\`' '$BR' && grep -q 'artboards to \`<main>/.logbook/designs/<issue>-<slug>/\`' '$BR' && grep -q 'Do not commit the plan doc' '$BR'"
+expect "no skill renders a briefing or a debriefing with the slide renderer" bash -c "! grep -rq 'render-brief' '$ROOT/skills'"
+expect "build puts the reasons in the PR body" bash -c "grep -q 'The PR body carries what the plan doc cannot' '$BU' && grep -q '알린 우려, your own calls' '$BU' && grep -q \"in the plan doc's 결정 기록 and the PR body\" '$BU'"
 expect "brief resumes a set-aside plan from the local doc or the 계획 문서 comment" bash -c "grep -q 'or else from the issue.s last comment whose first line is \`계획 문서\`' '$BR' && grep -q 'picks it up again on any clone' '$BR' && grep -q 'Check out its branch when it exists on this clone or the remote; otherwise cut it' '$BR'"
-expect "brief keeps an epic's step table in the epic issue" bash -c "grep -q 'in the epic issue body, push the epic branch' '$BR' && grep -q 'rebuild the epic doc from the epic issue body and the step docs from the child issue bodies' '$BR' && grep -q 'a body like step 9.s (요약, 주요 결정, completion conditions)' '$BR'"
-expect "debrief writes one CHANGELOG line linking the issue and the PR, once per epic" bash -c "grep -q 'Changelog: add one line for this change' '$DB' && grep -q 'linking the issue and the PR' '$DB' && grep -q 'Keep a Changelog' '$DB' && grep -q 'by date for an app that has no versions' '$DB' && grep -q 'The changelog line links the epic issue and the epic PR' '$DB' && grep -q 'The doc stays uncommitted' '$DB'"
+expect "brief: a plan made on another clone is rebuilt from the issue, and /debrief falls back to the issue body" bash -c "grep -q 'or else from the issue.s last comment whose first line is \`계획 문서\`' '$BR' && grep -q \"or else from the issue body's text briefing and the PR body\" '$DB'"
+expect "debrief writes one CHANGELOG line linking the issue and the PR" bash -c "grep -q 'Changelog: add one line for this change' '$DB' && grep -q 'linking the issue and the PR' '$DB' && grep -q 'Keep a Changelog' '$DB' && grep -q 'by date for an app that has no versions' '$DB' && grep -q 'The doc stays uncommitted' '$DB'"
 expect "plan template keeps the doc local and has a 변경 이력 evidence row" bash -c "grep -q '커밋하지 않는다' '$T' && grep -q '^| 변경 이력 | ✅ |' '$T' && grep -q '.logbook/designs/{이슈번호}-{slug}/' '$T'"
 expect "rules keep plan docs and mockups in .logbook and the history in CHANGELOG" bash -c "grep -q '.logbook/plans/<번호>-<slug>.md' '$B' && grep -q '.logbook/designs/<번호>-<slug>/' '$B' && grep -q 'CHANGELOG에 이슈와 PR을 링크한 한 줄' '$B' && grep -q '\`CHANGELOG.md\`(변경 이력)' '$B' && ! grep -qE 'docs/(plans|designs)' '$B'"
 expect "sync's document table has a changelog row and asks version or date" bash -c "grep -q '| 변경 이력 (CHANGELOG' '$ROOT/skills/sync/SKILL.md' && grep -q 'whether the changelog goes by version or by date' '$ROOT/skills/sync/SKILL.md'"
@@ -850,19 +866,61 @@ expect "system doc templates link decisions to PRs, not plan docs" bash -c "! gr
 expect "no skill or hook tells the agent to commit or push a plan doc" bash -c "test -z \"\$(grep -rniE '(commit|push)[a-z ]* (the|every) (plan|step|epic) doc|plan-doc updates' '$ROOT/skills' '$ROOT/hooks' '$ROOT/agents' '$ROOT/templates' | grep -viE 'do not commit')\""
 
 # ---------------------------------------------------------------- worktrees (0.10)
-expect "rules: work happens in the main checkout, an epic gets no worktree, and an unfit checkout is asked about" bash -c "grep -q '작업 폴더는 원래 checkout이다' '$B' && grep -q '에픽을 시작한다고 git worktree(한 저장소를 여러 폴더에 동시에 checkout하는 git 기능)를 만들지 않는다' '$B' && grep -q 'worktree를 만들기 전에 이유를 들어 묻고' '$B'"
-expect "rules: the agent decides parallel work while implementing, not in the briefing" bash -c "grep -q '구현할 때 에이전트가 정한다. 사람에게 묻거나 브리핑에 적지 않고' '$B' && ! grep -q '브리핑이나 채팅에 적는다' '$B'"
+expect "rules: work happens in the main checkout, and an unfit checkout is asked about" bash -c "grep -q '작업 폴더는 원래 checkout이다' '$B' && grep -q 'git worktree(한 저장소를 여러 폴더에 동시에 checkout하는 git 기능)를 만들기 전에 이유를 들어 묻고' '$B' && grep -q '사람이 worktree를 쓰라고 하면 따른다' '$B'"
+expect "rules: /brief plans the tracks in the graph without asking or showing them on the page, and changes are recorded" bash -c "grep -q '사람에게 묻지 않고 브리핑 화면에도 넣지 않는다' '$B' && grep -q '구현 중에 그래프를 바꾸면 이유를 계획 문서의 결정 기록과 PR 본문에 남긴다' '$B' && ! grep -q '브리핑이나 채팅에 적는다' '$B'"
 expect "rules: worktree tracks come from worktree.sh, not Claude Code's isolation, and are removed after merging" bash -c "grep -q '{plugin_root}/scripts/worktree.sh' '$B' && grep -q 'isolation: worktree.는 기본 브랜치에서 worktree를 만들어' '$B' && grep -q '합친 트랙의 worktree와 트랙 브랜치는 원래 checkout에서 .worktree.sh remove <브랜치> --delete-branch.로 바로 지운다' '$B' && grep -q '강제로 지우지 않고 멈춰 경로를 보고한다' '$B' && grep -q '세션이 이어받은 트랙도 합친 뒤 같이 지운다' '$B'"
-expect "rules: epic steps split only where user stories divide and run one at a time" bash -c "grep -q '유저 스토리가 명확히 갈리는 곳에서 크게 나눈다' '$B' && grep -q '스토리가 하나뿐이면 크더라도 이슈 하나로 계획해' '$B' && grep -q '단계를 표 순서대로 하나씩 진행한다' '$B' && ! grep -q '서로 기다리지 않는 단계' '$B'"
+expect "rules: shared parts first, then one large wave; more waves only where a review must come first" bash -c "grep -q '공통 부분(타입, 인터페이스, 설정)을 먼저 만들어 커밋하고, 나머지 트랙은 모두 한 묶음으로' '$B' && grep -q '묶음은 세션이 리뷰하고 합치는 단위라 크게 잡는다' '$B' && grep -q '앞 결과를 세션이 리뷰하고 합쳐야만 뒤 트랙을 시작할 수 있을 때만 묶음을 더 나누고' '$B' && grep -q '계획 문서만 보고 만들 수 있는 문서와 테스트도 같은 묶음에 넣는다' '$B' && ! grep -q '서로 기다리지 않는 단계' '$B'"
+expect "parallel guide and brief keep waves few and large" bash -c "grep -q 'Keep waves few and large' '$P' && grep -q 'The default is two waves' '$P' && grep -q 'docs and tests included, goes into the same wave' '$P' && grep -q 'it is no reason for a wave of its own' '$P' && grep -q 'Keep waves large: the shared parts first, then one wave with everything else' '$ROOT/skills/brief/SKILL.md'"
 expect "session-rules hook fills in the plugin root with a path to worktree.sh that exists" bash -c "p=\$(printf '%s' \"\$1\" | grep -o '[^\`]*/scripts/worktree.sh' | head -1) && [ -x \"\$p\" ] && ! printf '%s' \"\$1\" | grep -q '{plugin_root}'" _ "$ctx"
-expect "parallel guide: tracks run in the shared tree or a worktree, decided while implementing, never in the briefing" bash -c "grep -q '## Where tracks run' '$P' && grep -q 'do not put tracks in it and do not ask the user about them' '$P' && grep -q 'scripts/worktree.sh add <branch> <base>' '$P' && grep -q \"Do not use Claude Code's .isolation: 'worktree'.\" '$P' && ! grep -q \"briefing's 일정과 검증\" '$P'"
-expect "parallel guide: no epic steps side by side; splitting is the default" bash -c "! grep -q '## Epic steps side by side' '$P' && grep -q 'Epic steps always run one at a time' '$P' && grep -q 'Splitting is the default' '$P'"
+expect "parallel guide: tracks run in the shared tree or a worktree, and the user is not asked about them" bash -c "grep -q '## Where tracks run' '$P' && grep -q 'The user is not asked about tracks, and the briefing page does not show the graph' '$P' && grep -q 'scripts/worktree.sh add <branch> <base>' '$P' && grep -q \"Do not use Claude Code's .isolation: 'worktree'.\" '$P' && ! grep -q \"briefing's 일정과 검증\" '$P'"
+expect "parallel guide: a Track graph section, a Workflow per wave, risky tracks reviewed, splitting by default" bash -c "grep -q '^## Track graph' '$P' && grep -q '### 트랙 그래프' '$P' && grep -q '묶음 (wave), 트랙, 맡을 에이전트, 바꿀 파일, 기다리는 트랙, 위험, 확인 명령' '$P' && grep -q '\`/build\` runs each wave as a Workflow' '$P' && grep -q 'several Workflows in a row when the wave holds more tracks than the Workflow size setting allows' '$P' && grep -q 'A track marked 위험 is reviewed before it is merged' '$P' && grep -q 'Splitting is the default' '$P' && ! grep -qiE 'epic|에픽' '$P'"
 expect "parallel guide: a review split by area with a seam reviewer for tracked or large PRs" bash -c "grep -q '^## Review split' '$P' && grep -q 'built in builder tracks (its body lists them), or when its diff changes 2,000 lines or more' '$P' && grep -q 'in area mode' '$P' && grep -q 'in seam mode' '$P'"
 expect "debrief splits round 1 for tracked or large PRs, and the reviewer has area and seam modes" bash -c "grep -q 'Split round 1 when the PR was built in builder tracks (its body lists them) or its diff changes 2,000 lines or more' '$DB' && grep -q '^## Area mode' '$ROOT/agents/reviewer.md' && grep -q '^## Seam mode' '$ROOT/agents/reviewer.md' && grep -q '영역이 만나는 지점을 보는 리뷰어를 하나 더 둔다' '$B'"
-expect "brief: main checkout by default, asks before a worktree, no tracks in 일정과 검증" bash -c "grep -q 'an epic gets no git worktree either' '$BR' && grep -q 'say what and ask before making a worktree' '$BR' && grep -q 'it is not part of the briefing and not a question for the user' '$BR' && ! grep -q '일정과 검증 names the tracks' '$BR' && ! grep -q '^- \*\*Side by side.\*\*' '$BR' && grep -q '^- \*\*Inside a step.\*\*' '$BR' && grep -q 'where the work clearly divides into separate user stories' '$BR' && grep -q 'Split the work into parallel builder tracks by default' '$BR'"
-expect "no prompt or doc still runs epic steps side by side" bash -c "for d in '$ROOT/agents' '$ROOT/skills' '$ROOT/templates' '$ROOT/docs/system' '$ROOT/docs/manual' '$ROOT/README.md'; do test -e \"\$d\" || exit 1; done && ! grep -rnE 'beside other steps|Epic steps side by side|병렬 단계|서로 기다리지 않는 (에픽 )?단계|이득이 있을 때만' '$ROOT/agents' '$ROOT/skills' '$ROOT/templates' '$ROOT/docs/system' '$ROOT/docs/manual' '$ROOT/README.md'"
-expect "split review leaves epic PRs to epic mode and covers files outside the tracks" bash -c "grep -q 'except on an epic PR' '$DB' && grep -q 'files no track changed' '$P' && grep -q 'one line per builder track' '$BR'"
-expect "debrief: no step worktree handling; an asked-for worktree is removed before the merge" bash -c "! grep -q 'when the epic branch has moved since this step was cut' '$DB' && ! grep -q 'A step built in a worktree' '$DB' && grep -q 'when the work ran in a worktree made by' '$DB'"
+expect "brief: main checkout by default, asks before a worktree, large work split into tracks, not child issues" bash -c "grep -q 'say what and ask with the question tool before making a worktree' '$BR' && grep -q 'It is not a question for the user and stays off the briefing page' '$BR' && ! grep -q '일정과 검증 names the tracks' '$BR' && grep -q 'Large work is split into tracks inside it (step 5), never into child issues' '$BR' && grep -q 'One request is one issue and one PR' '$BR'"
+expect "no prompt or doc still runs steps side by side" bash -c "for d in '$ROOT/agents' '$ROOT/skills' '$ROOT/templates' '$ROOT/docs/system' '$ROOT/docs/manual' '$ROOT/README.md'; do test -e \"\$d\" || exit 1; done && ! grep -rnE 'beside other steps|Epic steps side by side|병렬 단계|서로 기다리지 않는 (에픽 )?단계|이득이 있을 때만' '$ROOT/agents' '$ROOT/skills' '$ROOT/templates' '$ROOT/docs/system' '$ROOT/docs/manual' '$ROOT/README.md'"
+expect "split review covers files outside the tracks, and the PR body lists the tracks" bash -c "grep -q 'files no track changed' '$P' && grep -q 'one line per track (wave, agent, files' '$BU' && grep -q 'Split round 1 when the PR was built in builder tracks' '$DB'"
+expect "debrief: an asked-for worktree is removed before the merge" bash -c "! grep -q 'when the epic branch has moved since this step was cut' '$DB' && ! grep -q 'A step built in a worktree' '$DB' && grep -q 'when the work ran in a worktree made by' '$DB'"
+
+# ---------------------------------------------------------------- questions, briefing pages, /build, no epics (0.12)
+Q="$ROOT/templates/questions.md"
+expect "questions guide: who decides, and the four lenses" bash -c "grep -q '^## Who decides' '$Q' && grep -q '\*\*Structure\*\*' '$Q' && grep -q '\*\*Behavior\*\*' '$Q' && grep -q '\*\*Technique\*\*' '$Q' && grep -q '\*\*Contract\*\*' '$Q' && grep -q 'When the request, the code and the docs disagree, do not pick one. Ask.' '$Q'"
+expect "questions guide: ask with the question tool, the recommended option first, prose as the fallback" bash -c "grep -q '^## How to ask' '$Q' && grep -q 'Use the question tool whenever the answers can be listed (AskUserQuestion on Claude Code)' '$Q' && grep -q '(Recommended)' '$Q' && grep -q 'ask the same question in prose at once' '$Q' && grep -q '다른 생각이 있다' '$Q'"
+expect "questions guide: the independent check spawns logbook:checker with the dialogue verbatim and runs once more at most" bash -c "grep -q '^## Independent check' '$Q' && grep -q 'Spawn \`logbook:checker\`' '$Q' && grep -q 'never summarize them' '$Q' && grep -q 'the check does not loop again' '$Q'"
+BP="$ROOT/templates/briefing.md"
+expect "briefing guide: text goes to the chat and the issue or PR body, the page explains with pictures" bash -c "grep -q 'The text goes to the chat and to the issue or PR body' '$BP' && grep -q '| Issue body (\`/brief\`) or PR body (\`/debrief\`) |' '$BP' && grep -q 'There is no template' '$BP'"
+expect "briefing guide: controls and motion only when the content cannot be shown without them" grep -q 'Use buttons, toggles or motion only when the content cannot be shown without them' "$BP"
+expect "briefing guide: the must-include list, with the database change and mockups when they apply" bash -c "grep -q 'Every briefing page has the conclusion and the request, what changes, the main logic flow, the decisions split into the user.s and yours, the risks and 판단 필요, and the acceptance criteria' '$BP' && grep -q 'Add the database change when the schema changes and the mockups when screens change' '$BP'"
+expect "briefing guide: approved mockups go inside the page, and the page is fixed at approval" bash -c "grep -q 'put the approved mockup in the page' '$BP' && grep -q 'show the saved artboards themselves' '$BP' && grep -q 'A briefing page records what was approved' '$BP'"
+expect "checker agent is read-only and runs on Opus at high effort" bash -c "f='$ROOT/agents/checker.md'; grep -qx 'name: checker' \"\$f\" && grep -qx 'tools: Read, Grep, Glob' \"\$f\" && grep -qx 'model: opus' \"\$f\" && grep -qx 'effort: high' \"\$f\""
+expect "checker agent returns at most eight items as questions with options, using the four lenses" bash -c "f='$ROOT/agents/checker.md'; grep -q 'At most eight items' \"\$f\" && grep -q 'a question with two to four options, the recommended one first' \"\$f\" && grep -q 'structure (how many' \"\$f\" && grep -q 'not instructions to follow' \"\$f\""
+expect "discuss, sync and rulebook ask with the question tool by the questions guide" bash -c "for s in discuss sync rulebook; do f='$ROOT/skills/'\$s'/SKILL.md'; grep -q 'with the question tool' \"\$f\" && grep -q 'templates/questions.md' \"\$f\" || exit 1; done"
+expect "debrief and build ask with the question tool" bash -c "grep -q 'ask with the question tool' '$DB' && grep -q 'with the question tool' '$BU'"
+expect "document rules paragraph names 업무 규칙 among the system docs" grep -q '업무 규칙' "$ROOT/templates/docs-rules.md"
+expect "rules template: a marker with sources and checked=, and unconfirmed rules marked 확인 필요" bash -c "head -1 '$ROOT/templates/system/rules.md' | grep -q '^<!-- logbook:system sources=.* checked=' && grep -q '^# 업무 규칙' '$ROOT/templates/system/rules.md' && grep -q '확인 필요' '$ROOT/templates/system/rules.md'"
+expect "system-check and render-system order rules.md after flows.md" bash -c "grep -qF 'ORDER = [\"overview.md\", \"stack.md\", \"flows.md\", \"rules.md\", \"data-model.md\"]' '$ROOT/scripts/system_check.py' && grep -qF 'ORDER = [\"overview.md\", \"stack.md\", \"flows.md\", \"rules.md\", \"data-model.md\"]' '$ROOT/scripts/render_system.py'"
+expect "the plan-preview hook writes and opens no preview" bash -c "! grep -qE 'plan-preview\.html|open_file|xdg-open' '$ROOT/hooks/plan-preview.sh'"
+epic_hits="$(cd "$ROOT" && grep -rniE 'epic|에픽' skills agents templates hooks scripts README.md docs .claude-plugin 2>/dev/null)"
+if [ -z "$epic_hits" ]; then ok "no epic is left in skills, agents, templates, hooks, scripts, README, docs or the plugin manifest (CHANGELOG keeps history)"; else bad "no epic is left in skills, agents, templates, hooks, scripts, README, docs or the plugin manifest (CHANGELOG keeps history)" "$epic_hits"; fi
+
+# ---------------------------------------------------------------- 0.12 review round 1
+expect "brief creates rules.md when a change settles the project's first domain rule" grep -q 'settles its first domain rule, the change creates it from' "$ROOT/skills/brief/SKILL.md"
+expect "briefing guide keeps briefing and result pages in the main checkout's .logbook/briefs" bash -c "grep -q '<main>/.logbook/briefs/<issue>-brief.html' '$ROOT/templates/briefing.md' && grep -q '<issue>-debrief.html' '$ROOT/templates/briefing.md'"
+v_plugin="$(jq -r .version "$ROOT/.claude-plugin/plugin.json")"
+v_market="$(jq -r '.plugins[0].version' "$ROOT/.claude-plugin/marketplace.json")"
+v_log="$(sed -n 's/^## \[\([0-9.]*\)\].*/\1/p' "$ROOT/CHANGELOG.md" | head -1)"
+if [ -n "$v_plugin" ] && [ "$v_plugin" = "$v_market" ] && [ "$v_plugin" = "$v_log" ]; then ok "plugin.json, marketplace.json and the top CHANGELOG entry share one version ($v_plugin)"; else bad "plugin.json, marketplace.json and the top CHANGELOG entry share one version" "plugin=$v_plugin market=$v_market changelog=$v_log"; fi
+BP="$TMP/brokenplugin"
+mkdir -p "$BP/hooks" "$BP/scripts" "$BP/.claude-plugin"
+cp "$ROOT/hooks/"*.sh "$BP/hooks/"
+cp "$ROOT/.claude-plugin/plugin.json" "$BP/.claude-plugin/"
+printf '#!/bin/sh\necho "render-brief: python3 not found" >&2\nexit 3\n' > "$BP/scripts/render-brief.sh"
+chmod +x "$BP/scripts/render-brief.sh" "$BP/hooks/"*.sh
+PROJ="$TMP/proj"
+res="$(jq -cn --arg plan $'<!-- brief:begin -->\n## 요약\n\n결론.\n<!-- brief:end -->\n' --arg cwd "$PROJ" '{hook_event_name: "PreToolUse", tool_name: "ExitPlanMode", tool_input: {plan: $plan}, cwd: $cwd}' | CLAUDE_PLUGIN_ROOT="$BP" CLAUDE_PROJECT_DIR="$PROJ" LOGBOOK_NO_OPEN=1 "$BP/hooks/plan-preview.sh")"
+if printf '%s' "$res" | jq -e '.systemMessage | test("HTML 검사를 하지 못했습니다")' >/dev/null 2>&1; then ok "plan-preview: a check that cannot run says so instead of passing silently"; else bad "plan-preview: a check that cannot run says so instead of passing silently" "$res"; fi
+expect "plan-mode reminder and brief move the issue to in-progress before /build" bash -c "grep -q '진행이면 이슈를 status:in-progress로 옮기고 /build로 넘겨' '$ROOT/hooks/plan-preview.sh' && grep -q 'On 진행, move the issue to .status:in-progress. and invoke ./build #<issue>.' '$ROOT/skills/brief/SKILL.md'"
+expect "build takes over an interrupted shared-tree wave and runs a pre-0.12 plan as one wave" bash -c "grep -q 'Uncommitted files of this issue.s interrupted wave are no such reason' '$ROOT/skills/build/SKILL.md' && grep -q 'A plan doc without a track graph (one made before 0.12) runs as one wave' '$ROOT/skills/build/SKILL.md'"
+expect "brief rewrites the issue body's text briefing on 수정" grep -q "On 수정, change the plan, rewrite the issue body's text briefing" "$ROOT/skills/brief/SKILL.md"
 
 echo
 echo "$PASS passed, $FAIL failed"

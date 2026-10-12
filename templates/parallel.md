@@ -1,17 +1,27 @@
 # Parallel work
 
-How logbook launches work that runs side by side: implementation tracks (the builder agents), research (Explore agents in `/brief`, `/discuss` and `/sync`) and a split review (reviewer agents in `/debrief`). The rule for when implementation is split lives in the logbook rules the SessionStart hook adds ("독립 트랙은 나눠서 동시에 만든다"): two or more independent, sizeable tracks are split by default. This file covers how to launch them.
+How logbook launches work that runs side by side: implementation tracks of `/build` (the builder agents), research (Explore agents in `/brief`, `/discuss` and `/sync`) and a split review (reviewer agents in `/debrief`). The rule for splitting lives in the logbook rules the SessionStart hook adds ("독립 트랙은 나눠서 동시에 만든다"): two or more independent, sizeable tracks are split by default. `/brief` plans the tracks in the plan doc's track graph, and `/build` launches them as this file says.
 
-Whether to split, and how, is yours to decide while implementing, to deliver the approved spec fast and right. Splitting is the default; when you keep the work in one piece, say why in one line of chat. The briefing settles the spec only: do not put tracks in it and do not ask the user about them.
+The user is not asked about tracks, and the briefing page does not show the graph. Splitting is the default; when the work stays in one piece, the graph says why in one line.
 
-Epic steps always run one at a time. Parallel work happens inside an issue or a step, as tracks.
+## Track graph
+
+`/brief` writes it under `### 트랙 그래프` in the plan doc's `## 상세`, after the questions are settled, as a mermaid flowchart and a table with one row per track: 묶음 (wave), 트랙, 맡을 에이전트, 바꿀 파일, 기다리는 트랙, 위험, 확인 명령.
+
+- Keep waves few and large. A wave is the unit the session reviews, merges and tests, so a wave boundary goes only where the session really has to review and merge earlier results before later tracks can start. The default is two waves: wave 0 with the shared parts (types, interfaces, configuration) that the session builds and commits, then one wave with every other track at once.
+- Work that can be built from the plan doc alone, docs and tests included, goes into the same wave as the code it describes. A further wave needs one line in the graph saying why that review cannot wait until the wave is merged; a wave with a single track usually means the split is wrong.
+- Tracks of one wave share no files.
+- Pick the agent by the Models table below. Work that is design-heavy, a few steps long, or may need a question to the user stays with the session.
+- 위험 is 예 when the track has tricky logic, a contract other tracks rely on, or many edge cases. Such a track is reviewed before its wave is merged; it is no reason for a wave of its own.
+- `/build` follows the graph. After each wave it merges the tracks and runs the full test suite. A track marked 위험 is reviewed before it is merged: `logbook:reviewer` in area mode, given the plan's acceptance criteria in place of a PR body, the track's diff and the diff stat; confirmed serious findings are fixed before the next wave starts.
+- When reality differs from the graph (an unexpected shared file, a track that turns out tiny), change it and record what changed and why in the plan doc's 결정 기록 and the PR body.
 
 ## Two ways to launch
 
 | | Subagents | Workflow |
 |---|---|---|
 | What it is | The session calls the Agent tool once per track or area, in one message | The session runs one Workflow script (Claude Code's tool that spawns agents from a JavaScript script with `agent()`, `parallel()` and `pipeline()`) |
-| Pick it when | The default. Two tracks or two research areas | The Workflow tool is available, and there are three or more tracks or areas, or the work is long enough that resuming after an interruption matters |
+| Pick it when | Research with one or two areas, and any harness without the Workflow tool | Every `/build` wave that holds builder tracks, however many, research with three or more areas, and every split review, when the Workflow tool is available |
 | What it adds | Nothing to set up | Each track returns a result in a fixed shape (schema), an interrupted run resumes with `resumeFromRunId`, and `/workflows` shows progress |
 
 - Either way, each track runs in the shared working tree or in a git worktree of its own; see Where tracks run.
@@ -43,14 +53,14 @@ Write the model and effort into the script even though the agent definitions car
 
 - Make the worktree with the plugin's `scripts/worktree.sh add <branch> <base>` (the plugin root is the folder above this file's `templates/`): it puts it in `<main>/.logbook/worktrees/<branch with / turned into ->` (`worktree.sh path <branch>` prints it), cuts the branch from the base you name (the work branch after the shared parts are committed), links the main checkout's git-ignored `.env` files, and prints the path. Install dependencies there as `docs/system/stack.md` says before handing it out.
 - Brief the builder with that path as where it works. Track branches are named `<work branch>-<track>`. A branch that already exists is checked out as it is, not cut again from the base, so pick a fresh track name for a second run.
-- Do not use Claude Code's `isolation: 'worktree'` on the Agent tool or `agent()`: it cuts the worktree from the default branch, so the shared parts and earlier steps are missing.
+- Do not use Claude Code's `isolation: 'worktree'` on the Agent tool or `agent()`: it cuts the worktree from the default branch, so the shared parts and earlier waves are missing.
 - Run `worktree.sh` from the main checkout, not from inside the worktree it removes. Merge a track's branch into the work branch, then `worktree.sh remove <branch> --delete-branch`. `remove` refuses with exit 3 when uncommitted changes are left, and `--delete-branch` with exit 4 when the branch holds commits not merged yet; then stop, report the path and do not force it.
 - A track the session takes over keeps its worktree until it is merged, then goes the same way.
 - Some tools (jest, for one) may also scan `.logbook/worktrees/`; when one does, exclude that folder in the project's tool settings.
 
 ## Implementation tracks as a Workflow
 
-Commit the shared parts first, as the logbook rules say. Then one `parallel()` call runs every track; there is no stage after it, since the session merges and tests.
+Commit the shared parts first, as the logbook rules say. Then `/build` runs each wave as a Workflow: one `parallel()` call over that wave's builder tracks, or several Workflows in a row when the wave holds more tracks than the Workflow size setting allows. The session merges, reviews the tracks marked 위험 and runs the full tests between waves, since those steps can need a judgment or a question to the user, which agents inside a Workflow cannot ask.
 
 ```js
 export const meta = { name: 'logbook-tracks', description: 'Run independent implementation tracks for one plan' }
@@ -75,10 +85,10 @@ One `parallel()` over the areas, each an Explore agent on Sonnet that returns fi
 
 ## Review split
 
-`/debrief` splits round 1 of a review, except on an epic PR (it keeps its epic-mode review), when the PR was built in builder tracks (its body lists them), or when its diff changes 2,000 lines or more (`git diff --shortstat`, leaving out lock files and generated files). Smaller PRs and later rounds keep one reviewer.
+`/debrief` splits round 1 of a review when the PR was built in builder tracks (its body lists them), or when its diff changes 2,000 lines or more (`git diff --shortstat`, leaving out lock files and generated files). Smaller PRs and later rounds keep one reviewer.
 
 - Areas: one per track, by the files each track changed; files no track changed (the session's own edits, docs, glue after merging) form one more area. Without tracks, split by top-level folder or module so that each area is a few hundred to about 1,500 lines. Merge small areas so the reviewers, the seam one included, stay within the Workflow size setting.
 - Area reviewer: `logbook:reviewer` in area mode, given the PR body, the full diff stat and the diff of its area's files. It may read any other file from the checkout.
 - Seam reviewer: `logbook:reviewer` in seam mode, given the PR body, the full diff stat, the area list with its files, the diff of the shared parts (the commit made before the tracks, or files that several areas use) and the diff of every file two or more areas changed.
-- Launch them as the table under Two ways to launch says: subagents for two, a Workflow for three or more. In a Workflow, each reviewer is `agent()` with `agentType: 'logbook:reviewer', model: 'opus', effort: 'high'`, the values its frontmatter carries.
+- Launch them at once as a Workflow; without the Workflow tool, as subagents in one message. In a Workflow, each reviewer is `agent()` with `agentType: 'logbook:reviewer', model: 'opus', effort: 'high'`, the values its frontmatter carries.
 - The session merges their findings, drops duplicates, and filters them as `/debrief` step 3 says. The PR body's review line names the areas.

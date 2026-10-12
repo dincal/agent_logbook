@@ -24,7 +24,7 @@ from render_brief import (  # noqa: E402
     standalone,
 )
 
-ORDER = ["overview.md", "stack.md", "flows.md", "data-model.md"]
+ORDER = ["overview.md", "stack.md", "flows.md", "rules.md", "data-model.md"]
 
 
 def git(*args, cwd=None):
