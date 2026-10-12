@@ -34,7 +34,7 @@ Every wave, wave 0 included, goes through these steps. Wave 0 holds the shared p
   - Tick the wave in the plan doc's 진행 기록 and write "묶음 n/N 끝: <result>".
 - **When reality differs from the graph** (an unexpected shared file, a track that turns out tiny, a new dependency), change the graph and record what changed and why in the plan doc's 결정 기록; it goes into the PR body later.
 - **While building:** do not weaken or delete tests. Stop and ask before a schema change or data deletion the plan does not cover. Record anything decided differently from the plan, with the reason, in the plan doc's 결정 기록 and the PR body. Update `docs/system/` in the same PR when the change alters what it describes, and `rules.md` when a domain rule was settled or changed.
-- **When a wave stops** (full tests failing in a way you cannot fix, a question for the user, a conflict you cannot resolve): report the wave, the reason and what would let it go on, and ask 고친 뒤 이어서 / 중단 with the question tool, as `${CLAUDE_PLUGIN_ROOT}/templates/questions.md` says. On 중단, leave the branch, the commits and the plan doc as they are, keep the issue in `status:in-progress`, and stop; `/build #<issue>` picks it up later.
+- **When a wave stops** (full tests failing in a way you cannot fix, a question for the user, a conflict you cannot resolve): report the wave, the reason and what would let it go on, and ask 고친 뒤 이어서 / 중단 with the question tool, as `${CLAUDE_PLUGIN_ROOT}/templates/questions.md` says. On 중단, leave the plan doc, the branch and its commits as they are, keep the issue in `status:in-progress`, and stop; `/build #<issue>` picks it up later.
 
 ## Finish
 
