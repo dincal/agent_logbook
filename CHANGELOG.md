@@ -2,7 +2,7 @@
 
 ## [0.12.0] - 2026-10-12
 
-이슈 [#31](https://github.com/dincal/agent_logbook/issues/31) · PR {PR}
+이슈 [#31](https://github.com/dincal/agent_logbook/issues/31) · PR [#32](https://github.com/dincal/agent_logbook/pull/32)
 
 에픽을 없애 요청 하나를 이슈 하나와 PR 하나로 처리하고, `/brief`가 사람이 정할 것을 모두 객관식으로 물은 뒤 트랙 그래프까지 계획하면 새 명령 `/build`가 그래프대로 나눠 만들게 했습니다. 브리핑과 결과 보고는 이슈마다 그림으로 설명하는 화면으로 바꿨습니다.
 
