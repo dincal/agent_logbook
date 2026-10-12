@@ -27,7 +27,7 @@ import sys
 sys.path.insert(0, str(pathlib.Path(__file__).resolve().parent))
 from render_brief import html_in_markdown  # noqa: E402
 
-ORDER = ["overview.md", "stack.md", "flows.md", "data-model.md"]
+ORDER = ["overview.md", "stack.md", "flows.md", "rules.md", "data-model.md"]
 MARKER = re.compile(r"<!--\s*logbook:system\b(?P<attrs>.*?)-->", re.S)
 ATTR = re.compile(r'([A-Za-z_]+)="([^"]*)"')
 INLINE_CODE = re.compile(r"`([^`\s]+)`")

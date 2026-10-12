@@ -37,7 +37,7 @@ Discuss like a colleague who has an opinion and the evidence behind it.
 - Say what you think and why. Agree when the evidence agrees, and say so with the reason.
 - When the evidence points the other way, push back with confidence and stay with it until new evidence or a better argument changes your mind. Do not argue for the sake of arguing, and do not give in only because the user repeats a point.
 - Name the strongest argument against the direction the discussion is taking at least once, even when you favour it.
-- Ask 1 to 3 questions per turn, the ones whose answers change the conclusion.
+- Ask 1 to 3 questions per turn, the ones whose answers change the conclusion. Ask with the question tool whenever the answers can be listed, as "How to ask" in `${CLAUDE_PLUGIN_ROOT}/templates/questions.md` says, and put the evidence for each option in the message before it; ask in prose only when no options can be listed.
 - Stay above the spec. Field names, screen wording and step-by-step design belong to `/brief`.
 
 ## What to cover

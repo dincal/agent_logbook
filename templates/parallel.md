@@ -19,7 +19,7 @@ The user is not asked about tracks, and the briefing page does not show the grap
 | | Subagents | Workflow |
 |---|---|---|
 | What it is | The session calls the Agent tool once per track or area, in one message | The session runs one Workflow script (Claude Code's tool that spawns agents from a JavaScript script with `agent()`, `parallel()` and `pipeline()`) |
-| Pick it when | The default. Two tracks or two research areas | The Workflow tool is available, and there are three or more tracks or areas, or the work is long enough that resuming after an interruption matters |
+| Pick it when | Research or a split review with one or two areas, and any harness without the Workflow tool | Every `/build` wave that holds builder tracks, however many, and research or a split review with three or more areas or reviewers, when the Workflow tool is available |
 | What it adds | Nothing to set up | Each track returns a result in a fixed shape (schema), an interrupted run resumes with `resumeFromRunId`, and `/workflows` shows progress |
 
 - Either way, each track runs in the shared working tree or in a git worktree of its own; see Where tracks run.
@@ -58,7 +58,7 @@ Write the model and effort into the script even though the agent definitions car
 
 ## Implementation tracks as a Workflow
 
-Commit the shared parts first, as the logbook rules say. Then one `parallel()` call per wave runs that wave's tracks; the session merges and tests between waves.
+Commit the shared parts first, as the logbook rules say. Then `/build` runs one Workflow per wave: one `parallel()` call over that wave's builder tracks. The session merges, reviews the tracks marked 위험 and runs the full tests between waves, since those steps can need a judgment or a question to the user, which agents inside a Workflow cannot ask.
 
 ```js
 export const meta = { name: 'logbook-tracks', description: 'Run independent implementation tracks for one plan' }

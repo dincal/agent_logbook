@@ -254,7 +254,6 @@ status:backlog|C9CED6|Not started
 status:todo|BFD4F2|Briefed, waiting for approval
 status:in-progress|F9D38C|Being implemented
 status:done|A7E3B5|Merged
-epic|3E4B9E|Epic / Large initiative
 EOF
 }
 
