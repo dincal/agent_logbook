@@ -57,15 +57,15 @@ A change that one sentence fully describes (a typo, a rename, a small config twe
 7. **Briefing page.** Build the page as `${CLAUDE_PLUGIN_ROOT}/templates/briefing.md` says: designed for this issue, pictures over text, controls and motion only where the content needs them, the approved screens inside it when step 4 ran. On Claude Code, publish it as an Artifact and keep the link; where publishing is unavailable, use the local file path as the link.
 8. **Link.**
    - Put the page link in the plan doc header.
-   - Rewrite the issue body as the text briefing from the brief block (요약, what changes, 주요 결정, risks, acceptance criteria) with the page link. Read the body first; an edit replaces it whole.
+   - Rewrite the issue body as the text briefing from the brief block (요약, what changes, 주요 결정, risks, acceptance criteria) with the page link. Read the body first, since an edit replaces it whole: when someone else wrote it, keep their text under `## 원래 요청` at the end.
    - Comment on the issue with a three-line summary, the page link and the 판단 필요 items.
    - Do not commit the plan doc.
 9. **Approval.**
-   - Ask in the chat as `templates/briefing.md` says: one sentence of summary, your calls that change behavior or cost, the risks and 판단 필요, the number of acceptance criteria and the page link, then "진행 / 수정 / 중단" with the question tool.
-   - Called by `/sync`: ask the same and hand back to `/sync`, which carries out the approved plan itself.
+   - Ask in the chat as `${CLAUDE_PLUGIN_ROOT}/templates/briefing.md` says: one sentence of summary, your calls that change behavior or cost, the risks and 판단 필요, the number of acceptance criteria and the page link, then "진행 / 수정 / 중단" with the question tool.
+   - Called by `/sync`: ask the same and hand back to `/sync`, which carries out the approved plan itself; do not invoke `/build`.
    - On 수정, change the plan, republish the page to the same URL and ask again.
    - On 중단, ask 나중에 하기 / 버리기. 나중에 하기 moves the issue to `status:backlog`, keeps the branch, and posts the whole plan doc as an issue comment whose first line is `계획 문서`, so `/brief #<issue>` picks it up again on any clone. 버리기 closes the issue as not planned (`gh issue close --reason "not planned"`) and deletes the branch, locally and on the remote where it was pushed. Then stop, and so does a calling `/sync`.
-   - Once approved, move the issue to `status:in-progress` and invoke `/build #<issue>` without asking for approval again. The briefing page stays as approved; later changes to the plan appear in the debriefing.
+   - Otherwise, once approved, move the issue to `status:in-progress` and invoke `/build #<issue>` without asking for approval again. The briefing page stays as approved; later changes to the plan appear in the debriefing.
 
 ## Plan mode
 

@@ -4,9 +4,9 @@ Show with a picture whatever content a picture can show. There is no quota in ei
 
 ## Markdown only
 
-Plan documents and project docs are read in markdown viewers (GitHub, editors) as often as on slides, so a markdown file holds no HTML: no `html` or `svg` blocks and no tags such as `<div>` or `<br>`. HTML comments used as markers, such as `<!-- brief:begin -->`, stay, because viewers hide them. Draw with what a viewer shows, and let the slide renderer add the HTML:
+Plan documents and project docs are read in markdown viewers (GitHub, editors) as often as in the project handbook, so a markdown file holds no HTML: no `html` or `svg` blocks and no tags such as `<div>` or `<br>`. HTML comments used as markers, such as `<!-- brief:begin -->`, stay, because viewers hide them. Draw with what a viewer shows, and let the handbook renderer add the HTML. Briefing and debriefing pages are HTML designed per issue (`templates/briefing.md`) and draw the same content in their own way:
 
-| The content | Write it in markdown as | On a slide it becomes |
+| The content | Write it in markdown as | In the handbook it becomes |
 |---|---|---|
 | a flow, steps, a sequence, before and after, who acts at each step | a `mermaid` flowchart, sequence diagram or state diagram | the same diagram |
 | database tables | a `mermaid` erDiagram | the same diagram |
@@ -46,4 +46,4 @@ flowchart LR
 - One idea per diagram, about ten elements at most. Labels follow `templates/writing.md`: plain words a reader outside the project understands, and domain steps rather than function names.
 - Quote labels that hold spaces or punctuation: `A["주문 접수"]`, `A -->|"결제 실패"| B`.
 - Give a state with a non-ASCII name a plain id: `state "설명 중" as explaining`.
-- Say a person's decision or a risk in words ("사람이 승인"), not with colors; slide themes change colors.
+- Say a person's decision or a risk in words ("사람이 승인"), not with colors; page themes change colors.

@@ -12,27 +12,29 @@ Paths below use `${CLAUDE_PLUGIN_ROOT}`. On harnesses that do not substitute it,
 
 ## Start
 
-1. **Find the plan.** The issue is `$ARGUMENTS`, or else the number in the current branch `<type>/<issue>-<slug>`. Read `<main>/.logbook/plans/<issue>-<slug>.md`.
-   - No plan doc on this machine: when the issue is in `status:todo` or `status:backlog`, say the plan is not approved yet and point to `/brief #<issue>`. Otherwise say the plan was made on another machine, and stop.
+1. **Find the plan.** The issue is `$ARGUMENTS`, or else the number in the current branch `<type>/<issue>-<slug>`.
+   - Only an approved plan runs: the issue must be in `status:in-progress`. In `status:todo` or `status:backlog`, say the plan is not approved and point to `/brief #<issue>`, then stop.
+   - Read `<main>/.logbook/plans/<issue>-<slug>.md` and set its status line to 구현 중. Without it on this machine, say the plan was made on another machine: go on there, or move the issue back to `status:todo` and plan again here with `/brief #<issue>`. Then stop.
    - Run gh with the account on the tracker line in the logbook rules the session started with: `GH_TOKEN="$(gh auth token --user <account>)" gh ...`. Without logbook rules in the session, read repo, base and account from `.logbook/config.json` in the main checkout.
-2. **Branch.** Check out the issue's branch in the main checkout, cut from the base branch when it does not exist yet. When something makes the main checkout unfit (uncommitted changes, a service running from it, another session working there), say what and ask before making a worktree with `${CLAUDE_PLUGIN_ROOT}/scripts/worktree.sh add`.
-3. **Where it stands.** Read the plan doc's 진행 기록 and compare it with the branch: waves ticked there are done. Check `git worktree list` for track worktrees under `.logbook/worktrees/` left by an interrupted wave, and merge what they committed or take over their work before going on. Say in one line which wave the run starts from.
+2. **Branch.** When the issue's branch is already checked out in a worktree (the user picked one in `/brief`), work there. Otherwise check it out in the main checkout, cut from the base branch when it does not exist yet. When something makes the main checkout unfit (uncommitted changes, a service running from it, another session working there), say what and ask before making a worktree with `${CLAUDE_PLUGIN_ROOT}/scripts/worktree.sh add`.
+3. **Where it stands.** When the branch already has an open PR, the run is past Finish: run `/debrief` instead. Otherwise read the plan doc's 진행 기록 and compare it with the branch: waves ticked there are done. Check `git worktree list` for track worktrees under `.logbook/worktrees/` left by an interrupted wave, and merge what they committed or take over their work before going on. Say in one line which wave the run starts from.
 
 ## Run the graph
 
 Follow `### 트랙 그래프` under the plan doc's `## 상세` and the "Track graph" section of `${CLAUDE_PLUGIN_ROOT}/templates/parallel.md`. Do not end the turn between waves; stop only when a wave cannot be finished or a question needs the user.
 
-- **Wave 0.** Build the shared parts yourself and commit them.
-- **Each later wave.**
+Every wave, wave 0 included, goes through these steps. Wave 0 holds the shared parts, which you build yourself.
+
+- **Each wave.**
   - Write "묶음 n/N 시작: <tracks>" in one line of chat.
   - Launch the wave's builder tracks at once as one Workflow, however many there are, each with the agent, model and effort the graph names, in the shared working tree or in worktrees as the parallel guide says. Brief each builder with the goal, the files it may change, the shared parts already built, the check command, the plan doc path, and its worktree path when it has one. Without the Workflow tool, launch them as subagents in one message. Tracks the graph gives to the session, you build yourself.
   - A track that fails its check or stops with a question is not handed out again; take it over.
   - Before merging a track marked 위험, spawn `logbook:reviewer` in area mode with the plan's acceptance criteria in place of a PR body, the track's diff and the diff stat. Fix confirmed serious findings first.
-  - Merge the tracks, remove their worktrees and branches from the main checkout with `worktree.sh remove <branch> --delete-branch` (on exit 3 or 4, stop and report the path), run the project's full tests, and commit.
+  - Merge the tracks with one commit per track, so that each track can be reverted alone: commit a shared-tree track's files under a message naming the track, and merge a worktree track's branch. Remove the track worktrees and branches from the main checkout with `worktree.sh remove <branch> --delete-branch` (on exit 3 or 4, stop and report the path). Then run the project's full tests and commit any fix.
   - Tick the wave in the plan doc's 진행 기록 and write "묶음 n/N 끝: <result>".
 - **When reality differs from the graph** (an unexpected shared file, a track that turns out tiny, a new dependency), change the graph and record what changed and why in the plan doc's 결정 기록; it goes into the PR body later.
 - **While building:** do not weaken or delete tests. Stop and ask before a schema change or data deletion the plan does not cover. Record anything decided differently from the plan, with the reason, in the plan doc's 결정 기록 and the PR body. Update `docs/system/` in the same PR when the change alters what it describes, and `rules.md` when a domain rule was settled or changed.
-- **When a wave stops** (full tests failing in a way you cannot fix, a question for the user, a conflict you cannot resolve): report the wave, the reason and what would let it go on, and ask 고친 뒤 이어서 / 중단 with the question tool, as `${CLAUDE_PLUGIN_ROOT}/templates/questions.md` says.
+- **When a wave stops** (full tests failing in a way you cannot fix, a question for the user, a conflict you cannot resolve): report the wave, the reason and what would let it go on, and ask 고친 뒤 이어서 / 중단 with the question tool, as `${CLAUDE_PLUGIN_ROOT}/templates/questions.md` says. On 중단, leave the branch, the commits and the plan doc as they are, keep the issue in `status:in-progress`, and stop; `/build #<issue>` picks it up later.
 
 ## Finish
 

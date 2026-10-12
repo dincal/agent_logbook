@@ -28,8 +28,8 @@ The rules themselves live in the plugin (`${CLAUDE_PLUGIN_ROOT}/templates/sessio
 2. Resolve the values.
    - Repo: `$ARGUMENTS` when given, otherwise the `origin` remote.
    - Base branch: the remote default branch, otherwise `main`.
-   - gh account: when `gh auth status` lists several accounts, pick the one whose name matches the repo owner. If none matches, ask which account owns the repository.
-3. Run `rulebook.sh --dry-run --repo <repo> --base <base> [--account <account>]` and show the planned changes. Ask for approval before writing (question tool, or numbered options in prose where there is none).
+   - gh account: when `gh auth status` lists several accounts, pick the one whose name matches the repo owner. If none matches, ask which account owns the repository, with the accounts as options.
+3. Run `rulebook.sh --dry-run --repo <repo> --base <base> [--account <account>]` and show the planned changes. Ask for approval before writing, with the question tool as `${CLAUDE_PLUGIN_ROOT}/templates/questions.md` says.
 4. Run the same command with `--apply` and report every line it prints. A second run prints `변경 없음`.
 5. When files the repository tracks changed (anything but `.logbook/` and labels), commit them on a work branch with the next change, not directly on the base branch. A fresh clone of a logbook repository usually changes nothing tracked.
 6. Next step:
@@ -39,6 +39,6 @@ The rules themselves live in the plugin (`${CLAUDE_PLUGIN_ROOT}/templates/sessio
 ## Notes
 
 - To change the rules for every project, change `templates/session-rules.md` in the plugin and release it. Projects need nothing.
-- When the project already keeps agent rules in another file that AGENTS.md does not import, point that out and ask before adding a second source of rules.
+- When the project already keeps agent rules in another file that AGENTS.md does not import, point that out and ask with the question tool before adding a second source of rules.
 - Harnesses without hooks (Antigravity, OpenCode) do not get the rules this way; the README says how to add them by hand.
 - Report to the user by `${CLAUDE_PLUGIN_ROOT}/templates/writing.md`, in the project's language.
