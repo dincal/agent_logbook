@@ -1,5 +1,13 @@
 # 변경 이력
 
+## [0.12.1] - 2026-10-13
+
+PR [#33](https://github.com/dincal/agent_logbook/pull/33)
+
+### 바뀜
+
+- `logbook:builder-deep`의 effort를 xhigh에서 high로 낮췄습니다. 모델은 그대로 세션 모델을 따릅니다.
+
 ## [0.12.0] - 2026-10-12
 
 이슈 [#31](https://github.com/dincal/agent_logbook/issues/31) · PR [#32](https://github.com/dincal/agent_logbook/pull/32)

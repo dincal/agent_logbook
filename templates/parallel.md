@@ -37,7 +37,7 @@ Each agent runs on the model its task calls for, the same tiers either way.
 |---|---|---|
 | Routine but large track | `logbook:builder-fast` | `agentType: 'logbook:builder-fast', model: 'sonnet', effort: 'medium'` |
 | Feature with a clear scope | `logbook:builder` | `agentType: 'logbook:builder', effort: 'medium'` (session model) |
-| Tricky algorithm, concurrency, many edge cases | `logbook:builder-deep` | `agentType: 'logbook:builder-deep', effort: 'xhigh'` (session model) |
+| Tricky algorithm, concurrency, many edge cases | `logbook:builder-deep` | `agentType: 'logbook:builder-deep', effort: 'high'` (session model) |
 | Research of one area | `Explore` with `model: sonnet` | `agentType: 'Explore', model: 'sonnet'` |
 
 Write the model and effort into the script even though the agent definitions carry them, so the script alone shows what ran where.

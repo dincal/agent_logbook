@@ -54,7 +54,7 @@ logbook은 역할마다 모델을 정해 두고, 본 작업은 사용자가 고�
 | Sonnet 5.5 | `templates/parallel.md`의 모델 표(서브에이전트는 `model: sonnet`, Workflow는 `agent()`의 `model: 'sonnet'`) | `/discuss`, `/brief`, `/sync`의 코드 조사(Explore) | Claude Code 하위 에이전트나 Workflow. 다른 하네스에서는 세션 모델 |
 | Sonnet 5.5, medium effort | `agents/builder-fast.md` | 규모는 있지만 정형화된 병렬 구현 트랙 | Claude Code 하위 에이전트나 Workflow(같은 `agentType`, `model`, `effort`) |
 | 세션 모델, medium effort | `agents/builder.md`의 `model: inherit` | 범위가 분명한 병렬 구현 트랙 | Claude Code 하위 에이전트나 Workflow(같은 `agentType`, `model`, `effort`) |
-| 세션 모델, xhigh effort | `agents/builder-deep.md`의 `model: inherit` | 까다로운 병렬 구현 트랙 | Claude Code 하위 에이전트나 Workflow(같은 `agentType`, `model`, `effort`) |
+| 세션 모델, high effort | `agents/builder-deep.md`의 `model: inherit` | 까다로운 병렬 구현 트랙 | Claude Code 하위 에이전트나 Workflow(같은 `agentType`, `model`, `effort`) |
 | 세션 모델 | 사용자가 Claude Code에서 고른 모델 | 모든 명령의 본 작업(조사 정리, 질문, 계획, 브리핑 화면, 공통 부분과 세션이 맡은 트랙의 구현, 문서 작성) | Claude Code 세션 |
 
 - effort는 모델이 얼마나 깊이 생각할지 정하는 단계입니다(low, medium, high, xhigh, max).

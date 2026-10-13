@@ -734,7 +734,7 @@ for skill in rulebook discuss brief build debrief sync; do
 done
 expect "reviewer agent is read-only" grep -q '^tools: Read, Grep, Glob$' "$ROOT/agents/reviewer.md"
 expect "reviewer agent runs on Opus at high effort" bash -c "grep -qx 'model: opus' '$ROOT/agents/reviewer.md' && grep -qx 'effort: high' '$ROOT/agents/reviewer.md'"
-for tier in "builder-fast sonnet medium" "builder inherit medium" "builder-deep inherit xhigh"; do
+for tier in "builder-fast sonnet medium" "builder inherit medium" "builder-deep inherit high"; do
   set -- $tier
   expect "$1 agent runs on $2 at $3 effort and can edit" bash -c "f='$ROOT/agents/$1.md'; grep -qx 'name: $1' \"\$f\" && grep -qx 'model: $2' \"\$f\" && grep -qx 'effort: $3' \"\$f\" && grep -qx 'tools: Read, Grep, Glob, Edit, Write, Bash' \"\$f\""
   expect "$1 agent stays in its files, does not commit, and reports its check" bash -c "f='$ROOT/agents/$1.md'; grep -q 'Change only the files the brief lists' \"\$f\" && grep -q 'Do not commit' \"\$f\" && grep -q 'The check command and its output' \"\$f\""
@@ -808,7 +808,7 @@ expect "plan template records concerns raised about the user's decisions" grep -
 expect "plan template: conditional slides for logic, database and screens, no ERD filler" bash -c "grep -q '^## 주요 로직 흐름 (주요 로직이' '$T' && grep -q '^## 데이터베이스 변경 (DB 스키마가' '$T' && grep -q '^## 화면 시안 (' '$T' && ! grep -q 'ERD 변화 없음' '$T'"
 P="$ROOT/templates/parallel.md"
 expect "parallel guide: subagents for one or two research areas, a Workflow for every /build wave, three or more areas and every split review, subagents as the fallback" bash -c "grep -q 'Research with one or two areas' '$P' && grep -q 'Every \`/build\` wave that holds builder tracks, however many' '$P' && grep -q 'and every split review, when the Workflow tool is available' '$P' && grep -q 'launch subagents instead' '$P'"
-expect "parallel guide: Workflow agents keep the builder tiers and Explore on Sonnet" bash -c "grep -q \"agentType: 'logbook:builder-fast', model: 'sonnet', effort: 'medium'\" '$P' && grep -q \"agentType: 'logbook:builder-deep', effort: 'xhigh'\" '$P' && grep -q \"agentType: 'Explore', model: 'sonnet'\" '$P'"
+expect "parallel guide: Workflow agents keep the builder tiers and Explore on Sonnet" bash -c "grep -q \"agentType: 'logbook:builder-fast', model: 'sonnet', effort: 'medium'\" '$P' && grep -q \"agentType: 'logbook:builder-deep', effort: 'high'\" '$P' && grep -q \"agentType: 'Explore', model: 'sonnet'\" '$P'"
 expect "brief, discuss and sync launch parallel work by the guide" bash -c "for s in brief discuss sync; do grep -q 'templates/parallel.md' '$ROOT/skills/'\$s'/SKILL.md' || exit 1; done"
 expect "rule block lets tracks and research run as subagents or a Workflow" bash -c "grep -q '서브에이전트나 Workflow' '$B' && grep -q 'Workflow를 쓸 수 없으면 서브에이전트로' '$B'"
 expect "rule block: one request is one issue and one PR, split into tracks inside" bash -c "grep -q '^- \*\*요청 하나는 이슈 하나.\*\*' '$B' && grep -q '하위 이슈나 단계로 나누지 않고 이슈 하나, PR 하나로 하며' '$B' && grep -q '관련 없는 기능이 섞인 요청도 마찬가지다' '$B'"
