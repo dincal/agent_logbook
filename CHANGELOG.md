@@ -2,9 +2,9 @@
 
 ## [0.13.0] - 2026-10-21
 
-이슈 [#34](https://github.com/dincal/agent_logbook/issues/34)
+이슈 [#34](https://github.com/dincal/agent_logbook/issues/34) · PR [#35](https://github.com/dincal/agent_logbook/pull/35)
 
-이슈마다 Slack 쓰레드를 하나 만들어 진행 상황과 결정사항, 브리핑과 결과 화면을 올리고, 쓰레드에 달린 답글은 단계마다 읽어 사용자에게 알리게 했습니다. 채널 줄이 없는 저장소는 지금과 똑같이 동작합니다.
+이슈마다 Slack 쓰레드를 하나 만들어 진행 상황과 결정사항, 브리핑과 결과 화면을 올리고, 쓰레드에 달린 답글은 단계마다 읽어 사용자에게 알리게 했습니다. 채널(AGENTS.md의 채널 줄이나 환경 변수 `LOGBOOK_SLACK_CHANNEL`)이 정해지지 않은 저장소는 지금과 똑같이 동작합니다.
 
 ### 추가
 

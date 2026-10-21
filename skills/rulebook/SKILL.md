@@ -27,7 +27,7 @@ The rules themselves live in the plugin (`${CLAUDE_PLUGIN_ROOT}/templates/sessio
 
 1. Check the preconditions: a git repository, a GitHub `origin` remote, and `gh auth status`. Without GitHub, continue with `--no-labels` and say that issue tracking is unavailable.
 2. Resolve the values.
-   - Repo: `$ARGUMENTS` when given, otherwise the `origin` remote.
+   - Repo: `$ARGUMENTS` when given, otherwise the `origin` remote. A `--slack-channel <ID>` in `$ARGUMENTS` is not the repo: pass it on to `rulebook.sh` in steps 3 and 4.
    - Base branch: the remote default branch, otherwise `main`.
    - gh account: when `gh auth status` lists several accounts, pick the one whose name matches the repo owner. If none matches, ask with the question tool which account owns the repository, with the accounts as options.
 3. Run `rulebook.sh --dry-run --repo <repo> --base <base> [--account <account>]` and show the planned changes. Ask for approval before writing, with the question tool as `${CLAUDE_PLUGIN_ROOT}/templates/questions.md` says.

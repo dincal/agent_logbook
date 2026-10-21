@@ -61,7 +61,11 @@ def channel(directory):
             m = CHANNEL_LINE.search(agents.read_text(encoding="utf-8"))
             if m:
                 return m.group(1)
-    return os.environ.get("LOGBOOK_SLACK_CHANNEL", "").strip() or None
+    default = os.environ.get("LOGBOOK_SLACK_CHANNEL", "").strip()
+    if default and not re.fullmatch(r"[A-Z0-9]+", default):
+        # A name such as #dev would make the thread but fail every upload and reply read.
+        raise Failure(f"LOGBOOK_SLACK_CHANNEL에는 채널 이름이 아니라 C0123ABCD 같은 채널 ID를 넣어야 합니다: {default}")
+    return default or None
 
 
 def tracker(directory):

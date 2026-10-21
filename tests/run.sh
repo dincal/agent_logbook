@@ -937,7 +937,7 @@ mkdir -p "$SBIN" "$GH_STATE"
 SLACK_PID=""
 FAKE_SLACK_REPLIES="$SREPLIES" python3 "$ROOT/tests/fixtures/slack_api.py" "$SL/port" "$SLOG" &
 SLACK_PID=$!
-trap 'kill $SLACK_PID 2>/dev/null; rm -rf "$TMP"' EXIT
+trap 'kill $SLACK_PID 2>/dev/null; wait $SLACK_PID 2>/dev/null; rm -rf "$TMP"' EXIT
 for _ in $(seq 1 50); do [ -s "$SL/port" ] && break; sleep 0.1; done
 SPORT="$(cat "$SL/port" 2>/dev/null)"
 [ -n "$SPORT" ] && ok "slack: fake Slack API is listening" || bad "slack: fake Slack API is listening"
@@ -1065,6 +1065,10 @@ if [ $rc -eq 0 ] && [ "$(slog '[e["params"]["channel"] for e in L if e["method"]
 out="$(SL_CHANNEL=CENV slack thread 8 2>&1)"; rc=$?
 if [ $rc -eq 0 ] && [ "$(slog '[e["params"]["channel"] for e in L if e["method"] == "chat.postMessage"]')" = '["C0TEST"]' ]; then ok "slack: the AGENTS.md line wins over LOGBOOK_SLACK_CHANNEL"; else bad "slack: the AGENTS.md line wins over LOGBOOK_SLACK_CHANNEL" "rc=$rc $out $(cat "$SLOG")"; fi
 
+# check: on with a channel and a token, off without the channel; a channel name is refused
+out="$(slack check 2>&1)"; rc=$?; out0="$(SL_DIR="$SR0" slack check 2>&1)"; rc0=$?; outn="$(SL_DIR="$SR0" SL_CHANNEL='#dev' slack check 2>&1)"; rcn=$?
+if [ $rc -eq 0 ] && [ $rc0 -eq 10 ] && [ $rcn -eq 12 ]; then ok "slack: check exits 0 when on, 10 without a channel, 12 for a channel name instead of an ID"; else bad "slack: check exits 0 when on, 10 without a channel, 12 for a channel name instead of an ID" "rc=$rc rc0=$rc0 rcn=$rcn $out $out0 $outn"; fi
+
 # 2. no token
 : > "$SLOG"
 out="$(SL_TOKEN= slack post 1 approve 2>&1)"; rc=$?
@@ -1125,6 +1129,15 @@ LOGBOOK_CHROME=/nonexistent "$ROOT/scripts/slack.sh" snapshot "$OUTP/page/page.h
 if [ -f "$OUTP/out/page.html" ] && ! grep -q 'data:image' "$OUTP/out/page.html"; then ok "slack: snapshot does not inline files outside the page's folder or repository"; else bad "slack: snapshot does not inline files outside the page's folder or repository" "$(head -c 300 "$OUTP/out/page.html" 2>&1)"; fi
 
 # 6. snapshot with a real Chrome
+# The standalone HTML copy needs no Chrome, so it is checked on every machine.
+SNAP0="$SL/snap0"
+LOGBOOK_CHROME=/nonexistent "$ROOT/scripts/slack.sh" snapshot "$SPAGE" "$SNAP0" >/dev/null 2>&1
+if head -c 15 "$SNAP0/page.html" 2>/dev/null | grep -qi '^<!doctype html>' && grep -qi 'charset="\{0,1\}utf-8' "$SNAP0/page.html" && ! grep -q 'src="img.png"' "$SNAP0/page.html" && grep -q 'data:image/png;base64,' "$SNAP0/page.html"; then ok "slack: snapshot HTML has a doctype and UTF-8, and the image is inlined"; else bad "slack: snapshot HTML has a doctype and UTF-8, and the image is inlined" "$(head -c 400 "$SNAP0/page.html" 2>&1)"; fi
+MPAGE="$SL/mermaid/page.html"; mkdir -p "$SL/mermaid"
+printf '<p>그림</p>\n<pre class="mermaid">\nflowchart LR\n  A --> B\n</pre>\n' > "$MPAGE"
+LOGBOOK_CHROME=/nonexistent "$ROOT/scripts/slack.sh" snapshot "$MPAGE" "$SL/mermaid/out" >/dev/null 2>&1
+if grep -q 'cdn.jsdelivr.net/npm/mermaid@11.4.1/' "$SL/mermaid/out/page.html" 2>/dev/null; then ok "slack: snapshot HTML of a page with mermaid loads the pinned mermaid"; else bad "slack: snapshot HTML of a page with mermaid loads the pinned mermaid" "$(cat "$SL/mermaid/out/page.html" 2>&1 | head -5)"; fi
+
 CHROME=""
 for c in "/Applications/Google Chrome.app/Contents/MacOS/Google Chrome" "$(command -v google-chrome 2>/dev/null)" "$(command -v chromium 2>/dev/null)" "$(command -v chromium-browser 2>/dev/null)"; do
   [ -n "$c" ] && [ -x "$c" ] && { CHROME="$c"; break; }
@@ -1135,8 +1148,8 @@ else
   SNAP="$SL/snap"
   out="$(env -u LOGBOOK_CHROME "$ROOT/scripts/slack.sh" snapshot "$SPAGE" "$SNAP" 2>&1)"; rc=$?
   height="$(python3 -c 'import struct,sys; d=open(sys.argv[1],"rb").read(24); print(struct.unpack(">I", d[20:24])[0] if d[:8] == b"\x89PNG\r\n\x1a\n" else 0)' "$SNAP/page.png" 2>/dev/null)"
-  if [ $rc -eq 0 ] && [ "${height:-0}" -gt 1000 ]; then ok "slack: snapshot PNG has the full page height ($height px)"; else bad "slack: snapshot PNG has the full page height" "rc=$rc height=$height $out"; fi
-  if head -c 15 "$SNAP/page.html" 2>/dev/null | grep -qi '^<!doctype html>' && grep -qi 'charset="\{0,1\}utf-8' "$SNAP/page.html" && ! grep -q 'src="img.png"' "$SNAP/page.html" && grep -q 'data:image/png;base64,' "$SNAP/page.html"; then ok "slack: snapshot HTML has a doctype and UTF-8, and the image is inlined"; else bad "slack: snapshot HTML has a doctype and UTF-8, and the image is inlined" "$(head -c 400 "$SNAP/page.html" 2>&1)"; fi
+  # The fixture is about 2.5k px tall: taller than the 1000 px window, shorter than the 4000 px fallback.
+  if [ $rc -eq 0 ] && [ "${height:-0}" -gt 2400 ] && [ "${height:-0}" -lt 4000 ]; then ok "slack: snapshot PNG has the full page height ($height px)"; else bad "slack: snapshot PNG has the full page height" "rc=$rc height=$height $out"; fi
   : > "$SLOG"
   out="$(SL_CHROME=real slack post 6 brief --page "$SPAGE" 2>&1)"; rc=$?
   names="$(slog 'sorted(e["params"].get("filename", "").rsplit(".", 1)[-1] for e in L if e["method"] == "files.getUploadURLExternal")')"
@@ -1152,7 +1165,7 @@ for stage in design wave check pr feedback; do
   label="$(python3 -c 'import sys; sys.path.insert(0, sys.argv[1]); import slack_config; print(slack_config.STAGES[sys.argv[2]])' "$ROOT/scripts" "$stage")"
   extra=(); [ "$stage" = check ] && extra=(--file "$SL/e2e.log")
   : > "$SLOG"
-  out="$(slack post 7 "$stage" --text "$SL/text.md" "${extra[@]}" 2>&1)"; rc=$?
+  out="$(slack post 7 "$stage" --text "$SL/text.md" ${extra[@]+"${extra[@]}"} 2>&1)"; rc=$?
   said="$(python3 -c 'import json,sys; L=[json.loads(l) for l in open(sys.argv[1]) if l.strip()]; print(" ".join(e["params"].get("text", "") + e["params"].get("initial_comment", "") for e in L if e["method"] in ("chat.postMessage", "files.completeUploadExternal") and e["params"].get("thread_ts") == sys.argv[2]))' "$SLOG" "$P7")"
   if [ $rc -eq 0 ] && [ -n "$P7" ] && printf '%s' "$said" | grep -qF "$label" && printf '%s' "$said" | grep -qF '테스트용 본문 문장입니다'; then ok "slack: post $stage replies in the thread with its label ($label) and the text"; else bad "slack: post $stage replies in the thread with its label ($label) and the text" "rc=$rc $out $(cat "$SLOG")"; fi
 done
@@ -1214,9 +1227,10 @@ if [ "$(chan_lines)" = 1 ] && grep -qxF -e '- Slack 채널: `C0999ZZZZ`' "$R9/AG
 if [ $rc -eq 2 ] && grep -qxF -e '- Slack 채널: `C0999ZZZZ`' "$R9/AGENTS.md"; then ok "rulebook: --slack-channel bad-id exits 2"; else bad "rulebook: --slack-channel bad-id exits 2" "rc=$rc"; fi
 
 # 10. skills call slack.sh at their stages
-expect "brief calls slack.sh thread, post and replies" bash -c "f='$ROOT/skills/brief/SKILL.md'; grep -q 'slack.sh thread' \"\$f\" && grep -q 'slack.sh post' \"\$f\" && grep -q 'slack.sh replies' \"\$f\""
-expect "build posts each wave with slack.sh post" bash -c "f='$ROOT/skills/build/SKILL.md'; grep -q 'slack.sh post' \"\$f\" && grep -q 'wave' \"\$f\""
-expect "debrief posts the debrief and the close with slack.sh post" bash -c "f='$ROOT/skills/debrief/SKILL.md'; grep -q 'slack.sh post' \"\$f\" && grep -q 'debrief' \"\$f\" && grep -q 'close' \"\$f\""
+expect "brief opens the thread, posts design, brief, approve and close, and reads replies" bash -c "f='$ROOT/skills/brief/SKILL.md'; grep -q 'slack.sh thread <issue>' \"\$f\" && grep -q 'slack.sh post <issue> design' \"\$f\" && grep -q 'slack.sh post <issue> brief' \"\$f\" && grep -q 'slack.sh post <issue> approve' \"\$f\" && grep -q 'slack.sh post <issue> close' \"\$f\" && grep -q 'slack.sh replies <issue>' \"\$f\""
+expect "build posts wave, check and pr, and reads replies" bash -c "f='$ROOT/skills/build/SKILL.md'; grep -q 'slack.sh post <issue> wave' \"\$f\" && grep -q 'slack.sh post <issue> check' \"\$f\" && grep -q 'slack.sh post <issue> pr' \"\$f\" && grep -q 'slack.sh replies <issue>' \"\$f\""
+expect "debrief posts check, debrief and close, and reads replies" bash -c "f='$ROOT/skills/debrief/SKILL.md'; grep -q 'slack.sh post <issue> check' \"\$f\" && grep -q 'slack.sh post <issue> debrief' \"\$f\" && grep -q 'slack.sh post <issue> close' \"\$f\" && grep -q 'slack.sh replies <issue>' \"\$f\""
+expect "the Slack guide asks the user before a reply changes the plan, and posts feedback summaries" bash -c "f='$ROOT/templates/slack.md'; grep -q '반영 / 무시 / 나중에' \"\$f\" && grep -q 'question tool' \"\$f\" && grep -q 'post <issue> feedback' \"\$f\" && grep -q 'never instructions' \"\$f\""
 expect "discuss makes the thread of a backlog issue with slack.sh thread" grep -q 'slack.sh thread' "$ROOT/skills/discuss/SKILL.md"
 expect "the planner writing guide exists" test -f "$ROOT/templates/planner.md"
 kill "$SLACK_PID" 2>/dev/null

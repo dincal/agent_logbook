@@ -345,12 +345,20 @@ def parser():
     r = sub.add_parser("replies", help="print the replies added since the last call")
     r.add_argument("issue", type=_issue_number)
 
-    for each in (t, s, r):
+    c = sub.add_parser("check", help="exit 0 when Slack posting is on, 10 or 11 when it is not")
+
+    for each in (t, s, r, c):
         each.add_argument("--dir", default=".", help="the repository (default: cwd)")
     return p
 
 
-COMMANDS = {"thread": cmd_thread, "post": cmd_post, "replies": cmd_replies}
+def cmd_check(ctx, args):
+    """Reached only when the channel and the token are set; nothing is called."""
+    print("Slack 게시가 켜져 있습니다.")
+    return OK
+
+
+COMMANDS = {"thread": cmd_thread, "post": cmd_post, "replies": cmd_replies, "check": cmd_check}
 
 
 def main(argv):

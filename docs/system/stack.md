@@ -40,7 +40,7 @@ flowchart LR
 
 - 마켓플레이스 갱신은 `claude plugin marketplace update agent-logbook`, 플러그인 갱신은 `claude plugin update logbook@agent-logbook`입니다.
 - 쓰는 PC에는 git, GitHub CLI(`gh`), python3가 있어야 합니다. jq는 있으면 쓰고, 없으면 python3로 대신합니다.
-- Slack 쓰레드는 선택 기능이고, 쓰려면 네 가지가 필요합니다. 첫째는 Slack 앱으로, 앱 이름과 권한을 적은 매니페스트 `templates/slack-app.yml`로 만들어 워크스페이스에 설치합니다. 둘째는 봇 토큰(`xoxb-`로 시작)으로, 환경 변수 `LOGBOOK_SLACK_TOKEN`에 둡니다. 셋째는 올릴 채널로, AGENTS.md의 채널 줄(`- Slack 채널: \`C0123ABCD\``)이나 환경 변수 `LOGBOOK_SLACK_CHANNEL`에 둡니다. 채널 줄은 `/rulebook --slack-channel <ID>`가 써 주고 팀이 함께 커밋하며, 환경 변수보다 앞섭니다. 환경 변수는 채널 줄이 없는 모든 프로젝트의 기본 채널이 됩니다. 넷째는 Google Chrome으로, 화면을 PNG로 찍을 때만 쓰므로 없어도 글과 HTML은 올라갑니다. 채널 줄도 환경 변수도 없으면 아무것도 올리지 않습니다.
+- Slack 쓰레드는 선택 기능이고, 쓰려면 네 가지가 필요합니다. 첫째는 Slack 앱으로, 앱 이름과 권한을 적은 매니페스트 `templates/slack-app.yml`로 만들어 워크스페이스에 설치합니다. 둘째는 봇 토큰(`xoxb-`로 시작)으로, 환경 변수 `LOGBOOK_SLACK_TOKEN`에 둡니다. 셋째는 올릴 채널로, AGENTS.md의 채널 줄(``- Slack 채널: `C0123ABCD` ``)이나 환경 변수 `LOGBOOK_SLACK_CHANNEL`에 둡니다. 채널 줄은 `/rulebook --slack-channel <ID>`가 써 주고 팀이 함께 커밋하며, 환경 변수보다 앞섭니다. 환경 변수는 채널 줄이 없는 모든 프로젝트의 기본 채널이 됩니다. 넷째는 Google Chrome으로, 화면을 PNG로 찍을 때만 쓰므로 없어도 글과 HTML은 올라갑니다. 채널 줄도 환경 변수도 없으면 아무것도 올리지 않습니다.
 - Artifact와 `/design`은 claude.ai에 로그인한 Claude Code에서만 됩니다. 다른 곳에서는 로컬 HTML 파일을 씁니다.
 - 계획 문서, 승인된 시안 사본, 브리핑과 결과 화면의 HTML은 원래 checkout의 `.logbook/` 아래(`plans`, `designs`, `briefs`)에 두고 git에 올리지 않습니다. 다른 기기에서는 이슈 본문, PR 본문, 이슈 댓글, Artifact 링크로 봅니다.
 
@@ -73,5 +73,5 @@ logbook은 역할마다 모델을 정해 두고, 본 작업은 사용자가 고�
 | 핸드북 렌더 | `scripts/render-system.sh [--standalone] docs/system <출력 파일>` |
 | 문서와 코드 대조 | `scripts/system-check.sh` |
 | 병렬용 worktree | `scripts/worktree.sh add <브랜치> [<기준 브랜치>]`, `remove <브랜치> [--delete-branch]`, `path <브랜치>`. 원래 checkout의 `.logbook/worktrees/`에 만들고, 커밋하지 않은 변경이 있으면 지우지 않고(종료 코드 3), 합치지 않은 브랜치는 남깁니다(종료 코드 4) |
-| Slack 게시와 화면 찍기 | `scripts/slack.sh`의 명령 `thread`, `post`, `replies`, `snapshot`. 로직은 `slack.py`, 화면 찍기는 `snapshot.py`, 둘이 함께 쓰는 설정과 API 호출은 `slack_config.py`에 있고, 표준 라이브러리와 curl만 씁니다. 테스트는 `LOGBOOK_SLACK_API`로 가짜 Slack 서버를 가리킵니다 |
+| Slack 게시와 화면 찍기 | `scripts/slack.sh`의 명령 `thread`, `post`, `replies`, `check`, `snapshot`. 로직은 `slack.py`, 화면 찍기는 `snapshot.py`, 둘이 함께 쓰는 설정과 API 호출은 `slack_config.py`에 있습니다. Python 표준 라이브러리(`urllib`)로 Slack을 부르고, 화면은 Google Chrome headless로 찍습니다. `check`는 Slack을 부르지 않고 켜져 있는지만 종료 코드로 알려 줍니다. 테스트는 `LOGBOOK_SLACK_API`로 가짜 Slack 서버를 가리킵니다 |
 | 개발 환경 준비 | git, `gh`(GitHub CLI), `claude`(Claude Code CLI), bash, python3가 있으면 됩니다. hook은 jq가 없으면 python3로 대신하지만, `tests/run.sh`는 jq를 직접 부르므로 테스트를 돌리려면 jq도 필요합니다 |

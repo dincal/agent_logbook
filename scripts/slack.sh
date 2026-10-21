@@ -8,6 +8,7 @@ usage() {
 usage: slack.sh thread <issue> [--backlog] [--dir DIR]
        slack.sh post <issue> <stage> [--text FILE] [--page HTML] [--file PATH]... [--dir DIR]
        slack.sh replies <issue> [--dir DIR]
+       slack.sh check [--dir DIR]
        slack.sh snapshot <page.html> <out-dir>
 
 thread    Post the issue's parent message unless the issue already has a thread, and record
@@ -19,6 +20,7 @@ post      Reply in the issue's thread, creating the thread first when it has non
           alone. Each --file is attached as it is.
 replies   Print the replies people added since the last call, one JSON object per line
           ({"user", "time", "text", "ts"}), oldest first, and record how far it read.
+check     Exit 0 when posting is on, 10 or 11 when it is off, without calling Slack.
 snapshot  Write <out-dir>/<name>.png (full page height, Google Chrome headless) and
           <out-dir>/<name>.html (doctype, UTF-8, local resources inlined).
 
@@ -36,7 +38,7 @@ if ! command -v python3 >/dev/null 2>&1; then
 fi
 HERE="$(cd "$(dirname "$0")" && pwd)"
 case "${1:-}" in
-  thread|post|replies) exec python3 "$HERE/slack.py" "$@" ;;
+  thread|post|replies|check) exec python3 "$HERE/slack.py" "$@" ;;
   snapshot) shift; exec python3 "$HERE/snapshot.py" "$@" ;;
   -h|--help) usage ;;
   *) usage >&2; exit 2 ;;
