@@ -14,7 +14,7 @@ Plan docs and mockup copies are working files, not project documents. They live 
 
 ## When to skip
 
-A change that one sentence fully describes (a typo, a rename, a small config tweak) gets no briefing and no issue, and so does a follow-up doc update with no related branch or issue to ride on. Cut a `<type>/<slug>` branch from the base branch, implement, open a PR without an issue, and let `/debrief` finish it. When `$ARGUMENTS` names an issue, keep it: read its comments as step 1 says, use `<type>/<issue>-<slug>` and put `Closes #<issue>` in the PR body.
+A change that one sentence fully describes (a typo, a rename, a small config tweak) gets no briefing and no issue, and so does a follow-up doc update with no related branch or issue to ride on. Cut a `<type>/<slug>` branch from the base branch, implement, open a PR without an issue, and let `/debrief` finish it, which also keeps the Slack record (a PR thread) for the issue-less PR. When `$ARGUMENTS` names an issue, keep it: read its comments as step 1 says, use `<type>/<issue>-<slug>` and put `Closes #<issue>` in the PR body.
 
 ## Steps
 

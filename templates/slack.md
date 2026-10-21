@@ -4,7 +4,7 @@ How `/discuss`, `/brief`, `/build` and `/debrief` share an issue's progress in o
 
 ## When it is on
 
-`${CLAUDE_PLUGIN_ROOT}/scripts/slack.sh` decides by itself. The channel is the line `- Slack 채널: \`<ID>\`` in the project's AGENTS.md, otherwise the environment variable `LOGBOOK_SLACK_CHANNEL`; the bot token is `LOGBOOK_SLACK_TOKEN`. Call it at every point below whether or not Slack is set up, and act on its exit code:
+`${CLAUDE_PLUGIN_ROOT}/scripts/slack.sh` decides by itself. The channel is the line `- Slack 채널: \`<ID>\`` in the project's AGENTS.md, otherwise the environment variable `LOGBOOK_SLACK_CHANNEL`; the bot token is `LOGBOOK_SLACK_TOKEN`. The number it takes is an issue's, or an issue-less PR's (see "Pull requests without an issue"). Call it at every point below whether or not Slack is set up, and act on its exit code:
 
 | Exit | Meaning | What you do |
 |---|---|---|
@@ -33,6 +33,18 @@ Write each post's text to a temporary file and pass it with `--text`. The script
 | Debriefing | `/debrief` step 6 | `slack.sh post <issue> debrief --text <planner debriefing> --page <main>/.logbook/briefs/<issue>-debrief.html` |
 | Merged or closed | `/debrief` 머지, `/brief` 버리기 | `slack.sh post <issue> close --outcome merged --text <file>` after a merge: it is live in the code. `--outcome dropped` when the issue is dropped, with why. `close` without `--outcome` exits 2 |
 | Feedback summary | right before any post above | see below |
+| Issue-less PR opened | `/debrief` step 1 | `slack.sh thread <pr> --text <file>`: the change in plain words, as the first-message section of `templates/planner.md` says |
+| Issue-less PR merged or closed | `/debrief` 머지 | `slack.sh post <pr> close --outcome merged --text <file>`, or `--outcome dropped` when the user asked in chat to close it unmerged |
+
+## Pull requests without an issue
+
+A PR without `Closes #n` gets its own thread keyed by the PR number. `slack.sh` sees a PR when `gh issue view` returns a url with `/pull/`, and records `kind=pr` in the thread marker, a PR comment. Repo-less local work posts nothing.
+
+- The thread has two posts: the first message at the start of `/debrief`, and 반영 완료 after the merge. The progress line has two cells, `*확인* ● → 반영`, and `확인 ✓ → 반영 ✓` after a merge; `dropped` shows 중단했습니다 as usual. The first message's developer line says `GitHub PR #n`.
+- Only the `close` stage is allowed on a PR thread. Any other stage, and `thread --backlog`, exits 2 without calling Slack.
+- Feedback goes into the 반영 완료 text as one or two lines, not as a `feedback` post. Answers to thread replies go there too. A 방향 변경 reply decided as 나중에 becomes a PR comment.
+- Read the replies at the start of `/debrief` and before merging, as below.
+- Limitation: a merge or close made outside logbook (the GitHub web page) posts nothing, so no 반영 완료 follows.
 
 ## How a post looks
 
