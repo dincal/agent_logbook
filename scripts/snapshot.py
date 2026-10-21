@@ -21,7 +21,7 @@ import urllib.parse
 from pathlib import Path
 
 sys.path.insert(0, str(Path(__file__).resolve().parent))
-from slack_config import FAILED, OK, Failure  # noqa: E402
+from slack_config import FAILED, OK, Failure, main_checkout  # noqa: E402
 
 MERMAID_URL = "https://cdn.jsdelivr.net/npm/mermaid@11.4.1/dist/mermaid.min.js"
 WIDTH = 1280
@@ -60,10 +60,13 @@ def find_chrome():
 # --- standalone HTML -------------------------------------------------------------------
 
 class Inliner:
-    """Rewrites local references in a page to inline content, remembering what was missing."""
+    """Rewrites local references in a page to inline content, remembering what was missing.
+    Only files inside `roots` (the page's folder and its repository) are inlined: the copy is
+    uploaded to Slack, so a stray absolute or ../ path must not carry other local files out."""
 
-    def __init__(self):
+    def __init__(self, roots=()):
         self.missing = []
+        self.roots = [Path(r).resolve() for r in roots]
 
     def _local(self, ref, base):
         """The local file `ref` points to, or None when it is remote or skipped.
@@ -79,7 +82,9 @@ class Inliner:
         path = Path(path_part)
         if not path.is_absolute():
             path = base / path
-        if path.is_file():
+        path = path.resolve()
+        inside = any(path.is_relative_to(r) for r in self.roots)
+        if inside and path.is_file():
             return path
         if ref not in self.missing:
             self.missing.append(ref)
@@ -193,7 +198,7 @@ def add_before_body_end(text, snippet):
 
 def standalone(page, base):
     """The standalone copy of `page` and the list of local files it could not find."""
-    inliner = Inliner()
+    inliner = Inliner(roots=(base, main_checkout(str(base))))
     text = inliner.inline(page, base)
     if not DOCTYPE.match(text):
         text = ("<!doctype html>\n<html lang=\"ko\"><head><meta charset=\"utf-8\">"

@@ -84,6 +84,10 @@ def api_base():
 
 # ---------------------------------------------------------------- thread marker
 
+# Comment authors whose thread marker is trusted: people with write access to the repository.
+# Anyone else could leave a marker that points logbook's posts at another thread.
+TRUSTED_AUTHORS = ("OWNER", "MEMBER", "COLLABORATOR")
+
 # channel and ts locate the thread, brief and debrief hold the hash of the page last posted
 # for that stage, and read is the ts of the newest reply `replies` has handed out.
 MARKER_FIELDS = ("channel", "ts") + PAGE_STAGES + ("read",)
@@ -158,9 +162,9 @@ class GitHub:
                                 "--json", "title,url,state"]))
 
     def comments(self, number):
-        """[{id, body}] oldest first."""
+        """[{id, body, author_association}] oldest first."""
         out = self._run(["api", "--paginate", f"repos/{self.repo}/issues/{number}/comments",
-                         "--jq", ".[] | {id, body}"])
+                         "--jq", ".[] | {id, body, author_association}"])
         return [_json(line) for line in out.splitlines() if line.strip()]
 
     def add_comment(self, number, body):

@@ -980,7 +980,7 @@ elif args[:1] == ["api"] and args[1:2] == ["user"]:
 elif args[:2] == ["api", "--paginate"]:
     n = args[2].split("/")[-2]
     for c in load(n):
-        print(json.dumps({"id": c["id"], "body": c["body"]}, ensure_ascii=False))
+        print(json.dumps({"id": c["id"], "body": c["body"], "author_association": c.get("author_association", "OWNER")}, ensure_ascii=False))
 elif args[:3] == ["api", "-X", "POST"]:
     if os.environ.get("FAKE_GH_FAIL_COMMENT") == "1":
         sys.stderr.write("HTTP 403: fake failure\n")
@@ -1113,6 +1113,16 @@ printf '[{"id": 8001, "body": "<!-- logbook:slack channel=COTHER ts=1600000000.0
 : > "$SLOG"
 out="$(slack post 5 approve 2>&1)"; rc=$?
 if [ $rc -eq 0 ] && [ "$(slog '[(e["params"].get("channel"), e["params"].get("thread_ts")) for e in L if e["method"] == "chat.postMessage"][0]')" = '["C0TEST", null]' ] && [ "$(slog '[e for e in L if "1600000000.000001" in json.dumps(e) or "COTHER" in json.dumps(e)]')" = "[]" ]; then ok "slack: a marker naming another channel is ignored and a new thread is made"; else bad "slack: a marker naming another channel is ignored and a new thread is made" "rc=$rc $out $(cat "$SLOG")"; fi
+printf '[{"id": 8002, "author_association": "NONE", "body": "<!-- logbook:slack channel=C0TEST ts=1600000000.000002 -->"}]' > "$GH_STATE/comments-6.json"
+: > "$SLOG"
+out="$(slack post 6 approve 2>&1)"; rc=$?
+if [ $rc -eq 0 ] && [ "$(slog '[e["params"].get("thread_ts") for e in L if e["method"] == "chat.postMessage"][0]')" = "null" ] && [ "$(slog '[e for e in L if "1600000000.000002" in json.dumps(e)]')" = "[]" ]; then ok "slack: a marker left by someone without write access is ignored"; else bad "slack: a marker left by someone without write access is ignored" "rc=$rc $out $(cat "$SLOG")"; fi
+# The standalone copy inlines only files inside the page's folder or repository.
+OUTP="$SL/outside"; mkdir -p "$OUTP/page"
+cp "$ROOT/tests/fixtures/slack-page/img.png" "$OUTP/secret.png"
+printf '<p>x</p><img src="../secret.png"><img src="%s">\n' "$OUTP/secret.png" > "$OUTP/page/page.html"
+LOGBOOK_CHROME=/nonexistent "$ROOT/scripts/slack.sh" snapshot "$OUTP/page/page.html" "$OUTP/out" >/dev/null 2>&1
+if [ -f "$OUTP/out/page.html" ] && ! grep -q 'data:image' "$OUTP/out/page.html"; then ok "slack: snapshot does not inline files outside the page's folder or repository"; else bad "slack: snapshot does not inline files outside the page's folder or repository" "$(head -c 300 "$OUTP/out/page.html" 2>&1)"; fi
 
 # 6. snapshot with a real Chrome
 CHROME=""

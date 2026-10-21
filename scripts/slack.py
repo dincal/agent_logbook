@@ -19,7 +19,7 @@ from pathlib import Path
 sys.path.insert(0, str(Path(__file__).resolve().parent))
 
 from slack_config import (  # noqa: E402
-    FAILED, MARKER_FIELDS, NO_TOKEN, OFF, OK, PAGE_STAGES, STAGES, Failure, GitHub,
+    FAILED, MARKER_FIELDS, NO_TOKEN, OFF, OK, PAGE_STAGES, STAGES, TRUSTED_AUTHORS, Failure, GitHub,
     channel, marker_comment, parse_marker, replace_marker, slack_call, token, tracker,
     upload_bytes,
 )
@@ -89,6 +89,8 @@ def _issue_number(value):
 def find_record(ctx, issue):
     """{id, body, mark} of the first issue comment holding this channel's marker, or None."""
     for comment in ctx.gh.comments(issue):
+        if comment.get("author_association") not in TRUSTED_AUTHORS:
+            continue
         mark = parse_marker(comment.get("body"), expected_channel=ctx.chan)
         if mark is not None:
             return {"id": comment["id"], "body": comment["body"], "mark": mark}
