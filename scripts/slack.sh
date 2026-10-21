@@ -22,7 +22,8 @@ replies   Print the replies people added since the last call, one JSON object pe
 snapshot  Write <out-dir>/<name>.png (full page height, Google Chrome headless) and
           <out-dir>/<name>.html (doctype, UTF-8, local resources inlined).
 
-The channel comes from the line "- Slack 채널: `<ID>`" in AGENTS.md, the token from
+The channel comes from the line "- Slack 채널: `<ID>`" in AGENTS.md, else from
+LOGBOOK_SLACK_CHANNEL (a default for every project); the token from
 LOGBOOK_SLACK_TOKEN, the repo and gh account from .logbook/config.json.
 Exit codes: 0 posted, 10 off (no channel line), 11 skipped (no token),
 12 failed (Slack, GitHub or Chrome). The last line of stdout is one line for the chat.

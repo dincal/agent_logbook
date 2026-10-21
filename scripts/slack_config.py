@@ -52,15 +52,16 @@ def main_checkout(directory):
 
 
 def channel(directory):
-    """The Slack channel ID from AGENTS.md (committed, so the whole team shares it), or None.
-    A worktree cut before the line was committed falls back to the main checkout's copy."""
+    """The Slack channel ID: the AGENTS.md line (committed, so the whole team shares it),
+    else LOGBOOK_SLACK_CHANNEL, a personal default for every project, else None. A worktree
+    cut before the line was committed falls back to the main checkout's copy."""
     for root in (toplevel(directory), main_checkout(directory)):
         agents = root / "AGENTS.md"
         if agents.is_file():
             m = CHANNEL_LINE.search(agents.read_text(encoding="utf-8"))
             if m:
                 return m.group(1)
-    return None
+    return os.environ.get("LOGBOOK_SLACK_CHANNEL", "").strip() or None
 
 
 def tracker(directory):

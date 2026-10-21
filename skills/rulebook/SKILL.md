@@ -20,7 +20,8 @@ The rules themselves live in the plugin (`${CLAUDE_PLUGIN_ROOT}/templates/sessio
 - GitHub labels: `status:backlog`, `status:todo`, `status:in-progress`, `status:done`.
 - `plansDirectory` in `.claude/settings.json`: `.logbook/plans`, so plan-mode plans land where git ignores them. `/brief` keeps an approved plan in the main checkout's `.logbook/plans/` too, under its issue number; a plan made in a git worktree is moved there.
 - `CLAUDE.md`: adds an `@AGENTS.md` import when AGENTS.md exists, so Claude Code reads the project's rules even in sessions that skip AGENTS.md.
-- `AGENTS.md`: touched only when it still holds a rule block from logbook before 0.7 (`<!-- logbook:begin` to `<!-- logbook:end -->`). The block is replaced, in place, by the document rules paragraph from `${CLAUDE_PLUGIN_ROOT}/templates/docs-rules.md`: the table of document places and the promise to update them with the code. That paragraph belongs to the project, not to logbook; logbook never rewrites it. Everything outside the block stays as it is.
+- `AGENTS.md`, Slack: with `--slack-channel <ID>`, writes the line `- Slack 채널: \`<ID>\`` (replacing an earlier one), the channel each issue's Slack thread goes to (`${CLAUDE_PLUGIN_ROOT}/templates/slack.md`). Pass it when the user names a channel; a project without the line uses `LOGBOOK_SLACK_CHANNEL` when set.
+- `AGENTS.md`: otherwise touched only when it still holds a rule block from logbook before 0.7 (`<!-- logbook:begin` to `<!-- logbook:end -->`). The block is replaced, in place, by the document rules paragraph from `${CLAUDE_PLUGIN_ROOT}/templates/docs-rules.md`: the table of document places and the promise to update them with the code. That paragraph belongs to the project, not to logbook; logbook never rewrites it. Everything outside the block stays as it is.
 
 ## Steps
 
