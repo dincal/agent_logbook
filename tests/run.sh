@@ -1301,15 +1301,19 @@ if [ -n "$P26" ] && [ "$(mfield 26 phase)" = later ] && [ "$(slog '(H(PARENT(A[0
 out="$(slack post 26 brief --text "$SL/text.md" 2>&1)"; rc=$?
 if [ $rc -eq 0 ] && [ "$(mfield 26 phase)" = plan ] && [ "$(slog '[(not (H(e) or "[백로그] ").startswith("[백로그] ") and "#26" in (H(e) or "")) for e in UP(A[0])] == [True]' "$P26")" = true ]; then ok "slack: a brief on a backlog thread drops [백로그] from the header and records phase=plan"; else bad "slack: a brief on a backlog thread drops [백로그] from the header and records phase=plan" "rc=$rc $out $(smark 26) $(cat "$SLOG")"; fi
 
-# A failed rewrite of the first message exits 12 and keeps the old phase, so the next post retries.
+# A failed rewrite of the first message exits 12 and leaves shown at the old phase, so
+# `thread` (with no later post, as after close) redraws it without posting again.
 slack thread 27 >/dev/null 2>&1
 P27="$(mfield 27 ts)"
 : > "$SLOG"
 out="$(sfake '{"FAKE_SLACK_FAIL": "chat.update"}' slack post 27 approve --text "$SL/text.md" 2>&1)"; rc=$?
-if [ $rc -eq 12 ] && printf '%s' "$out" | tail -1 | grep -q '첫 메시지' && [ "$(mfield 27 phase)" = plan ] && [ "$(slog 'len(RP(A[0]))' "$P27")" = 1 ]; then ok "slack: when chat.update fails the reply stays, it exits 12 naming 첫 메시지, and phase is not saved"; else bad "slack: when chat.update fails the reply stays, it exits 12 naming 첫 메시지, and phase is not saved" "rc=$rc $out $(smark 27) $(cat "$SLOG")"; fi
+if [ $rc -eq 12 ] && printf '%s' "$out" | tail -1 | grep -q '첫 메시지' && printf '%s' "$out" | tail -1 | grep -q 'slack.sh thread 27' && [ "$(mfield 27 phase)" = build ] && [ "$(mfield 27 shown)" = plan ] && [ "$(slog 'len(RP(A[0]))' "$P27")" = 1 ]; then ok "slack: when chat.update fails the reply stays, it exits 12 naming 첫 메시지 and the retry, and shown keeps the old phase"; else bad "slack: when chat.update fails the reply stays, it exits 12 naming 첫 메시지 and the retry, and shown keeps the old phase" "rc=$rc $out $(smark 27) $(cat "$SLOG")"; fi
+: > "$SLOG"
+out="$(slack thread 27 2>&1)"; rc=$?
+if [ $rc -eq 0 ] && [ "$(mfield 27 shown)" = build ] && [ "$(slog 'len(UP(A[0]))' "$P27")" = 1 ] && [ "$(posts)" = "[]" ]; then ok "slack: thread redraws a first message a failed post left behind, without posting"; else bad "slack: thread redraws a first message a failed post left behind, without posting" "rc=$rc $out $(smark 27) $(cat "$SLOG")"; fi
 : > "$SLOG"
 out="$(slack post 27 wave --text "$SL/text.md" 2>&1)"; rc=$?
-if [ $rc -eq 0 ] && [ "$(mfield 27 phase)" = build ] && [ "$(slog 'len(UP(A[0]))' "$P27")" = 1 ]; then ok "slack: the next post rewrites the first message and saves the phase"; else bad "slack: the next post rewrites the first message and saves the phase" "rc=$rc $out $(smark 27) $(cat "$SLOG")"; fi
+if [ $rc -eq 0 ] && [ "$(slog 'len(UP(A[0]))' "$P27")" = 0 ]; then ok "slack: once shown matches the phase, the next post leaves the first message alone"; else bad "slack: once shown matches the phase, the next post leaves the first message alone" "rc=$rc $out $(smark 27) $(cat "$SLOG")"; fi
 
 # A thread made before phases existed: its first message has no summary blocks and is left alone.
 printf '[{"id": 8028, "body": "<!-- logbook:slack channel=C0TEST ts=1600000000.000028 -->"}]' > "$GH_STATE/comments-28.json"

@@ -36,7 +36,7 @@ Write each post's text to a temporary file and pass it with `--text`. The script
 
 ## How a post looks
 
-The script turns every post into Slack Block Kit: a header with the stage's icon and title, a small progress line (계획 → 만들기 → 확인 → 반영), a divider, the text, and a small gray footer. Lines starting with `개발자용:` move to the footer by themselves. The first message's progress line and the closed notice (the note that replies are no longer read) are kept up to date by the script, so posts never write 지금 상태. A thread made before this format turns into it when `slack.sh thread <issue> --text` runs again.
+The script turns every post into Slack Block Kit: a header with the stage's icon and title, a small progress line (계획 → 만들기 → 확인 → 반영), a divider, the text, and a small gray footer. Lines starting with `개발자용:` move to the footer by themselves. The first message's progress line and the closed notice (the note that replies are no longer read) are kept up to date by the script, so posts never write 지금 상태. A thread made before this format turns into it when `slack.sh thread <issue> --text` runs again. When a post exits 12 because the first message could not be redrawn, `slack.sh thread <issue>` redraws it without posting again; run it once, for instance after `close`.
 
 The page is attached as a PNG and a standalone HTML file only when it changed since the last post of that stage; otherwise the text goes alone. A briefing or debriefing re-posted after fixes says in its first line what changed.
 

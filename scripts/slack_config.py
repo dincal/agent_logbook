@@ -190,13 +190,14 @@ def api_base():
 TRUSTED_AUTHORS = ("OWNER", "MEMBER", "COLLABORATOR")
 
 # channel and ts locate the thread, brief and debrief hold the hash of the page last posted
-# for that stage, read is the ts of the newest reply `replies` has handed out, and phase is
-# the phase the first message shows (saved only once the first message was rewritten).
-MARKER_FIELDS = ("channel", "ts") + PAGE_STAGES + ("read", "phase")
+# for that stage, read is the ts of the newest reply `replies` has handed out, phase is the
+# issue's phase, and shown is the phase the first message shows. They differ only while a
+# rewrite of the first message failed; the next post or `thread` retries it.
+MARKER_FIELDS = ("channel", "ts") + PAGE_STAGES + ("read", "phase", "shown")
 
 
 def parse_marker(body, expected_channel=None):
-    """{channel, ts, brief, debrief, read, phase} from an issue comment body, or None. With
+    """{channel, ts, brief, debrief, read, phase, shown} from an issue comment body, or None. With
     expected_channel, a marker naming another channel is ignored, so a comment anyone can
     add cannot send the issue's pages to a channel of their choosing."""
     m = MARKER.search(body or "")
