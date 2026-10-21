@@ -26,8 +26,8 @@ A planner who knows the product and its users well and knows nothing about how i
    | 버그, 예외, 에러 처리 | 이럴 때는 이렇게 됩니다 |
 
 3. Developer links (the PR, the issue) go in one last line, `개발자용: <link>`, never in the body.
-4. Write full Korean sentences in the polite report tone (~합니다). Short sentences, one point each. No emoji, no exaggeration.
-5. Slack formatting only: `*굵게*` for a heading line, `•` or `-` for bullets, `<url|글자>` for links. Slack does not render `#` headings or tables.
+4. Write full Korean sentences in the polite report tone (~합니다). Short sentences, one point each. No emoji in the text (the script puts each stage's icon in the title), no exaggeration.
+5. Slack formatting only: `*굵게*` for a heading line, `•` or `-` for bullets, `<url|글자>` for links. Slack does not render `#` headings or tables. The script adds the title, the progress line and the footer, so do not write them.
 
 ## First message of the thread
 
@@ -37,11 +37,10 @@ The issue written out, so the thread makes sense without opening GitHub. Pass it
 *무엇을*: 회원이 비밀번호를 잊어도 스스로 다시 만들 수 있게 합니다.
 *왜*: 지금은 고객센터에 문의해야 해서 하루에 30건씩 요청이 들어옵니다.
 *누구에게 좋은가*: 회원은 기다리지 않아도 되고, 고객센터는 이 일을 하지 않아도 됩니다.
-*지금 상태*: 무엇을 만들지 정리하고 있습니다.
 ```
 
 - Write it from the issue body and its comments (and the `/discuss` summary when there is one), in the plain words of the rules above.
-- 지금 상태 is one of: 나중에 할 일로 남겼습니다 (backlog), 무엇을 만들지 정리하고 있습니다, 만들고 있습니다, 완성되어 확인 중입니다.
+- Do not write the current state; the script shows the phase.
 
 ## Briefing post
 
@@ -63,7 +62,6 @@ What will be made and why, as user stories.
 *확인 부탁*
 • 이메일 문구는 기획에서 정해 주세요.
 
-첨부한 그림과 HTML 파일은 개발자용 자세한 설명입니다.
 개발자용: <issue link>
 ```
 
@@ -100,10 +98,11 @@ What is finished, and how a planner can try it.
 
 One to three sentences each, the same plain words. Examples:
 
-- 디자인 승인: 디자인이 승인되었습니다. 회원 가입 화면 3개입니다.
-- 브리핑 승인: 브리핑이 승인되었습니다. 이제 만들기 시작합니다.
-- 묶음 끝: 비밀번호 찾기 화면이 만들어졌고 확인을 마쳤습니다. 다음은 이메일 보내기입니다.
+- 시안 (before approval): 회원 가입 화면 3개의 시안입니다. 의견이 있으면 이 글에 남겨 주세요.
+- 시안 승인 (text only): 시안이 승인되었습니다.
+- 개발 시작: 브리핑이 승인되어 개발을 시작합니다.
+- 개발 끝 (posted once): 비밀번호 찾기가 모두 만들어졌고 확인을 마쳤습니다.
 - 확인할 결과: 실제로 눌러 본 화면입니다. 3번째 그림에서 만료 안내가 보여야 합니다.
-- PR: 만든 내용을 합치기 전에 마지막으로 확인하고 있습니다.
-- 머지: 반영을 마쳤습니다. 다음 배포부터 쓸 수 있습니다.
-- 피드백 요약: 진행 중에 바뀐 것을 한 줄씩, 무엇을 요청했고 무엇이 달라졌는지 씁니다.
+- 마지막 확인: 만든 내용을 합치기 전에 마지막으로 확인하고 있습니다.
+- 반영 완료: 반영을 마쳤습니다. 다음 배포부터 쓸 수 있습니다.
+- 피드백 반영: 진행 중에 바뀐 것을 한 줄씩, 무엇을 요청했고 무엇이 달라졌는지 씁니다.
