@@ -1,5 +1,13 @@
 # 변경 이력
 
+## [0.15.0] - 2026-10-21
+
+PR [#38](https://github.com/dincal/agent_logbook/pull/38)
+
+### 추가
+
+- logbook이 만드는 이슈(`/brief`의 이슈, `/discuss`의 backlog 이슈)에 트래커 줄의 gh 계정을 담당자(assignee)로 붙입니다. `/brief #<번호>`로 이어받는 이슈에도 더하고, 다른 사람이 이미 담당자이면 함께 두기, 바꾸기, 그대로 두기 중에서 묻습니다.
+
 ## [0.14.0] - 2026-10-21
 
 이슈 [#36](https://github.com/dincal/agent_logbook/issues/36) · PR [#37](https://github.com/dincal/agent_logbook/pull/37)
