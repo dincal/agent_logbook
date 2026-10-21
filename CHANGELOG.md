@@ -1,5 +1,22 @@
 # 변경 이력
 
+## [0.14.0] - 2026-10-21
+
+이슈 [#36](https://github.com/dincal/agent_logbook/issues/36) · PR [#37](https://github.com/dincal/agent_logbook/pull/37)
+
+Slack 쓰레드의 글을 Block Kit으로 바꿔 단계마다 아이콘을 붙인 큰 제목이 보이게 하고, 첫 메시지와 각 글에 진행 단계(계획 → 만들기 → 확인 → 반영)를, 끝난 쓰레드에는 답글이 전달되지 않는다는 안내를 붙였습니다.
+
+### 바뀜
+
+- 단계 이름을 기획자 말로 바꿨습니다: 개발 시작(브리핑 승인), 개발 끝(묶음 끝, 마지막 묶음 뒤 한 번만), 마지막 확인(PR), 완성 보고(디브리핑), 반영 완료(머지와 닫힘), 피드백 반영(피드백 요약).
+- `개발자용:` 줄, 첨부 설명, 첨부 실패 안내는 작은 회색 꼬리말로 내려갑니다.
+- `slack.sh post <이슈> close`는 `--outcome merged|dropped`를 반드시 받고, `approve`는 중단할 때 `--outcome later|dropped`를 받습니다.
+
+### 추가
+
+- 시안을 승인 전에 먼저 올리는 `mockup` 단계(🎨 시안)를 추가했습니다. `design`(✅ 시안 승인)은 글만 올립니다.
+- 첫 메시지 고치기가 실패하면 `slack.sh thread <이슈>`로 글을 다시 올리지 않고 고칠 수 있습니다. 이 변경 전에 만든 쓰레드는 `slack.sh thread <이슈> --text`로 새 형식이 됩니다.
+
 ## [0.13.0] - 2026-10-21
 
 이슈 [#34](https://github.com/dincal/agent_logbook/issues/34) · PR [#35](https://github.com/dincal/agent_logbook/pull/35)
