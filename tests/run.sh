@@ -935,7 +935,8 @@ mkdir -p "$SBIN" "$GH_STATE"
 
 # Fake Slack Web API on a free local port; killed on exit with the rest of the temp files.
 SLACK_PID=""
-FAKE_SLACK_REPLIES="$SREPLIES" python3 "$ROOT/tests/fixtures/slack_api.py" "$SL/port" "$SLOG" &
+SFLAKY="$SL/flaky-upload"
+FAKE_SLACK_REPLIES="$SREPLIES" FAKE_SLACK_UPLOAD_5XX="$SFLAKY" python3 "$ROOT/tests/fixtures/slack_api.py" "$SL/port" "$SLOG" &
 SLACK_PID=$!
 trap 'kill $SLACK_PID 2>/dev/null; wait $SLACK_PID 2>/dev/null; rm -rf "$TMP"' EXIT
 for _ in $(seq 1 50); do [ -s "$SL/port" ] && break; sleep 0.1; done
@@ -1177,6 +1178,12 @@ out="$(slack post 7 nosuchstage 2>&1)"; rc=$?
 if [ $rc -eq 2 ] && [ ! -s "$SLOG" ]; then ok "slack: an unknown stage exits 2"; else bad "slack: an unknown stage exits 2" "rc=$rc $out"; fi
 out="$(slack post 7 approve --page "$SPAGE" 2>&1)"; rc=$?
 if [ $rc -eq 2 ] && [ ! -s "$SLOG" ]; then ok "slack: --page on approve exits 2"; else bad "slack: --page on approve exits 2" "rc=$rc $out"; fi
+
+# A 504 from the upload host is tried once more and the post still goes through.
+: > "$SLOG"; : > "$SFLAKY"
+out="$(slack post 7 check --text "$SL/text.md" --file "$SL/e2e.log" 2>&1)"; rc=$?
+if [ $rc -eq 0 ] && [ "$(slog 'len([e for e in L if e["method"] == "upload-504"])')" = 1 ] && [ "$(slog 'len([e for e in L if e["method"] == "upload"])')" = 1 ] && [ "$(slog 'len([e for e in L if e["method"] == "files.completeUploadExternal"])')" = 1 ]; then ok "slack: an upload that gets 504 once is retried and attached"; else bad "slack: an upload that gets 504 once is retried and attached" "rc=$rc $out $(cat "$SLOG")"; fi
+rm -f "$SFLAKY"
 
 # 8. replies
 slack thread 8 >/dev/null 2>&1

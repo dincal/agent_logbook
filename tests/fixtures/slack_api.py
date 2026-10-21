@@ -76,6 +76,16 @@ class Handler(BaseHTTPRequestHandler):
         path = urllib.parse.urlparse(self.path)
         parts = [p for p in path.path.split("/") if p]
         if len(parts) == 2 and parts[0] == "upload":
+            # While the file FAKE_SLACK_UPLOAD_5XX names exists, the next upload answers 504
+            # once (the file is removed), as Slack's upload host sometimes does.
+            flaky = os.environ.get("FAKE_SLACK_UPLOAD_5XX")
+            if flaky and os.path.exists(flaky):
+                os.remove(flaky)
+                log({"method": "upload-504", "params": {"id": parts[1]}})
+                self.send_response(504)
+                self.send_header("Content-Length", "0")
+                self.end_headers()
+                return
             log({"method": "upload", "params": {"id": parts[1], "bytes": len(raw)}})
             self.send_response(200)
             self.send_header("Content-Length", "2")

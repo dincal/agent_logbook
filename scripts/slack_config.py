@@ -6,6 +6,7 @@ import json
 import os
 import re
 import subprocess
+import time
 import urllib.error
 import urllib.parse
 import urllib.request
@@ -216,14 +217,26 @@ def slack_call(method, params, tok):
     return body
 
 
-def upload_bytes(url, content, filename, tok):
-    """Send a file's bytes to the URL files.getUploadURLExternal handed out."""
+def upload_bytes(url, content, filename, tok, retry_delay=2):
+    """Send a file's bytes to the URL files.getUploadURLExternal handed out. Slack's upload
+    host now and then answers 504 for a moment, so a server error or a network error is
+    tried once more after a short pause."""
     req = urllib.request.Request(url, data=content, method="POST",
                                  headers={"Authorization": f"Bearer {tok}",
                                           "Content-Type": "application/octet-stream"})
-    try:
-        with urllib.request.urlopen(req, timeout=60) as resp:
-            if resp.status >= 300:
-                raise Failure(f"Slack 파일 업로드 실패({filename}): HTTP {resp.status}")
-    except (urllib.error.URLError, OSError) as e:
-        raise Failure(f"Slack 파일 업로드 실패({filename}): {e}")
+    for attempt in (1, 2):
+        try:
+            with urllib.request.urlopen(req, timeout=60) as resp:
+                if resp.status >= 300:
+                    raise Failure(f"Slack 파일 업로드 실패({filename}): HTTP {resp.status}")
+                return
+        except urllib.error.HTTPError as e:
+            if attempt == 1 and e.code >= 500:
+                time.sleep(retry_delay)
+                continue
+            raise Failure(f"Slack 파일 업로드 실패({filename}): {e}")
+        except (urllib.error.URLError, OSError) as e:
+            if attempt == 1:
+                time.sleep(retry_delay)
+                continue
+            raise Failure(f"Slack 파일 업로드 실패({filename}): {e}")
