@@ -922,6 +922,295 @@ expect "plan-mode reminder and brief move the issue to in-progress before /build
 expect "build takes over an interrupted shared-tree wave and runs a pre-0.12 plan as one wave" bash -c "grep -q 'Uncommitted files of this issue.s interrupted wave are no such reason' '$ROOT/skills/build/SKILL.md' && grep -q 'A plan doc without a track graph (one made before 0.12) runs as one wave' '$ROOT/skills/build/SKILL.md'"
 expect "brief rewrites the issue body's text briefing on 수정" grep -q "On 수정, change the plan, rewrite the issue body's text briefing" "$ROOT/skills/brief/SKILL.md"
 
+# ---------------------------------------------------------------- slack (0.13)
+echo "== slack =="
+SL="$TMP/slack"
+SBIN="$SL/bin"
+GH_STATE="$SL/gh"
+SLOG="$SL/api.log"
+SREPLIES="$SL/replies.json"
+SPAGE="$ROOT/tests/fixtures/slack-page/page.html"
+mkdir -p "$SBIN" "$GH_STATE"
+: > "$SLOG"
+
+# Fake Slack Web API on a free local port; killed on exit with the rest of the temp files.
+SLACK_PID=""
+FAKE_SLACK_REPLIES="$SREPLIES" python3 "$ROOT/tests/fixtures/slack_api.py" "$SL/port" "$SLOG" &
+SLACK_PID=$!
+trap 'kill $SLACK_PID 2>/dev/null; rm -rf "$TMP"' EXIT
+for _ in $(seq 1 50); do [ -s "$SL/port" ] && break; sleep 0.1; done
+SPORT="$(cat "$SL/port" 2>/dev/null)"
+[ -n "$SPORT" ] && ok "slack: fake Slack API is listening" || bad "slack: fake Slack API is listening"
+
+# Fake gh: issues and comments of acme/app kept as JSON files in $GH_STATE.
+cat > "$SL/fake_gh.py" <<'EOF'
+import json, os, sys
+state = os.environ["GH_STATE"]
+args = sys.argv[1:]
+with open(os.path.join(state, "calls.log"), "a", encoding="utf-8") as f:
+    f.write(json.dumps(args, ensure_ascii=False) + "\n")
+
+def comments_file(number):
+    return os.path.join(state, f"comments-{number}.json")
+
+def load(number):
+    try:
+        with open(comments_file(number), encoding="utf-8") as f:
+            return json.load(f)
+    except OSError:
+        return []
+
+def save(number, items):
+    with open(comments_file(number), "w", encoding="utf-8") as f:
+        json.dump(items, f, ensure_ascii=False)
+
+def body_of(args):
+    for i, a in enumerate(args):
+        if a == "-f" and args[i + 1].startswith("body="):
+            return args[i + 1][len("body="):]
+    sys.exit("fake gh: no body")
+
+if args[:2] == ["auth", "token"]:
+    print("gho_faketoken")
+elif args[:2] == ["issue", "view"]:
+    n = args[2]
+    print(json.dumps({"title": f"데모 이슈 {n}", "url": f"https://github.com/acme/app/issues/{n}", "state": "OPEN"}))
+elif args[:1] == ["api"] and args[1:2] == ["user"]:
+    print("octo")
+elif args[:2] == ["api", "--paginate"]:
+    n = args[2].split("/")[-2]
+    for c in load(n):
+        print(json.dumps({"id": c["id"], "body": c["body"]}, ensure_ascii=False))
+elif args[:3] == ["api", "-X", "POST"]:
+    if os.environ.get("FAKE_GH_FAIL_COMMENT") == "1":
+        sys.stderr.write("HTTP 403: fake failure\n")
+        sys.exit(1)
+    n = args[3].split("/")[-2]
+    items = load(n)
+    counter = os.path.join(state, "next-id")
+    new_id = int(open(counter).read()) if os.path.exists(counter) else 9001
+    open(counter, "w").write(str(new_id + 1))
+    items.append({"id": new_id, "body": body_of(args)})
+    save(n, items)
+    print(new_id)
+elif args[:3] == ["api", "-X", "PATCH"]:
+    cid = int(args[3].split("/")[-1])
+    for f in os.listdir(state):
+        if not f.startswith("comments-"):
+            continue
+        n = f[len("comments-"):-len(".json")]
+        items = load(n)
+        for c in items:
+            if c["id"] == cid:
+                c["body"] = body_of(args)
+                save(n, items)
+                print(cid)
+                sys.exit(0)
+    sys.stderr.write("HTTP 404: no such comment\n")
+    sys.exit(1)
+else:
+    sys.stderr.write(f"fake gh: unexpected {args}\n")
+    sys.exit(1)
+EOF
+printf '#!/bin/sh\nexec python3 "%s" "$@"\n' "$SL/fake_gh.py" > "$SBIN/gh"
+chmod +x "$SBIN/gh"
+
+# A repo with the channel line, and one without.
+SR="$SL/repo"
+SR0="$SL/repo-off"
+for d in "$SR" "$SR0"; do
+  mkdir -p "$d/.logbook"
+  git -C "$d" init -q -b main
+  printf '{"repo": "acme/app", "base": "main", "account": "dev"}\n' > "$d/.logbook/config.json"
+done
+printf '# App\n\n- Slack 채널: `C0TEST`\n' > "$SR/AGENTS.md"
+printf '# App\n\nNo Slack here.\n' > "$SR0/AGENTS.md"
+
+# Run slack.sh in $SL_DIR (default $SR). SL_TOKEN overrides the token (empty = none);
+# SL_CHROME=real leaves Chrome discovery to the script, otherwise Chrome is missing.
+# SL_CHANNEL sets the LOGBOOK_SLACK_CHANNEL default; otherwise the caller's value is dropped.
+slack() {
+  local dir="${SL_DIR:-$SR}" chrome=(LOGBOOK_CHROME=/nonexistent) chan=(-u LOGBOOK_SLACK_CHANNEL)
+  [ "${SL_CHROME:-}" = real ] && chrome=(-u LOGBOOK_CHROME)
+  [ -n "${SL_CHANNEL:-}" ] && chan=(LOGBOOK_SLACK_CHANNEL="$SL_CHANNEL")
+  (cd "$dir" && env "${chan[@]}" env "${chrome[@]}" PATH="$SBIN:$PATH" GH_STATE="$GH_STATE" \
+    LOGBOOK_SLACK_API="http://127.0.0.1:$SPORT" LOGBOOK_SLACK_TOKEN="${SL_TOKEN-xoxb-test}" \
+    "$ROOT/scripts/slack.sh" "$@" --dir "$dir")
+}
+# Query the API log: slog <python expression over L, the list of logged requests>.
+slog() { python3 -c 'import json,sys; L=[json.loads(l) for l in open(sys.argv[1]) if l.strip()]; r=eval(sys.argv[2]); print(r if isinstance(r, str) else json.dumps(r, ensure_ascii=False))' "$SLOG" "$1"; }
+posts() { slog '[e for e in L if e["method"] == "chat.postMessage"]'; }
+# The marker fields of issue $1's comments as JSON ({} when there is none).
+smark() { python3 -c '
+import json, re, sys
+try: items = json.load(open(sys.argv[1]))
+except OSError: items = []
+for c in items:
+    m = re.search(r"<!-- logbook:slack ([^>]*?) -->", c["body"])
+    if m and "C0TEST" in m.group(1):
+        print(json.dumps(dict(p.split("=", 1) for p in m.group(1).split() if "=" in p))); break
+else: print("{}")' "$GH_STATE/comments-$1.json"; }
+mfield() { smark "$1" | python3 -c 'import json,sys; print(json.load(sys.stdin).get(sys.argv[1], ""))' "$2"; }
+
+# 1. no channel line
+: > "$SLOG"
+out="$(SL_DIR="$SR0" slack post 1 approve 2>&1)"; rc=$?
+if [ $rc -eq 10 ] && [ ! -s "$SLOG" ]; then ok "slack: without the channel line it exits 10 and calls no Slack API"; else bad "slack: without the channel line it exits 10 and calls no Slack API" "rc=$rc $out"; fi
+
+# 1b. LOGBOOK_SLACK_CHANNEL is the default where AGENTS.md has no line; the line wins over it
+: > "$SLOG"
+out="$(SL_DIR="$SR0" SL_CHANNEL=CENV slack thread 9 2>&1)"; rc=$?
+if [ $rc -eq 0 ] && [ "$(slog '[e["params"]["channel"] for e in L if e["method"] == "chat.postMessage"]')" = '["CENV"]' ]; then ok "slack: without the line, LOGBOOK_SLACK_CHANNEL picks the channel"; else bad "slack: without the line, LOGBOOK_SLACK_CHANNEL picks the channel" "rc=$rc $out $(cat "$SLOG")"; fi
+: > "$SLOG"
+out="$(SL_CHANNEL=CENV slack thread 8 2>&1)"; rc=$?
+if [ $rc -eq 0 ] && [ "$(slog '[e["params"]["channel"] for e in L if e["method"] == "chat.postMessage"]')" = '["C0TEST"]' ]; then ok "slack: the AGENTS.md line wins over LOGBOOK_SLACK_CHANNEL"; else bad "slack: the AGENTS.md line wins over LOGBOOK_SLACK_CHANNEL" "rc=$rc $out $(cat "$SLOG")"; fi
+
+# 2. no token
+: > "$SLOG"
+out="$(SL_TOKEN= slack post 1 approve 2>&1)"; rc=$?
+if [ $rc -eq 11 ] && [ ! -s "$SLOG" ] && [ -n "$(printf '%s' "$out" | tail -1)" ]; then ok "slack: without a token it says one line and exits 11"; else bad "slack: without a token it says one line and exits 11" "rc=$rc $out"; fi
+
+# 3. thread, then replies in the same thread
+: > "$SLOG"
+out="$(slack thread 1 2>&1)"; rc=$?
+P1="$(slog '[e["ts"] for e in L if e["method"] == "chat.postMessage"][0]' 2>/dev/null)"
+if [ $rc -eq 0 ] && slog '[e for e in L if e["method"] == "chat.postMessage"]' | python3 -c 'import json,sys; p=json.load(sys.stdin); sys.exit(not (len(p) == 1 and "thread_ts" not in p[0]["params"] and p[0]["params"].get("channel") == "C0TEST"))'; then
+  ok "slack: thread posts one parent message to the channel"
+else
+  bad "slack: thread posts one parent message to the channel" "rc=$rc $out $(cat "$SLOG")"
+fi
+if [ -n "$P1" ] && [ "$(mfield 1 channel)" = C0TEST ] && [ "$(mfield 1 ts)" = "$P1" ]; then ok "slack: thread records the channel and parent ts in an issue comment"; else bad "slack: thread records the channel and parent ts in an issue comment" "$(cat "$GH_STATE/comments-1.json" 2>&1)"; fi
+: > "$SLOG"
+out="$(slack thread 1 2>&1)"; rc=$?
+if [ $rc -eq 0 ] && [ "$(posts)" = "[]" ]; then ok "slack: a second thread call posts nothing"; else bad "slack: a second thread call posts nothing" "rc=$rc $out $(cat "$SLOG")"; fi
+: > "$SLOG"
+out="$(slack post 1 approve 2>&1)"; rc=$?
+if [ $rc -eq 0 ] && [ -n "$P1" ] && [ "$(slog '[e["params"].get("thread_ts") for e in L if e["method"] == "chat.postMessage"]')" = "[\"$P1\"]" ]; then ok "slack: post approve replies with thread_ts = the parent ts"; else bad "slack: post approve replies with thread_ts = the parent ts" "rc=$rc $out $(cat "$SLOG")"; fi
+: > "$SLOG"
+out="$(slack post 2 approve 2>&1)"; rc=$?
+P2="$(mfield 2 ts)"
+if [ $rc -eq 0 ] && [ -n "$P2" ] && [ "$(slog '[e["params"].get("thread_ts") for e in L if e["method"] == "chat.postMessage"]')" = "[null, \"$P2\"]" ]; then ok "slack: post on an issue without a thread makes the thread first"; else bad "slack: post on an issue without a thread makes the thread first" "rc=$rc $out $(cat "$SLOG")"; fi
+
+# 4. a failed comment deletes the parent
+: > "$SLOG"
+out="$(FAKE_GH_FAIL_COMMENT=1 slack thread 3 2>&1)"; rc=$?
+P3="$(slog '([e["ts"] for e in L if e["method"] == "chat.postMessage"] or [""])[0]')"
+if [ $rc -eq 12 ] && [ -n "$P3" ] && [ "$(slog '[(e["params"].get("channel"), e["params"].get("ts")) for e in L if e["method"] == "chat.delete"]')" = "[[\"C0TEST\", \"$P3\"]]" ] && [ "$(smark 3)" = "{}" ]; then ok "slack: when the issue comment fails, the parent is deleted and it exits 12"; else bad "slack: when the issue comment fails, the parent is deleted and it exits 12" "rc=$rc $out $(cat "$SLOG")"; fi
+
+# 5. pages: upload once, then text alone while the page is the same
+HASH="$(python3 -c 'import hashlib,sys; print(hashlib.sha256(open(sys.argv[1],"rb").read()).hexdigest()[:12])' "$SPAGE")"
+: > "$SLOG"
+out="$(slack post 4 brief --page "$SPAGE" 2>&1)"; rc=$?
+P4="$(mfield 4 ts)"
+names="$(slog '[e["params"].get("filename", "").rsplit(".", 1)[-1] for e in L if e["method"] == "files.getUploadURLExternal"]')"
+if [ "$names" = '["html"]' ] && [ "$(slog 'len([e for e in L if e["method"] == "upload"])')" = 1 ]; then ok "slack: post brief --page without Chrome uploads the HTML copy only"; else bad "slack: post brief --page without Chrome uploads the HTML copy only" "rc=$rc $out $(cat "$SLOG")"; fi
+if [ -n "$P4" ] && [ "$(slog '[(e["params"].get("channel_id"), e["params"].get("thread_ts")) for e in L if e["method"] == "files.completeUploadExternal"]')" = "[[\"C0TEST\", \"$P4\"]]" ]; then ok "slack: the upload completes in the issue's thread"; else bad "slack: the upload completes in the issue's thread" "$(cat "$SLOG")"; fi
+if [ "$(mfield 4 brief)" = "$HASH" ]; then ok "slack: the marker records brief=<12 hex of the page's sha256>"; else bad "slack: the marker records brief=<12 hex of the page's sha256>" "$(smark 4) want $HASH"; fi
+: > "$SLOG"
+out="$(slack post 4 brief --page "$SPAGE" 2>&1)"; rc=$?
+if [ $rc -eq 0 ] && [ "$(slog 'len([e for e in L if e["method"] == "chat.postMessage"])')" = 1 ] && [ "$(slog 'len([e for e in L if e["method"].startswith("files.") or e["method"] == "upload"])')" = 0 ]; then ok "slack: posting the same page again posts text alone"; else bad "slack: posting the same page again posts text alone" "rc=$rc $out $(cat "$SLOG")"; fi
+printf '[{"id": 8001, "body": "<!-- logbook:slack channel=COTHER ts=1600000000.000001 -->"}]' > "$GH_STATE/comments-5.json"
+: > "$SLOG"
+out="$(slack post 5 approve 2>&1)"; rc=$?
+if [ $rc -eq 0 ] && [ "$(slog '[(e["params"].get("channel"), e["params"].get("thread_ts")) for e in L if e["method"] == "chat.postMessage"][0]')" = '["C0TEST", null]' ] && [ "$(slog '[e for e in L if "1600000000.000001" in json.dumps(e) or "COTHER" in json.dumps(e)]')" = "[]" ]; then ok "slack: a marker naming another channel is ignored and a new thread is made"; else bad "slack: a marker naming another channel is ignored and a new thread is made" "rc=$rc $out $(cat "$SLOG")"; fi
+
+# 6. snapshot with a real Chrome
+CHROME=""
+for c in "/Applications/Google Chrome.app/Contents/MacOS/Google Chrome" "$(command -v google-chrome 2>/dev/null)" "$(command -v chromium 2>/dev/null)" "$(command -v chromium-browser 2>/dev/null)"; do
+  [ -n "$c" ] && [ -x "$c" ] && { CHROME="$c"; break; }
+done
+if [ -z "$CHROME" ]; then
+  ok "slack: snapshot skipped (no Chrome on this machine)"
+else
+  SNAP="$SL/snap"
+  out="$(env -u LOGBOOK_CHROME "$ROOT/scripts/slack.sh" snapshot "$SPAGE" "$SNAP" 2>&1)"; rc=$?
+  height="$(python3 -c 'import struct,sys; d=open(sys.argv[1],"rb").read(24); print(struct.unpack(">I", d[20:24])[0] if d[:8] == b"\x89PNG\r\n\x1a\n" else 0)' "$SNAP/page.png" 2>/dev/null)"
+  if [ $rc -eq 0 ] && [ "${height:-0}" -gt 1000 ]; then ok "slack: snapshot PNG has the full page height ($height px)"; else bad "slack: snapshot PNG has the full page height" "rc=$rc height=$height $out"; fi
+  if head -c 15 "$SNAP/page.html" 2>/dev/null | grep -qi '^<!doctype html>' && grep -qi 'charset="\{0,1\}utf-8' "$SNAP/page.html" && ! grep -q 'src="img.png"' "$SNAP/page.html" && grep -q 'data:image/png;base64,' "$SNAP/page.html"; then ok "slack: snapshot HTML has a doctype and UTF-8, and the image is inlined"; else bad "slack: snapshot HTML has a doctype and UTF-8, and the image is inlined" "$(head -c 400 "$SNAP/page.html" 2>&1)"; fi
+  : > "$SLOG"
+  out="$(SL_CHROME=real slack post 6 brief --page "$SPAGE" 2>&1)"; rc=$?
+  names="$(slog 'sorted(e["params"].get("filename", "").rsplit(".", 1)[-1] for e in L if e["method"] == "files.getUploadURLExternal")')"
+  if [ $rc -eq 0 ] && [ "$names" = '["html", "png"]' ]; then ok "slack: post brief --page with Chrome uploads the PNG and the HTML"; else bad "slack: post brief --page with Chrome uploads the PNG and the HTML" "rc=$rc $out $(cat "$SLOG")"; fi
+fi
+
+# 7. the other stages, --file, and bad arguments
+printf '테스트용 본문 문장입니다.\n' > "$SL/text.md"
+printf 'e2e: 3 passed\n' > "$SL/e2e.log"
+slack thread 7 >/dev/null 2>&1
+P7="$(mfield 7 ts)"
+for stage in design wave check pr feedback; do
+  label="$(python3 -c 'import sys; sys.path.insert(0, sys.argv[1]); import slack_config; print(slack_config.STAGES[sys.argv[2]])' "$ROOT/scripts" "$stage")"
+  extra=(); [ "$stage" = check ] && extra=(--file "$SL/e2e.log")
+  : > "$SLOG"
+  out="$(slack post 7 "$stage" --text "$SL/text.md" "${extra[@]}" 2>&1)"; rc=$?
+  said="$(python3 -c 'import json,sys; L=[json.loads(l) for l in open(sys.argv[1]) if l.strip()]; print(" ".join(e["params"].get("text", "") + e["params"].get("initial_comment", "") for e in L if e["method"] in ("chat.postMessage", "files.completeUploadExternal") and e["params"].get("thread_ts") == sys.argv[2]))' "$SLOG" "$P7")"
+  if [ $rc -eq 0 ] && [ -n "$P7" ] && printf '%s' "$said" | grep -qF "$label" && printf '%s' "$said" | grep -qF '테스트용 본문 문장입니다'; then ok "slack: post $stage replies in the thread with its label ($label) and the text"; else bad "slack: post $stage replies in the thread with its label ($label) and the text" "rc=$rc $out $(cat "$SLOG")"; fi
+done
+: > "$SLOG"
+slack post 7 check --file "$SL/e2e.log" >/dev/null 2>&1
+if [ "$(slog '[e["params"].get("filename") for e in L if e["method"] == "files.getUploadURLExternal"]')" = '["e2e.log"]' ] && [ "$(slog '[e["params"]["bytes"] for e in L if e["method"] == "upload"]')" = "[$(wc -c < "$SL/e2e.log" | tr -d ' ')]" ] && [ "$(slog '[e["params"].get("thread_ts") for e in L if e["method"] == "files.completeUploadExternal"]')" = "[\"$P7\"]" ]; then ok "slack: post check --file uploads the file as it is into the thread"; else bad "slack: post check --file uploads the file as it is into the thread" "$(cat "$SLOG")"; fi
+: > "$SLOG"
+out="$(slack post 7 nosuchstage 2>&1)"; rc=$?
+if [ $rc -eq 2 ] && [ ! -s "$SLOG" ]; then ok "slack: an unknown stage exits 2"; else bad "slack: an unknown stage exits 2" "rc=$rc $out"; fi
+out="$(slack post 7 approve --page "$SPAGE" 2>&1)"; rc=$?
+if [ $rc -eq 2 ] && [ ! -s "$SLOG" ]; then ok "slack: --page on approve exits 2"; else bad "slack: --page on approve exits 2" "rc=$rc $out"; fi
+
+# 8. replies
+slack thread 8 >/dev/null 2>&1
+P8="$(mfield 8 ts)"
+python3 - "$SREPLIES" "$P8" <<'EOF'
+import json, sys
+path, parent = sys.argv[1], sys.argv[2]
+json.dump([
+    {"ts": parent, "user": "U0PARENT", "text": "parent", "bot_id": "B0LOGBOOK"},
+    {"ts": "1700000050.000001", "bot_id": "B0OTHER", "text": "봇 메시지"},
+    {"ts": "1700000100.000001", "user": "U1", "text": "첫 답글입니다"},
+    {"ts": "1700000150.000001", "user": "U0BOT", "text": "logbook이 올린 첨부 메시지"},
+    {"ts": "1700000160.000001", "user": "U3", "subtype": "channel_join", "text": "채널에 들어옴"},
+    {"ts": "1700000200.000001", "user": "U2", "text": "둘째 답글입니다"},
+    {"ts": "1700000250.000001", "user": "U3", "subtype": "thread_broadcast", "text": "채널에도 보낸 답글입니다"},
+], open(path, "w"), ensure_ascii=False)
+EOF
+jsonlines() { python3 -c '
+import json, sys
+for line in sys.stdin:
+    try: o = json.loads(line)
+    except ValueError: continue
+    if isinstance(o, dict): print(json.dumps([o.get("user"), o.get("text"), o.get("ts")], ensure_ascii=False))'; }
+out="$(slack replies 8 2>&1)"; rc=$?
+got="$(printf '%s\n' "$out" | jsonlines)"
+want="$(printf '%s\n%s\n%s' '["Name-U1", "첫 답글입니다", "1700000100.000001"]' '["Name-U2", "둘째 답글입니다", "1700000200.000001"]' '["Name-U3", "채널에도 보낸 답글입니다", "1700000250.000001"]')"
+if [ $rc -eq 0 ] && [ "$got" = "$want" ]; then ok "slack: replies prints the people's replies oldest first (broadcast ones too), without the parent, bots, logbook's own posts and system messages"; else bad "slack: replies prints the people's replies oldest first (broadcast ones too), without the parent, bots, logbook's own posts and system messages" "rc=$rc $out"; fi
+if [ "$(mfield 8 read)" = 1700000250.000001 ]; then ok "slack: replies records read=<newest ts> in the marker"; else bad "slack: replies records read=<newest ts> in the marker" "$(smark 8)"; fi
+out="$(slack replies 8 2>&1)"; rc=$?
+if [ $rc -eq 0 ] && [ -z "$(printf '%s\n' "$out" | jsonlines)" ]; then ok "slack: a second replies call prints no reply"; else bad "slack: a second replies call prints no reply" "rc=$rc $out"; fi
+rm -f "$SREPLIES"
+
+# 9. rulebook --slack-channel
+R9="$SL/rulebook"
+mkdir -p "$R9"
+git -C "$R9" init -q -b main
+git -C "$R9" remote add origin git@github.com:acme/app.git
+printf '# App\n\nExisting rules stay.\n' > "$R9/AGENTS.md"
+chan_lines() { grep -c '^- Slack 채널: ' "$R9/AGENTS.md"; }
+out="$("$ROOT/scripts/rulebook.sh" --apply --dir "$R9" --no-labels --slack-channel C0123ABCD 2>&1)"; rc=$?
+if [ $rc -eq 0 ] && [ "$(chan_lines)" = 1 ] && grep -qxF -e '- Slack 채널: `C0123ABCD`' "$R9/AGENTS.md" && grep -q 'Existing rules stay.' "$R9/AGENTS.md"; then ok "rulebook: --slack-channel writes one channel line into AGENTS.md"; else bad "rulebook: --slack-channel writes one channel line into AGENTS.md" "rc=$rc $out"; fi
+cp "$R9/AGENTS.md" "$SL/agents9"
+"$ROOT/scripts/rulebook.sh" --apply --dir "$R9" --no-labels --slack-channel C0123ABCD >/dev/null 2>&1
+expect "rulebook: the same --slack-channel again changes nothing" bash -c "cmp -s '$R9/AGENTS.md' '$SL/agents9' && grep -qxF -e '- Slack 채널: \`C0123ABCD\`' '$R9/AGENTS.md'"
+"$ROOT/scripts/rulebook.sh" --apply --dir "$R9" --no-labels --slack-channel C0999ZZZZ >/dev/null 2>&1
+if [ "$(chan_lines)" = 1 ] && grep -qxF -e '- Slack 채널: `C0999ZZZZ`' "$R9/AGENTS.md"; then ok "rulebook: another --slack-channel replaces the line"; else bad "rulebook: another --slack-channel replaces the line" "$(cat "$R9/AGENTS.md")"; fi
+"$ROOT/scripts/rulebook.sh" --apply --dir "$R9" --no-labels --slack-channel bad-id >/dev/null 2>&1; rc=$?
+if [ $rc -eq 2 ] && grep -qxF -e '- Slack 채널: `C0999ZZZZ`' "$R9/AGENTS.md"; then ok "rulebook: --slack-channel bad-id exits 2"; else bad "rulebook: --slack-channel bad-id exits 2" "rc=$rc"; fi
+
+# 10. skills call slack.sh at their stages
+expect "brief calls slack.sh thread, post and replies" bash -c "f='$ROOT/skills/brief/SKILL.md'; grep -q 'slack.sh thread' \"\$f\" && grep -q 'slack.sh post' \"\$f\" && grep -q 'slack.sh replies' \"\$f\""
+expect "build posts each wave with slack.sh post" bash -c "f='$ROOT/skills/build/SKILL.md'; grep -q 'slack.sh post' \"\$f\" && grep -q 'wave' \"\$f\""
+expect "debrief posts the debrief and the close with slack.sh post" bash -c "f='$ROOT/skills/debrief/SKILL.md'; grep -q 'slack.sh post' \"\$f\" && grep -q 'debrief' \"\$f\" && grep -q 'close' \"\$f\""
+expect "discuss makes the thread of a backlog issue with slack.sh thread" grep -q 'slack.sh thread' "$ROOT/skills/discuss/SKILL.md"
+expect "the planner writing guide exists" test -f "$ROOT/templates/planner.md"
+kill "$SLACK_PID" 2>/dev/null
+
 echo
 echo "$PASS passed, $FAIL failed"
 [ "$FAIL" -eq 0 ]
