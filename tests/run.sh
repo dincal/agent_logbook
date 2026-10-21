@@ -1142,6 +1142,7 @@ names="$(slog '[e["params"].get("filename", "").rsplit(".", 1)[-1] for e in L if
 if [ "$names" = '["html"]' ] && [ "$(slog 'len([e for e in L if e["method"] == "upload"])')" = 1 ]; then ok "slack: post brief --page without Chrome uploads the HTML copy only"; else bad "slack: post brief --page without Chrome uploads the HTML copy only" "rc=$rc $out $(cat "$SLOG")"; fi
 if [ -n "$P4" ] && [ "$(slog '[(e["params"].get("channel_id"), e["params"].get("thread_ts")) for e in L if e["method"] == "files.completeUploadExternal"]')" = "[[\"C0TEST\", \"$P4\"]]" ]; then ok "slack: the upload completes in the issue's thread"; else bad "slack: the upload completes in the issue's thread" "$(cat "$SLOG")"; fi
 if [ "$(slog '[(H(e), "initial_comment" in e["params"]) for e in L if e["method"] == "files.completeUploadExternal"] == [(SC.stage_title("brief"), False)]')" = true ]; then ok "slack: the attached post shares the blocks with the files and no initial_comment"; else bad "slack: the attached post shares the blocks with the files and no initial_comment" "$(cat "$SLOG")"; fi
+if [ -n "$P4" ] && [ "$(slog 'len(RP(A[0]))' "$P4")" = 0 ]; then ok "slack: an attached post with accepted blocks is one message (no separate text reply)"; else bad "slack: an attached post with accepted blocks is one message (no separate text reply)" "$(cat "$SLOG")"; fi
 if [ "$(mfield 4 brief)" = "$HASH" ]; then ok "slack: the marker records brief=<12 hex of the page's sha256>"; else bad "slack: the marker records brief=<12 hex of the page's sha256>" "$(smark 4) want $HASH"; fi
 : > "$SLOG"
 out="$(slack post 4 brief --page "$SPAGE" 2>&1)"; rc=$?
@@ -1271,6 +1272,12 @@ printf '이슈 내용을 고쳐 쓴 요약입니다.\n' > "$SL/summary2.md"
 : > "$SLOG"
 out="$(slack thread 11 --text "$SL/summary2.md" 2>&1)"; rc=$?
 if [ $rc -eq 0 ] && [ "$(posts)" = "[]" ] && [ "$(slog '[e["params"]["ts"] for e in L if e["method"] == "chat.update" and "고쳐 쓴 요약" in ALL(e)]')" = "[\"$P11\"]" ]; then ok "slack: thread --text on an existing thread rewrites its first message"; else bad "slack: thread --text on an existing thread rewrites its first message" "rc=$rc $out $(cat "$SLOG")"; fi
+# A phase change redraws the first message with the summary and the poster it already had.
+slack thread 29 --text "$SL/summary.md" >/dev/null 2>&1
+P29="$(mfield 29 ts)"
+: > "$SLOG"
+out="$(slack post 29 approve --text "$SL/text.md" 2>&1)"; rc=$?
+if [ $rc -eq 0 ] && [ "$(slog '[("스스로 다시 만들" in (BID(e, SC.BLOCK_SUMMARY + "0") or "")) and "올린 사람:" in "".join(T(b) for b in B(e)) for e in UP(A[0])] == [True]' "$P29")" = true ]; then ok "slack: redrawing the first message keeps its plain-words summary and its poster"; else bad "slack: redrawing the first message keeps its plain-words summary and its poster" "rc=$rc $out $(cat "$SLOG")"; fi
 
 # The first message shows the phase and is rewritten only when the phase moves forward.
 : > "$SLOG"
@@ -1373,6 +1380,9 @@ expect "rulebook: the same --slack-channel again changes nothing" bash -c "cmp -
 if [ "$(chan_lines)" = 1 ] && grep -qxF -e '- Slack 채널: `C0999ZZZZ`' "$R9/AGENTS.md"; then ok "rulebook: another --slack-channel replaces the line"; else bad "rulebook: another --slack-channel replaces the line" "$(cat "$R9/AGENTS.md")"; fi
 "$ROOT/scripts/rulebook.sh" --apply --dir "$R9" --no-labels --slack-channel bad-id >/dev/null 2>&1; rc=$?
 if [ $rc -eq 2 ] && grep -qxF -e '- Slack 채널: `C0999ZZZZ`' "$R9/AGENTS.md"; then ok "rulebook: --slack-channel bad-id exits 2"; else bad "rulebook: --slack-channel bad-id exits 2" "rc=$rc"; fi
+
+# The stage titles planners read, written out so a changed table shows up here.
+expect "slack: the stage titles are the planner words with their icons" python3 -c 'import sys; sys.path.insert(0, sys.argv[1]); import slack_config as c; want = {"mockup": "🎨 시안", "design": "✅ 시안 승인", "brief": "📋 브리핑", "approve": "✅ 개발 시작", "wave": "🔨 개발 끝", "check": "🔍 확인할 결과", "pr": "👀 마지막 확인", "debrief": "📦 완성 보고", "close": "🚀 반영 완료", "feedback": "💬 피드백 반영"}; sys.exit(0 if {s: c.stage_title(s) for s in c.STAGES} == want else 1)' "$ROOT/scripts"
 
 # 10. skills call slack.sh at their stages
 expect "brief opens the thread, posts mockup, design, brief, approve and close with --outcome, and reads replies" bash -c "f='$ROOT/skills/brief/SKILL.md'; grep -q 'slack.sh thread <issue>' \"\$f\" && grep -q 'slack.sh post <issue> mockup' \"\$f\" && grep -q -e '--outcome' \"\$f\" && grep -q 'slack.sh post <issue> design' \"\$f\" && grep -q 'slack.sh post <issue> brief' \"\$f\" && grep -q 'slack.sh post <issue> approve' \"\$f\" && grep -q 'slack.sh post <issue> close' \"\$f\" && grep -q 'slack.sh replies <issue>' \"\$f\""

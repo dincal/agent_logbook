@@ -27,7 +27,7 @@ A planner who knows the product and its users well and knows nothing about how i
 
 3. Developer links (the PR, the issue) go in one last line, `개발자용: <link>`, never in the body.
 4. Write full Korean sentences in the polite report tone (~합니다). Short sentences, one point each. No emoji in the text (the script puts each stage's icon in the title), no exaggeration.
-5. Slack formatting only: `*굵게*` for a heading line, `•` or `-` for bullets, `<url|글자>` for links. Slack does not render `#` headings or tables. The script adds the title, the progress line and the footer, so do not write them.
+5. Slack formatting only: `*굵게*` for a heading line, `•` or `-` for bullets, `<url|글자>` for links. Slack does not render `#` headings or tables. The script adds the title, the progress line and the footer, so do not write them; keep the `개발자용:` line of rule 3, which the script moves into the footer.
 
 ## First message of the thread
 
@@ -101,6 +101,8 @@ One to three sentences each, the same plain words. Examples:
 - 시안 (before approval): 회원 가입 화면 3개의 시안입니다. 의견이 있으면 이 글에 남겨 주세요.
 - 시안 승인 (text only): 시안이 승인되었습니다.
 - 개발 시작: 브리핑이 승인되어 개발을 시작합니다.
+- 나중에 하기: 이번에는 만들지 않고 나중에 할 일로 남겼습니다. 기획 일정이 정해지면 다시 시작합니다.
+- 중단: 만들지 않기로 했습니다. 같은 기능이 이미 있어서입니다.
 - 개발 끝 (posted once): 비밀번호 찾기가 모두 만들어졌고 확인을 마쳤습니다.
 - 확인할 결과: 실제로 눌러 본 화면입니다. 3번째 그림에서 만료 안내가 보여야 합니다.
 - 마지막 확인: 만든 내용을 합치기 전에 마지막으로 확인하고 있습니다.

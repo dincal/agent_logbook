@@ -42,7 +42,7 @@ A change that one sentence fully describes (a typo, a rename, a small config twe
 4. **Screen mockup.** When the change adds a screen or visibly reshapes one:
    - On Claude Code with artifacts, draft a Design canvas, the same canvas `/design` makes: `Artifact` quickstart with intent `design`, then create one from the Design type. Draw one artboard per screen and state (default, empty, error), after reading the project's design tokens and components.
    - Elsewhere, write a static HTML mockup to `<main>/.logbook/designs/<issue>-<slug>/index.html` and open it in the browser.
-   - Before asking, post the draft to the thread: when `slack.sh check` exits 0, `slack.sh post <issue> mockup` with a PNG per artboard, then read new replies with `slack.sh replies <issue>`, as `templates/slack.md` says.
+   - Before asking, post the draft to the thread: when `slack.sh check` exits 0, save the draft artboards to `<main>/.logbook/designs/<issue>-<slug>/`, then `slack.sh post <issue> mockup` with a PNG per artboard, and read new replies with `slack.sh replies <issue>`, as `templates/slack.md` says.
    - Ask 승인 / 고쳐 달라 / 시안 없이 진행 / 중단 with the question tool (중단 is handled as in step 9). On a change request, read the canvas again first (the user may have edited it), apply the feedback, republish to the same URL, post the mockup again and ask again.
    - After approval, read the canvas back and save `project/canvas.json` and the `project/*.dc.html` artboards to `<main>/.logbook/designs/<issue>-<slug>/`. Implementation follows that copy, and the briefing page shows the approved screens. Post the approval to the thread with `slack.sh post <issue> design` (text only).
 5. **Plan document.**
@@ -68,7 +68,7 @@ A change that one sentence fully describes (a typo, a rename, a small config twe
    - Ask in the chat as `${CLAUDE_PLUGIN_ROOT}/templates/briefing.md` says: one sentence of summary, your calls that change behavior or cost, the risks and 판단 필요, the number of acceptance criteria and the page link, then "진행 / 수정 / 중단" with the question tool.
    - Called by `/sync`: ask the same and hand back to `/sync`, which carries out the approved plan itself. Leave the issue's label to `/sync` and do not invoke `/build`, so that a rerun of `/sync` briefs again instead of handing its plan to `/build`.
    - On 수정, change the plan, rewrite the issue body's text briefing, republish the page to the same URL and ask again.
-   - Post the outcome to the thread with `slack.sh post <issue> approve` (브리핑이 승인되어 개발을 시작합니다; on 중단 add `--outcome later` or `--outcome dropped`), and `slack.sh post <issue> close --outcome dropped` when the issue is dropped.
+   - Post the outcome to the thread with `slack.sh post <issue> approve` (브리핑이 승인되어 개발을 시작합니다; with `--outcome later` on 나중에 하기), or only `slack.sh post <issue> close --outcome dropped` on 버리기.
    - On 중단, ask 나중에 하기 / 버리기 with the question tool. 나중에 하기 moves the issue to `status:backlog`, keeps the branch, and posts the whole plan doc as an issue comment whose first line is `계획 문서`, so `/brief #<issue>` picks it up again on any clone. 버리기 closes the issue as not planned (`gh issue close --reason "not planned"`) and deletes the branch, locally and on the remote where it was pushed. Then stop, and so does a calling `/sync`.
    - Otherwise, once approved, move the issue to `status:in-progress` and invoke `/build #<issue>` without asking for approval again. The briefing page stays as approved; later changes to the plan appear in the debriefing.
 

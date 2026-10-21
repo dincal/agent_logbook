@@ -290,14 +290,15 @@ def read_parent(ctx, ts):
 
 
 def rewrite_parent(ctx, issue, ts, phase):
-    """Redraw the first message for `phase`, keeping its summary and who posted it. One made
-    before the blocks is left as it is (`thread --text` converts it)."""
+    """Redraw the first message for `phase`, keeping its summary and who posted it; False
+    when it was made before the blocks and is left as it is (`thread --text` converts it)."""
     parts = parent_parts(read_parent(ctx, ts))
     if parts is None:
-        return
+        return False
     summary, who = parts
     ctx.call("chat.update", channel=ctx.chan, ts=ts,
              **parent_message(ctx, issue, summary, phase, who))
+    return True
 
 
 def create_thread(ctx, issue, backlog=False, summary=""):
@@ -354,10 +355,13 @@ def cmd_thread(ctx, args):
         elif progress_line(mark.get("phase", "")) and mark.get("shown") != mark["phase"]:
             # An earlier post could not redraw the first message (the last one, close, has no
             # later post to retry it), so this run does.
-            rewrite_parent(ctx, args.issue, mark["ts"], mark["phase"])
+            redrawn = rewrite_parent(ctx, args.issue, mark["ts"], mark["phase"])
             mark["shown"] = mark["phase"]
             save_mark(ctx, record)
-            print(f"쓰레드 첫 메시지의 진행 표시를 고쳤습니다: {where}")
+            if redrawn:
+                print(f"쓰레드 첫 메시지의 진행 표시를 고쳤습니다: {where}")
+            else:
+                print(f"쓰레드 첫 메시지가 옛 형식이라 그대로 두었습니다. --text로 다시 쓰면 바뀝니다: {where}")
         else:
             print(f"이미 쓰레드가 있습니다: {where}")
         return OK
