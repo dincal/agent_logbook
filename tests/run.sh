@@ -1276,8 +1276,10 @@ if [ $rc -eq 0 ] && [ "$(posts)" = "[]" ] && [ "$(slog '[e["params"]["ts"] for e
 slack thread 29 --text "$SL/summary.md" >/dev/null 2>&1
 P29="$(mfield 29 ts)"
 : > "$SLOG"
+printf '{"repo": "acme/app", "base": "main", "account": "teammate"}\n' >| "$SR/.logbook/config.json"
 out="$(slack post 29 approve --text "$SL/text.md" 2>&1)"; rc=$?
-if [ $rc -eq 0 ] && [ "$(slog '[("스스로 다시 만들" in (BID(e, SC.BLOCK_SUMMARY + "0") or "")) and "올린 사람:" in "".join(T(b) for b in B(e)) for e in UP(A[0])] == [True]' "$P29")" = true ]; then ok "slack: redrawing the first message keeps its plain-words summary and its poster"; else bad "slack: redrawing the first message keeps its plain-words summary and its poster" "rc=$rc $out $(cat "$SLOG")"; fi
+printf '{"repo": "acme/app", "base": "main", "account": "dev"}\n' >| "$SR/.logbook/config.json"
+if [ $rc -eq 0 ] && [ "$(slog '[("스스로 다시 만들" in (BID(e, SC.BLOCK_SUMMARY + "0") or "")) and "올린 사람: dev" in "".join(T(b) for b in B(e)) for e in UP(A[0])] == [True]' "$P29")" = true ]; then ok "slack: redrawing the first message keeps its plain-words summary and its poster"; else bad "slack: redrawing the first message keeps its plain-words summary and its poster" "rc=$rc $out $(cat "$SLOG")"; fi
 
 # The first message shows the phase and is rewritten only when the phase moves forward.
 : > "$SLOG"
@@ -1321,6 +1323,13 @@ if [ $rc -eq 0 ] && [ "$(mfield 27 shown)" = build ] && [ "$(slog 'len(UP(A[0]))
 : > "$SLOG"
 out="$(slack post 27 wave --text "$SL/text.md" 2>&1)"; rc=$?
 if [ $rc -eq 0 ] && [ "$(slog 'len(UP(A[0]))' "$P27")" = 0 ]; then ok "slack: once shown matches the phase, the next post leaves the first message alone"; else bad "slack: once shown matches the phase, the next post leaves the first message alone" "rc=$rc $out $(smark 27) $(cat "$SLOG")"; fi
+
+# thread without --text on an old first message a post could not redraw leaves it and says so.
+printf '[{"id": 8030, "body": "<!-- logbook:slack channel=C0TEST ts=1600000000.000030 phase=build -->"}]' > "$GH_STATE/comments-30.json"
+printf '[{"ts": "1600000000.000030", "user": "U0BOT", "text": "*#30 옛 첫 메시지*"}]' > "$SREPLIES"
+: > "$SLOG"
+out="$(slack thread 30 2>&1)"; rc=$?
+if [ $rc -eq 0 ] && printf '%s' "$out" | tail -1 | grep -q '옛 형식' && [ "$(slog 'len([e for e in L if e["method"] == "chat.update"])')" = 0 ] && [ "$(mfield 30 shown)" = build ]; then ok "slack: thread leaves an old first message as it is and says so"; else bad "slack: thread leaves an old first message as it is and says so" "rc=$rc $out $(smark 30) $(cat "$SLOG")"; fi
 
 # A thread made before phases existed: its first message has no summary blocks and is left alone.
 printf '[{"id": 8028, "body": "<!-- logbook:slack channel=C0TEST ts=1600000000.000028 -->"}]' > "$GH_STATE/comments-28.json"
