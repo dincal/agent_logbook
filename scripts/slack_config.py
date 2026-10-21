@@ -16,6 +16,7 @@ OK, OFF, NO_TOKEN, FAILED = 0, 10, 11, 12
 # The stages a reply can belong to, in the order an issue meets them, with the title a
 # planner reads in the reply's header block. The command names stay as they are.
 STAGES = {
+    "mockup": "시안",
     "design": "시안 승인",
     "brief": "브리핑",
     "approve": "개발 시작",
@@ -28,7 +29,8 @@ STAGES = {
 }
 # The icon in front of each stage's title; the body text itself carries no emoji.
 ICONS = {
-    "design": "🎨",
+    "mockup": "🎨",
+    "design": "✅",
     "brief": "📋",
     "approve": "✅",
     "wave": "🔨",
@@ -64,6 +66,7 @@ PHASE_NAMES = {"plan": "계획", "build": "만들기", "check": "확인", "done"
 SPECIAL_PHASES = {"later": "나중에 할 일로 남겼습니다", "dropped": "중단했습니다"}
 # The phase each stage puts the issue in; feedback leaves it where it is.
 STAGE_PHASE = {
+    "mockup": "plan",
     "design": "plan",
     "brief": "plan",
     "approve": "build",
