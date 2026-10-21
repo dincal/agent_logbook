@@ -1,7 +1,7 @@
 ---
 name: rulebook
 description: Turn logbook on in the current repository, once per clone, namely the local marker .logbook/config.json, the tracker labels and plansDirectory. The working rules are not copied into the project; the plugin's SessionStart hook adds them to every session, so a plugin update needs no rerun. In a project set up by logbook before 0.7, it also replaces the old AGENTS.md rule block with a plain document rules paragraph. In a new or existing project it then points to /sync, which sets up the document structure and writes the project docs.
-argument-hint: "[owner/repo]"
+argument-hint: "[owner/repo] [--slack-channel <ID>]"
 disable-model-invocation: true
 ---
 

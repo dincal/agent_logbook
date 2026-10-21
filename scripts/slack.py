@@ -345,7 +345,7 @@ def parser():
     r = sub.add_parser("replies", help="print the replies added since the last call")
     r.add_argument("issue", type=_issue_number)
 
-    c = sub.add_parser("check", help="exit 0 when Slack posting is on, 10 or 11 when it is not")
+    c = sub.add_parser("check", help="exit 0 when Slack posting is on, 10 or 11 when it is off, 12 on a setup error")
 
     for each in (t, s, r, c):
         each.add_argument("--dir", default=".", help="the repository (default: cwd)")

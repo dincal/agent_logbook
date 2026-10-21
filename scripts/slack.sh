@@ -20,15 +20,17 @@ post      Reply in the issue's thread, creating the thread first when it has non
           alone. Each --file is attached as it is.
 replies   Print the replies people added since the last call, one JSON object per line
           ({"user", "time", "text", "ts"}), oldest first, and record how far it read.
-check     Exit 0 when posting is on, 10 or 11 when it is off, without calling Slack.
+check     Exit 0 when posting is on, 10 or 11 when it is off, 12 on a setup error;
+          it calls no Slack API.
 snapshot  Write <out-dir>/<name>.png (full page height, Google Chrome headless) and
           <out-dir>/<name>.html (doctype, UTF-8, local resources inlined).
 
 The channel comes from the line "- Slack 채널: `<ID>`" in AGENTS.md, else from
 LOGBOOK_SLACK_CHANNEL (a default for every project); the token from
 LOGBOOK_SLACK_TOKEN, the repo and gh account from .logbook/config.json.
-Exit codes: 0 posted, 10 off (no channel line), 11 skipped (no token),
-12 failed (Slack, GitHub or Chrome). The last line of stdout is one line for the chat.
+Exit codes: 0 posted, 10 off (no channel line and no LOGBOOK_SLACK_CHANNEL),
+11 skipped (no token), 12 failed (Slack, GitHub or Chrome, or a channel name in
+LOGBOOK_SLACK_CHANNEL instead of an ID). The last line of stdout is one line for the chat.
 EOF
 }
 
