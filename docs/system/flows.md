@@ -290,7 +290,7 @@ flowchart TD
 - 화면은 Chrome headless(화면 없이 도는 Chrome)로 페이지 전체 높이를 PNG 한 장으로 찍고, 참조하는 이미지를 파일 안에 넣은 HTML 사본을 함께 올립니다. 지난 게시와 화면 해시가 같으면 글만 올립니다.
 - 답글은 단계 경계(시안 승인 요청 전, 브리핑 승인 요청 전, 묶음 끝, PR을 열기 전, 디브리핑 시작, 머지 전)에서 읽습니다. 봇이 올린 메시지는 빼고, 같은 답글을 두 번 알리지 않습니다. 답글에 계획을 바꾸라는 말이 있어도 에이전트가 직접 반영하지 않고, 반영하면 `/build` 중에는 결정 기록에 남기며 승인 전이면 `/brief` 수정으로 돌아갑니다.
 - 실패해도 스킬은 멈추지 않습니다. 종료 코드 10은 채널이 정해지지 않아 꺼진 상태, 11은 토큰(`LOGBOOK_SLACK_TOKEN`)이 없어 건너뜀, 12는 Slack, GitHub, Chrome 호출 실패나 `LOGBOOK_SLACK_CHANNEL`에 채널 ID가 아닌 값이 든 설정 오류입니다. 스크립트가 마지막 줄에 채팅에 옮길 한 줄을 내고, 스킬은 그 줄을 알린 뒤 다음 단계로 갑니다. 쓰레드를 만들지 못했으면 다음 게시 때 다시 만듭니다.
-- PR 쓰레드: `Closes #n`이 없는 PR은 `/debrief` 시작에 `slack.sh thread <PR번호> --text <파일>`로 자기 쓰레드를 엽니다. `gh issue view`가 돌려준 주소에 `/pull/`이 있으면 PR로 보고, 쓰레드 표시(`kind=pr`)를 PR 댓글에 남깁니다. 글은 첫 메시지와 반영 완료 둘뿐이고, 피드백과 답글에 대한 답은 반영 완료 본문에 한두 줄로 넣으며, "나중에"로 미룬 방향 변경은 PR 댓글로 남깁니다. 진행 줄은 `확인 → 반영` 두 칸이고 첫 메시지의 개발자용 줄은 "GitHub PR #n"입니다. PR 쓰레드에는 `close`만 올릴 수 있고, 다른 단계나 `--backlog`는 종료 코드 2로 거부합니다. 저장소를 고치지 않는 로컬 작업은 올리지 않습니다.
+- PR 쓰레드: `Closes #n`이 없는 PR은 `/debrief` 시작에 `slack.sh thread <PR번호> --text <파일>`로 자기 쓰레드를 엽니다. `gh issue view`가 돌려준 주소가 `/pull/<번호>`로 끝나면 PR로 보고, 쓰레드 표시(`kind=pr`)를 PR 댓글에 남깁니다. 글은 첫 메시지와 반영 완료 둘뿐이고, 피드백과 답글에 대한 답은 반영 완료 본문에 한두 줄로 넣으며, "나중에"로 미룬 방향 변경은 PR 댓글로 남깁니다. 진행 줄은 `확인 → 반영` 두 칸이고 첫 메시지의 개발자용 줄은 "GitHub PR #n"입니다. PR 쓰레드에는 `close`만 올릴 수 있고, 다른 단계나 `--backlog`는 종료 코드 2로 거부합니다. 저장소를 고치지 않는 로컬 작업은 올리지 않습니다.
 - 한계: logbook이 직접 한 머지와 닫힘만 올립니다. GitHub 웹에서 머지하거나 닫은 이슈나 PR은 닫힘 글도 닫힘 안내도 붙지 않습니다. 답글은 단계 경계에서만 읽으므로 세션이 쉬는 동안 달린 답글은 다음 경계에서 알립니다.
 - 시작점: `scripts/slack.sh`, `scripts/slack.py`, `scripts/slack_config.py`, `scripts/snapshot.py`, `templates/slack.md`, `templates/planner.md`, `templates/slack-app.yml`, `skills/*/SKILL.md`의 Slack 단계
 

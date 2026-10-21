@@ -12,7 +12,7 @@ How `/discuss`, `/brief`, `/build` and `/debrief` share an issue's progress in o
 | 10 | No channel: Slack is off for this project | Say nothing |
 | 11 | No token | Once per session, say in one line that Slack posting is skipped and that `LOGBOOK_SLACK_TOKEN` turns it on |
 | 12 | Slack, GitHub or Chrome failed, or `LOGBOOK_SLACK_CHANNEL` holds a name instead of a channel ID | Relay its last line in one line of chat |
-| 2 | Wrong arguments, including a missing `--outcome` on `close` and a stage other than `close` on an issue-less PR's thread | Fix the call and run it again |
+| 2 | Wrong arguments, including a missing `--outcome` on `close` and a stage other than `close` on an issue-less PR's thread | Fix the call and run it again; for a refused stage on a PR thread, post nothing and fold its points into the 반영 완료 text |
 
 Slack never stops or delays a skill step: on 11 or 12 carry on. The script makes the thread when it is missing, so a skipped post is made up by the next one.
 
@@ -38,7 +38,7 @@ Write each post's text to a temporary file and pass it with `--text`. The script
 
 ## Pull requests without an issue
 
-A PR without `Closes #n` gets its own thread keyed by the PR number. `slack.sh` sees a PR when `gh issue view` returns a url with `/pull/`, and records `kind=pr` in the thread marker, a PR comment. Repo-less local work posts nothing.
+A PR without `Closes #n` gets its own thread keyed by the PR number. `slack.sh` sees a PR when `gh issue view` returns a url ending in `/pull/<number>`, and records `kind=pr` in the thread marker, a PR comment. Repo-less local work posts nothing.
 
 - The thread has two posts: the first message at the start of `/debrief`, and 반영 완료 after the merge. The progress line has two cells, `*확인* ● → 반영`, and `확인 ✓ → 반영 ✓` after a merge; `dropped` shows 중단했습니다 as usual. The first message's developer line says `GitHub PR #n`.
 - Only the `close` stage is allowed on a PR thread. With Slack on, any other stage, and `thread --backlog`, exits 2 without calling Slack (with no channel or token the usual 10 or 11 comes first).
