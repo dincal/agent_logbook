@@ -12,7 +12,18 @@ import urllib.request
 from pathlib import Path
 
 OK, OFF, NO_TOKEN, FAILED = 0, 10, 11, 12
-STAGES = ("brief", "approve", "debrief", "close")
+# The stages a reply can belong to, in the order an issue meets them, with their label.
+STAGES = {
+    "design": "시안 승인",
+    "brief": "브리핑",
+    "approve": "브리핑 승인",
+    "wave": "묶음 끝",
+    "check": "확인할 결과",
+    "pr": "PR",
+    "debrief": "디브리핑",
+    "close": "머지와 닫힘",
+    "feedback": "피드백 요약",
+}
 # Stages whose page is attached; the marker keeps the hash of the page last posted for each.
 PAGE_STAGES = ("brief", "debrief")
 
@@ -69,21 +80,30 @@ def api_base():
 
 # ---------------------------------------------------------------- thread marker
 
+# channel and ts locate the thread, brief and debrief hold the hash of the page last posted
+# for that stage, and read is the ts of the newest reply `replies` has handed out.
+MARKER_FIELDS = ("channel", "ts") + PAGE_STAGES + ("read",)
+
+
 def parse_marker(body):
-    """{channel, ts, brief, debrief} from an issue comment body, or None."""
+    """{channel, ts, brief, debrief, read} from an issue comment body, or None."""
     m = MARKER.search(body or "")
     if not m:
         return None
     fields = dict(p.split("=", 1) for p in m.group(1).split() if "=" in p)
     if not fields.get("channel") or not fields.get("ts"):
         return None
-    return {k: fields.get(k, "") for k in ("channel", "ts") + PAGE_STAGES}
+    return {k: fields.get(k, "") for k in MARKER_FIELDS}
 
 
 def format_marker(mark):
-    parts = [f"channel={mark['channel']}", f"ts={mark['ts']}"]
-    parts += [f"{s}={mark[s]}" for s in PAGE_STAGES if mark.get(s)]
+    parts = [f"{k}={mark[k]}" for k in MARKER_FIELDS if mark.get(k)]
     return "<!-- logbook:slack " + " ".join(parts) + " -->"
+
+
+def replace_marker(body, mark):
+    """The comment body with its marker rewritten, keeping the visible link as it is."""
+    return MARKER.sub(lambda _: format_marker(mark), body, count=1)
 
 
 def marker_comment(mark, permalink):

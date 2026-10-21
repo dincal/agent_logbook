@@ -6,14 +6,19 @@ set -euo pipefail
 usage() {
   cat <<'EOF'
 usage: slack.sh thread <issue> [--backlog] [--dir DIR]
-       slack.sh post <issue> <brief|approve|debrief|close> [--text FILE] [--page HTML] [--dir DIR]
+       slack.sh post <issue> <stage> [--text FILE] [--page HTML] [--file PATH]... [--dir DIR]
+       slack.sh replies <issue> [--dir DIR]
        slack.sh snapshot <page.html> <out-dir>
 
 thread    Post the issue's parent message unless the issue already has a thread, and record
           the thread in an issue comment.
-post      Reply in the issue's thread, creating the thread first when it has none. With
-          --page, attach a PNG and a standalone HTML copy of the page when the page differs
-          from the one last posted for this stage; otherwise post the text alone.
+post      Reply in the issue's thread, creating the thread first when it has none. Stages:
+          design, brief, approve, wave, check, pr, debrief, close, feedback. With --page
+          (brief and debrief only), attach a PNG and a standalone HTML copy of the page when
+          the page differs from the one last posted for this stage; otherwise post the text
+          alone. Each --file is attached as it is.
+replies   Print the replies people added since the last call, one JSON object per line
+          ({"user", "time", "text", "ts"}), oldest first, and record how far it read.
 snapshot  Write <out-dir>/<name>.png (full page height, Google Chrome headless) and
           <out-dir>/<name>.html (doctype, UTF-8, local resources inlined).
 
@@ -30,7 +35,7 @@ if ! command -v python3 >/dev/null 2>&1; then
 fi
 HERE="$(cd "$(dirname "$0")" && pwd)"
 case "${1:-}" in
-  thread|post) exec python3 "$HERE/slack.py" "$@" ;;
+  thread|post|replies) exec python3 "$HERE/slack.py" "$@" ;;
   snapshot) shift; exec python3 "$HERE/snapshot.py" "$@" ;;
   -h|--help) usage ;;
   *) usage >&2; exit 2 ;;
