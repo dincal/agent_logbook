@@ -52,12 +52,15 @@ def main_checkout(directory):
 
 
 def channel(directory):
-    """The Slack channel ID from AGENTS.md (committed, so the whole team shares it), or None."""
-    agents = toplevel(directory) / "AGENTS.md"
-    if not agents.is_file():
-        return None
-    m = CHANNEL_LINE.search(agents.read_text(encoding="utf-8"))
-    return m.group(1) if m else None
+    """The Slack channel ID from AGENTS.md (committed, so the whole team shares it), or None.
+    A worktree cut before the line was committed falls back to the main checkout's copy."""
+    for root in (toplevel(directory), main_checkout(directory)):
+        agents = root / "AGENTS.md"
+        if agents.is_file():
+            m = CHANNEL_LINE.search(agents.read_text(encoding="utf-8"))
+            if m:
+                return m.group(1)
+    return None
 
 
 def tracker(directory):
@@ -85,13 +88,17 @@ def api_base():
 MARKER_FIELDS = ("channel", "ts") + PAGE_STAGES + ("read",)
 
 
-def parse_marker(body):
-    """{channel, ts, brief, debrief, read} from an issue comment body, or None."""
+def parse_marker(body, expected_channel=None):
+    """{channel, ts, brief, debrief, read} from an issue comment body, or None. With
+    expected_channel, a marker naming another channel is ignored, so a comment anyone can
+    add cannot send the issue's pages to a channel of their choosing."""
     m = MARKER.search(body or "")
     if not m:
         return None
     fields = dict(p.split("=", 1) for p in m.group(1).split() if "=" in p)
     if not fields.get("channel") or not fields.get("ts"):
+        return None
+    if expected_channel and fields["channel"] != expected_channel:
         return None
     return {k: fields.get(k, "") for k in MARKER_FIELDS}
 
@@ -119,11 +126,19 @@ class GitHub:
     with GH_TOKEN for the tracker's account, so a fake gh on PATH can answer them."""
 
     def __init__(self, repo, account):
+        if not repo:
+            raise Failure("저장소를 알 수 없습니다. /rulebook으로 .logbook/config.json을 만드세요")
         self.repo = repo
-        self.env = dict(os.environ)
+        # Plain, uncolored JSON one object per line, whatever the caller's terminal settings.
+        self.env = {k: v for k, v in os.environ.items()
+                    if k not in ("GH_FORCE_TTY", "CLICOLOR_FORCE")}
+        self.env["NO_COLOR"] = "1"
         if account:
-            out = subprocess.run(["gh", "auth", "token", "--user", account],
-                                 capture_output=True, text=True)
+            try:
+                out = subprocess.run(["gh", "auth", "token", "--user", account],
+                                     capture_output=True, text=True, env=self.env)
+            except FileNotFoundError:
+                raise Failure("gh를 찾지 못했습니다")
             if out.returncode == 0 and out.stdout.strip():
                 self.env["GH_TOKEN"] = out.stdout.strip()
 
@@ -138,20 +153,23 @@ class GitHub:
 
     def issue(self, number):
         """{title, url, state}"""
-        return json.loads(self._run(["issue", "view", str(number), "--repo", self.repo,
-                                     "--json", "title,url,state"]))
+        return _json(self._run(["issue", "view", str(number), "--repo", self.repo,
+                                "--json", "title,url,state"]))
 
     def comments(self, number):
         """[{id, body}] oldest first."""
         out = self._run(["api", "--paginate", f"repos/{self.repo}/issues/{number}/comments",
                          "--jq", ".[] | {id, body}"])
-        return [json.loads(line) for line in out.splitlines() if line.strip()]
+        return [_json(line) for line in out.splitlines() if line.strip()]
 
     def add_comment(self, number, body):
         """The new comment's id."""
         out = self._run(["api", "-X", "POST", f"repos/{self.repo}/issues/{number}/comments",
                          "-f", f"body={body}", "--jq", ".id"])
-        return int(out.strip())
+        try:
+            return int(out.strip())
+        except ValueError:
+            raise Failure(f"gh가 댓글 번호 대신 다른 값을 돌려줬습니다: {out.strip()[:80]}")
 
     def edit_comment(self, comment_id, body):
         self._run(["api", "-X", "PATCH", f"repos/{self.repo}/issues/comments/{comment_id}",
@@ -161,12 +179,19 @@ class GitHub:
         return self._run(["api", "user", "--jq", ".login"]).strip()
 
 
+def _json(text):
+    try:
+        return json.loads(text)
+    except ValueError:
+        raise Failure(f"gh 출력을 JSON으로 읽지 못했습니다: {text.strip()[:80]}")
+
+
 # ---------------------------------------------------------------- Slack Web API
 
 def slack_call(method, params, tok):
     """POST a Web API method as a form (JSON for list-valued params) and return its JSON.
     Raises Failure when the HTTP call fails or Slack answers ok=false."""
-    data = {k: json.dumps(v) if isinstance(v, (list, dict)) else str(v)
+    data = {k: json.dumps(v) if isinstance(v, (list, dict, bool)) else str(v)
             for k, v in params.items() if v is not None}
     req = urllib.request.Request(
         f"{api_base()}/{method}", data=urllib.parse.urlencode(data).encode(),
