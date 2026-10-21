@@ -1,5 +1,21 @@
 # 변경 이력
 
+## [0.16.0] - 2026-10-21
+
+이슈 [#39](https://github.com/dincal/agent_logbook/issues/39) · PR [#40](https://github.com/dincal/agent_logbook/pull/40)
+
+이슈 없이 여는 PR도 Slack에 PR마다 쓰레드를 하나 만들어 무엇을 바꾸는지와 반영 완료를 남깁니다.
+
+### 추가
+
+- 이슈 없는 PR(`Closes #n`이 없는 PR)은 `/debrief` 시작에 자기 Slack 쓰레드를 엽니다. 쓰레드 표시는 PR 댓글에 남습니다.
+- PR 쓰레드에는 첫 메시지와 반영 완료 두 글만 올라오고, 피드백은 반영 완료 글에 한두 줄로 들어갑니다.
+- PR 쓰레드의 진행 줄은 `확인 → 반영` 두 칸입니다.
+
+### 바뀜
+
+- `slack.sh`는 PR 쓰레드에 `close`가 아닌 단계나 `--backlog`를 올리면 Slack을 부르지 않고 종료 코드 2로 거부합니다.
+
 ## [0.15.0] - 2026-10-21
 
 PR [#38](https://github.com/dincal/agent_logbook/pull/38)
