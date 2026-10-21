@@ -1,7 +1,7 @@
 ---
 name: rulebook
 description: Turn logbook on in the current repository, once per clone, namely the local marker .logbook/config.json, the tracker labels and plansDirectory. The working rules are not copied into the project; the plugin's SessionStart hook adds them to every session, so a plugin update needs no rerun. In a project set up by logbook before 0.7, it also replaces the old AGENTS.md rule block with a plain document rules paragraph. In a new or existing project it then points to /sync, which sets up the document structure and writes the project docs.
-argument-hint: "[owner/repo]"
+argument-hint: "[owner/repo] [--slack-channel <ID>]"
 disable-model-invocation: true
 ---
 
@@ -20,13 +20,14 @@ The rules themselves live in the plugin (`${CLAUDE_PLUGIN_ROOT}/templates/sessio
 - GitHub labels: `status:backlog`, `status:todo`, `status:in-progress`, `status:done`.
 - `plansDirectory` in `.claude/settings.json`: `.logbook/plans`, so plan-mode plans land where git ignores them. `/brief` keeps an approved plan in the main checkout's `.logbook/plans/` too, under its issue number; a plan made in a git worktree is moved there.
 - `CLAUDE.md`: adds an `@AGENTS.md` import when AGENTS.md exists, so Claude Code reads the project's rules even in sessions that skip AGENTS.md.
-- `AGENTS.md`: touched only when it still holds a rule block from logbook before 0.7 (`<!-- logbook:begin` to `<!-- logbook:end -->`). The block is replaced, in place, by the document rules paragraph from `${CLAUDE_PLUGIN_ROOT}/templates/docs-rules.md`: the table of document places and the promise to update them with the code. That paragraph belongs to the project, not to logbook; logbook never rewrites it. Everything outside the block stays as it is.
+- `AGENTS.md`, Slack: with `--slack-channel <ID>`, writes the line `- Slack 채널: \`<ID>\`` (replacing an earlier one), the channel each issue's Slack thread goes to (`${CLAUDE_PLUGIN_ROOT}/templates/slack.md`). Pass it when the user names a channel; a project without the line uses `LOGBOOK_SLACK_CHANNEL` when set.
+- `AGENTS.md`: otherwise touched only when it still holds a rule block from logbook before 0.7 (`<!-- logbook:begin` to `<!-- logbook:end -->`). The block is replaced, in place, by the document rules paragraph from `${CLAUDE_PLUGIN_ROOT}/templates/docs-rules.md`: the table of document places and the promise to update them with the code. That paragraph belongs to the project, not to logbook; logbook never rewrites it. Everything outside the block stays as it is.
 
 ## Steps
 
 1. Check the preconditions: a git repository, a GitHub `origin` remote, and `gh auth status`. Without GitHub, continue with `--no-labels` and say that issue tracking is unavailable.
 2. Resolve the values.
-   - Repo: `$ARGUMENTS` when given, otherwise the `origin` remote.
+   - Repo: `$ARGUMENTS` when given, otherwise the `origin` remote. A `--slack-channel <ID>` in `$ARGUMENTS` is not the repo: pass it on to `rulebook.sh` in steps 3 and 4.
    - Base branch: the remote default branch, otherwise `main`.
    - gh account: when `gh auth status` lists several accounts, pick the one whose name matches the repo owner. If none matches, ask with the question tool which account owns the repository, with the accounts as options.
 3. Run `rulebook.sh --dry-run --repo <repo> --base <base> [--account <account>]` and show the planned changes. Ask for approval before writing, with the question tool as `${CLAUDE_PLUGIN_ROOT}/templates/questions.md` says.

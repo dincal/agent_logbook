@@ -8,7 +8,7 @@ set -euo pipefail
 usage() {
   cat <<'EOF'
 Usage: rulebook.sh (--dry-run | --apply) [--dir DIR] [--repo OWNER/NAME] [--base BRANCH]
-                   [--account GH_USER] [--no-labels]
+                   [--account GH_USER] [--no-labels] [--slack-channel ID]
 
 Writes .logbook/config.json (the marker the logbook hooks look for), the tracker labels
 on GitHub, plansDirectory (.logbook/plans, git-ignored) into .claude/settings.json,
@@ -16,10 +16,12 @@ on GitHub, plansDirectory (.logbook/plans, git-ignored) into .claude/settings.js
 Replaces a rule block from logbook before 0.7 with the document rules paragraph.
 Repo, base and account not given as options keep their values from an existing
 .logbook/config.json, and are otherwise read from the repository.
+--slack-channel writes the line "- Slack 채널: `ID`" into AGENTS.md (replacing an earlier
+one), the channel logbook posts each issue's Slack thread to. Commit it so the team shares it.
 EOF
 }
 
-MODE="" DIR="" REPO="" BASE="" ACCOUNT="" LABELS=1
+MODE="" DIR="" REPO="" BASE="" ACCOUNT="" LABELS=1 SLACK_CHANNEL=""
 # Plan-mode plans land in the git-ignored .logbook/plans, where /brief keeps approved plans as well.
 PLANS_DIR=.logbook/plans
 while [ $# -gt 0 ]; do
@@ -31,12 +33,18 @@ while [ $# -gt 0 ]; do
     --base) BASE="${2:?--base needs a value}"; shift ;;
     --account) ACCOUNT="${2:?--account needs a value}"; shift ;;
     --no-labels) LABELS=0 ;;
+    --slack-channel) SLACK_CHANNEL="${2:?--slack-channel needs a value}"; shift ;;
     -h|--help) usage; exit 0 ;;
     *) echo "rulebook: unknown option $1" >&2; usage >&2; exit 2 ;;
   esac
   shift
 done
 [ -n "$MODE" ] || { usage >&2; exit 2; }
+# Slack channel IDs are upper-case letters and digits (C0123ABCD); anything else is a typo.
+if [ -n "$SLACK_CHANNEL" ] && ! printf '%s' "$SLACK_CHANNEL" | grep -qE '^[A-Z0-9]+$'; then
+  echo "rulebook: --slack-channel takes a Slack channel ID such as C0123ABCD, not '$SLACK_CHANNEL'" >&2
+  exit 2
+fi
 
 PLUGIN_ROOT="$(cd "$(dirname "$0")/.." && pwd)"
 DOCS_RULES="$PLUGIN_ROOT/templates/docs-rules.md"
@@ -134,6 +142,28 @@ migrate_agents_block() {
   fi
   new="${before}$(render_docs_rules)"$'\n'"${after}"
   write_if_changed "$file" "$new"
+}
+
+# Keep exactly one channel line in AGENTS.md, the one scripts/slack.sh reads.
+ensure_slack_channel() {
+  local file=AGENTS.md line kept="" found=0 current
+  [ -n "$SLACK_CHANNEL" ] || return 0
+  line="- Slack 채널: \`$SLACK_CHANNEL\`"
+  if [ ! -f "$file" ]; then
+    write_if_changed "$file" "$line"$'\n'
+    return 0
+  fi
+  while IFS= read -r current || [ -n "$current" ]; do
+    case "$current" in
+      "- Slack 채널: "*) [ "$found" = 1 ] || kept+="$line"$'\n'; found=1 ;;
+      *) kept+="$current"$'\n' ;;
+    esac
+  done < "$file"
+  if [ "$found" = 0 ]; then
+    [ -s "$file" ] && kept+=$'\n'
+    kept+="$line"$'\n'
+  fi
+  write_if_changed "$file" "$kept"
 }
 
 ensure_claude_import() {
@@ -259,6 +289,7 @@ EOF
 
 echo "logbook rulebook ($MODE): dir=$DIR repo=${REPO:-none} base=$BASE account=${ACCOUNT:-default}"
 migrate_agents_block
+ensure_slack_channel
 ensure_claude_import
 ensure_plans_setting
 ensure_gitignore

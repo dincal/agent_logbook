@@ -26,6 +26,7 @@ A change that one sentence fully describes (a typo, a rename, a small config twe
    - Run gh with the account on that line: `GH_TOKEN="$(gh auth token --user <account>)" gh ...`. Without an account there, use the default login.
    - Slug: a short kebab-case summary. Branch: `<type>/<issue>-<slug>` (feat, fix, refactor, docs or chore), cut from the base branch.
    - One request is one issue and one PR, however large, and even when it mixes unrelated features. Large work is split into tracks inside it (step 5), never into child issues.
+   - After creating the issue, open its Slack thread with `${CLAUDE_PLUGIN_ROOT}/scripts/slack.sh thread <issue> --text <file>`, the issue written out in plain words for people who cannot open GitHub. Every Slack post and reply check below follows `${CLAUDE_PLUGIN_ROOT}/templates/slack.md`, written by `${CLAUDE_PLUGIN_ROOT}/templates/planner.md`; Slack never holds up a step.
    - Work in the main checkout and switch branches there. When something makes the main checkout unfit (uncommitted changes, a service running from it, another session working there), say what and ask with the question tool before making a worktree with `${CLAUDE_PLUGIN_ROOT}/scripts/worktree.sh add`; then do as the user picks: the worktree, the main checkout, or stop.
 2. **Research.**
    - Start from `docs/system/` when it exists; it describes the system as it is, and `rules.md` there holds the domain rules users settled before. Note which of those docs the change will alter.
@@ -42,7 +43,7 @@ A change that one sentence fully describes (a typo, a rename, a small config twe
    - On Claude Code with artifacts, draft a Design canvas, the same canvas `/design` makes: `Artifact` quickstart with intent `design`, then create one from the Design type. Draw one artboard per screen and state (default, empty, error), after reading the project's design tokens and components.
    - Elsewhere, write a static HTML mockup to `<main>/.logbook/designs/<issue>-<slug>/index.html` and open it in the browser.
    - Ask 승인 / 고쳐 달라 / 시안 없이 진행 / 중단 with the question tool (중단 is handled as in step 9). On a change request, read the canvas again first (the user may have edited it), apply the feedback, republish to the same URL and ask again.
-   - After approval, read the canvas back and save `project/canvas.json` and the `project/*.dc.html` artboards to `<main>/.logbook/designs/<issue>-<slug>/`. Implementation follows that copy, and the briefing page shows the approved screens.
+   - After approval, read the canvas back and save `project/canvas.json` and the `project/*.dc.html` artboards to `<main>/.logbook/designs/<issue>-<slug>/`. Implementation follows that copy, and the briefing page shows the approved screens. Post the approval to the thread: when `slack.sh check` exits 0, `slack.sh post <issue> design` with a PNG of each saved artboard, as `templates/slack.md` says.
 5. **Plan document.**
    - Write `<main>/.logbook/plans/<issue>-<slug>.md` from `${CLAUDE_PLUGIN_ROOT}/templates/plan.md`, by `${CLAUDE_PLUGIN_ROOT}/templates/writing.md`.
    - The part between `<!-- brief:begin -->` and `<!-- brief:end -->` is the text briefing that goes into the issue body and the approval message. Conclusion and request first: 요약, 배경, what you will do, 주요 결정, 위험과 판단 필요, 일정과 검증. Add 주요 로직 흐름 when important logic is added or changed, 데이터베이스 변경 when the schema changes, and 화면 시안 when step 4 ran. Each section opens with one sentence that states its conclusion.
@@ -59,11 +60,14 @@ A change that one sentence fully describes (a typo, a rename, a small config twe
    - Put the page link in the plan doc header.
    - Rewrite the issue body as the text briefing from the brief block (요약, what changes, 주요 결정, risks, acceptance criteria) with the page link. Read the body first, since an edit replaces it whole: when someone else wrote it, keep their text under `## 원래 요청` at the end.
    - Comment on the issue with a three-line summary, the page link and the 판단 필요 items.
+   - Post the briefing to the thread: `slack.sh post <issue> brief --text <planner briefing> --page <main>/.logbook/briefs/<issue>-brief.html`. The text is the planner briefing `templates/planner.md` describes: user stories in plain words, no developer terms.
    - Do not commit the plan doc.
 9. **Approval.**
+   - First read the thread's new replies with `slack.sh replies <issue>` and handle them as `templates/slack.md` says: tell the user, and ask before any reply changes the plan.
    - Ask in the chat as `${CLAUDE_PLUGIN_ROOT}/templates/briefing.md` says: one sentence of summary, your calls that change behavior or cost, the risks and 판단 필요, the number of acceptance criteria and the page link, then "진행 / 수정 / 중단" with the question tool.
    - Called by `/sync`: ask the same and hand back to `/sync`, which carries out the approved plan itself. Leave the issue's label to `/sync` and do not invoke `/build`, so that a rerun of `/sync` briefs again instead of handing its plan to `/build`.
    - On 수정, change the plan, rewrite the issue body's text briefing, republish the page to the same URL and ask again.
+   - Post the outcome to the thread with `slack.sh post <issue> approve` (브리핑이 승인되었습니다, or what 중단 chose), and `slack.sh post <issue> close` when the issue is dropped.
    - On 중단, ask 나중에 하기 / 버리기 with the question tool. 나중에 하기 moves the issue to `status:backlog`, keeps the branch, and posts the whole plan doc as an issue comment whose first line is `계획 문서`, so `/brief #<issue>` picks it up again on any clone. 버리기 closes the issue as not planned (`gh issue close --reason "not planned"`) and deletes the branch, locally and on the remote where it was pushed. Then stop, and so does a calling `/sync`.
    - Otherwise, once approved, move the issue to `status:in-progress` and invoke `/build #<issue>` without asking for approval again. The briefing page stays as approved; later changes to the plan appear in the debriefing.
 
