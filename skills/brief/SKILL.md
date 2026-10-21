@@ -19,9 +19,10 @@ A change that one sentence fully describes (a typo, a rename, a small config twe
 ## Steps
 
 1. **Issue and branch.**
-   - Use the issue number in `$ARGUMENTS` when given. Otherwise create one labelled `status:todo` in the repo named on the tracker line in the logbook rules the session started with (the SessionStart hook adds them from `.logbook/config.json`). When the session got no logbook rules (for instance `/rulebook` ran in this session), read repo, base and account from `.logbook/config.json` in the main checkout instead.
+   - Use the issue number in `$ARGUMENTS` when given. Otherwise create one labelled `status:todo` and assigned to yourself (`--assignee @me`) in the repo named on the tracker line in the logbook rules the session started with (the SessionStart hook adds them from `.logbook/config.json`). When the session got no logbook rules (for instance `/rulebook` ran in this session), read repo, base and account from `.logbook/config.json` in the main checkout instead.
    - An issue given in `status:backlog` (one `/discuss` left for later, for instance) moves to `status:todo`. A plan set aside with 나중에 하기 in step 9 is picked up again: start from the local plan doc `<main>/.logbook/plans/<issue>-<slug>.md`, or else from the issue's last comment whose first line is `계획 문서`, saving it as that doc. Check out its branch when it exists on this clone or the remote; otherwise cut it.
    - An issue already in `status:in-progress` was approved before: hand it to `/build #<issue>` instead of these steps.
+   - A given issue gets you as an assignee too (`gh issue edit <issue> --add-assignee @me`). When someone else is already assigned, ask with the question tool whether to add yourself beside them, replace them with yourself (`--remove-assignee <login>` alongside), or leave the assignees as they are.
    - Read the given issue's comments too: follow-up work deferred to this issue, such as a doc update, is left there as a comment and belongs in this change.
    - Run gh with the account on that line: `GH_TOKEN="$(gh auth token --user <account>)" gh ...`. Without an account there, use the default login.
    - Slug: a short kebab-case summary. Branch: `<type>/<issue>-<slug>` (feat, fix, refactor, docs or chore), cut from the base branch.
