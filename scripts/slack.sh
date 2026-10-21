@@ -5,14 +5,16 @@ set -euo pipefail
 
 usage() {
   cat <<'EOF'
-usage: slack.sh thread <issue> [--backlog] [--dir DIR]
+usage: slack.sh thread <issue> [--backlog] [--text FILE] [--dir DIR]
        slack.sh post <issue> <stage> [--text FILE] [--page HTML] [--file PATH]... [--dir DIR]
        slack.sh replies <issue> [--dir DIR]
        slack.sh check [--dir DIR]
        slack.sh snapshot <page.html> <out-dir>
 
 thread    Post the issue's parent message unless the issue already has a thread, and record
-          the thread in an issue comment.
+          the thread in an issue comment. --text is the issue written out in plain words for
+          people who cannot open GitHub; given for an existing thread, it rewrites the first
+          message.
 post      Reply in the issue's thread, creating the thread first when it has none. Stages:
           design, brief, approve, wave, check, pr, debrief, close, feedback. With --page
           (brief and debrief only), attach a PNG and a standalone HTML copy of the page when

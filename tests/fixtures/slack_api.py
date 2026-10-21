@@ -121,6 +121,8 @@ class Handler(BaseHTTPRequestHandler):
             self.answer({"ok": True, "files": []})
         elif method == "conversations.replies":
             self.answer(replies(params))
+        elif method == "chat.update":
+            self.answer({"ok": True, "ts": params.get("ts", "")})
         elif method == "auth.test":
             self.answer({"ok": True, "user_id": "U0BOT"})
         elif method == "users.info":

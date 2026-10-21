@@ -111,17 +111,24 @@ def permalink(ctx, ts):
         return ""
 
 
-def parent_text(ctx, issue, backlog):
+def parent_text(ctx, issue, backlog, summary=""):
+    """The thread's first message. Planners cannot open GitHub, so `summary` (the issue
+    written out in plain words) carries the content and the issue link is a developer line."""
     info = ctx.gh.issue(issue)
     who = ctx.account or ctx.gh.login()
     prefix = "[백로그] " if backlog else ""
-    return f"{prefix}*#{issue} {_escape(info.get('title', ''))}*\n{info.get('url', '')}\n올린 사람: {who}"
+    lines = [f"{prefix}*#{issue} {_escape(info.get('title', ''))}*"]
+    if summary.strip():
+        lines += [summary.strip(), ""]
+    lines += [f"올린 사람: {who}", f"개발자용: <{info.get('url', '')}|GitHub 이슈 #{issue}>"]
+    return "\n".join(lines)
 
 
-def create_thread(ctx, issue, backlog=False):
+def create_thread(ctx, issue, backlog=False, summary=""):
     """Post the parent message and record it in an issue comment. When the record cannot
     be written, delete the message so the next run does not leave a second thread."""
-    resp = ctx.call("chat.postMessage", channel=ctx.chan, text=parent_text(ctx, issue, backlog))
+    resp = ctx.call("chat.postMessage", channel=ctx.chan,
+                    text=parent_text(ctx, issue, backlog, summary))
     ts = _field(resp, "ts", "chat.postMessage")
     link = permalink(ctx, ts)
     mark = {k: "" for k in MARKER_FIELDS}
@@ -150,12 +157,20 @@ def ensure_thread(ctx, issue):
 # ---------------------------------------------------------------- thread
 
 def cmd_thread(ctx, args):
+    summary = _read_bytes(args.text, "글 파일").decode("utf-8", "replace") if args.text else ""
     record = find_record(ctx, args.issue)
     if record is not None:
         m = PERMALINK.search(record["body"])
-        print(f"이미 쓰레드가 있습니다: {m.group(1) if m else record['mark']['ts']}")
+        where = m.group(1) if m else record["mark"]["ts"]
+        if summary:
+            # Rewrite the first message so a thread made before the summary existed gets it.
+            ctx.call("chat.update", channel=ctx.chan, ts=record["mark"]["ts"],
+                     text=parent_text(ctx, args.issue, args.backlog, summary))
+            print(f"쓰레드 첫 메시지를 이슈 내용으로 고쳤습니다: {where}")
+        else:
+            print(f"이미 쓰레드가 있습니다: {where}")
         return OK
-    record = create_thread(ctx, args.issue, backlog=args.backlog)
+    record = create_thread(ctx, args.issue, backlog=args.backlog, summary=summary)
     if record["link"]:
         print(f"Slack 쓰레드를 만들었습니다: {record['link']}")
     else:
@@ -332,6 +347,8 @@ def parser():
     t = sub.add_parser("thread", help="post the issue's parent message unless it has a thread")
     t.add_argument("issue", type=_issue_number)
     t.add_argument("--backlog", action="store_true", help="mark the parent message as backlog")
+    t.add_argument("--text", metavar="FILE",
+                   help="the issue written out in plain words; rewrites an existing first message")
 
     s = sub.add_parser("post", help="reply in the issue's thread, creating it when missing")
     s.add_argument("issue", type=_issue_number)

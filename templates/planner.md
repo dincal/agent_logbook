@@ -9,6 +9,7 @@ A planner who knows the product and its users well and knows nothing about how i
 - They think in people and what those people can do: a member signs up, an admin approves a refund.
 - They do not know code, files, commands, git, pull requests, reviews, tests by name, APIs, databases, agents, waves or tracks, and they should not need to.
 - They read Slack on a phone between meetings: short lines, the point first.
+- They cannot open GitHub. Everything they need is in the Slack text itself; a link is never the only place something is said.
 
 ## Rules
 
@@ -27,6 +28,20 @@ A planner who knows the product and its users well and knows nothing about how i
 3. Developer links (the PR, the issue) go in one last line, `개발자용: <link>`, never in the body.
 4. Write full Korean sentences in the polite report tone (~합니다). Short sentences, one point each. No emoji, no exaggeration.
 5. Slack formatting only: `*굵게*` for a heading line, `•` or `-` for bullets, `<url|글자>` for links. Slack does not render `#` headings or tables.
+
+## First message of the thread
+
+The issue written out, so the thread makes sense without opening GitHub. Pass it to `slack.sh thread <issue> --text <file>`; the script adds the title on top and the GitHub link as the last line.
+
+```
+*무엇을*: 회원이 비밀번호를 잊어도 스스로 다시 만들 수 있게 합니다.
+*왜*: 지금은 고객센터에 문의해야 해서 하루에 30건씩 요청이 들어옵니다.
+*누구에게 좋은가*: 회원은 기다리지 않아도 되고, 고객센터는 이 일을 하지 않아도 됩니다.
+*지금 상태*: 무엇을 만들지 정리하고 있습니다.
+```
+
+- Write it from the issue body and its comments (and the `/discuss` summary when there is one), in the plain words of the rules above.
+- 지금 상태 is one of: 나중에 할 일로 남겼습니다 (backlog), 무엇을 만들지 정리하고 있습니다, 만들고 있습니다, 완성되어 확인 중입니다.
 
 ## Briefing post
 

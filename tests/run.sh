@@ -1185,6 +1185,17 @@ out="$(slack post 7 check --text "$SL/text.md" --file "$SL/e2e.log" 2>&1)"; rc=$
 if [ $rc -eq 0 ] && [ "$(slog 'len([e for e in L if e["method"] == "upload-504"])')" = 1 ] && [ "$(slog 'len([e for e in L if e["method"] == "upload"])')" = 1 ] && [ "$(slog 'len([e for e in L if e["method"] == "files.completeUploadExternal"])')" = 1 ]; then ok "slack: an upload that gets 504 once is retried and attached"; else bad "slack: an upload that gets 504 once is retried and attached" "rc=$rc $out $(cat "$SLOG")"; fi
 rm -f "$SFLAKY"
 
+# thread --text writes the issue out in plain words; on an existing thread it rewrites the first message
+printf '회원이 비밀번호를 스스로 다시 만들 수 있게 합니다.\n' > "$SL/summary.md"
+: > "$SLOG"
+out="$(slack thread 11 --text "$SL/summary.md" 2>&1)"; rc=$?
+if [ $rc -eq 0 ] && slog '[e["params"]["text"] for e in L if e["method"] == "chat.postMessage"][0]' | grep -q '스스로 다시 만들' && slog '[e["params"]["text"] for e in L if e["method"] == "chat.postMessage"][0]' | grep -q '개발자용: <'; then ok "slack: thread --text puts the plain-words issue in the first message, the GitHub link last"; else bad "slack: thread --text puts the plain-words issue in the first message, the GitHub link last" "rc=$rc $out $(cat "$SLOG")"; fi
+P11="$(mfield 11 ts)"
+printf '이슈 내용을 고쳐 쓴 요약입니다.\n' > "$SL/summary2.md"
+: > "$SLOG"
+out="$(slack thread 11 --text "$SL/summary2.md" 2>&1)"; rc=$?
+if [ $rc -eq 0 ] && [ "$(posts)" = "[]" ] && [ "$(slog '[e["params"]["ts"] for e in L if e["method"] == "chat.update" and "고쳐 쓴 요약" in e["params"]["text"]]')" = "[\"$P11\"]" ]; then ok "slack: thread --text on an existing thread rewrites its first message"; else bad "slack: thread --text on an existing thread rewrites its first message" "rc=$rc $out $(cat "$SLOG")"; fi
+
 # 8. replies
 slack thread 8 >/dev/null 2>&1
 P8="$(mfield 8 ts)"

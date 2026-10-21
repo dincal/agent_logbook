@@ -11,6 +11,7 @@
 - `scripts/slack.sh`: 쓰레드 만들기, 단계별 게시(시안 승인, 브리핑, 승인, 묶음 끝, 확인할 결과, PR, 디브리핑, 머지와 닫힘, 피드백 요약), 답글 읽기, 화면의 PNG와 독립 실행용 HTML 만들기
 - `/rulebook --slack-channel <ID>`: 채널 ID를 AGENTS.md에 한 줄로 적습니다. 채널 줄이 없는 프로젝트는 환경 변수 `LOGBOOK_SLACK_CHANNEL`의 채널을 씁니다. 봇 토큰은 환경 변수 `LOGBOOK_SLACK_TOKEN`에 둡니다.
 - `templates/slack-app.yml`: Slack 앱 매니페스트(앱 이름과 권한을 적은 설정 파일)
+- 쓰레드 첫 메시지에는 GitHub에 들어갈 수 없는 기획자를 위해 이슈 내용을 쉬운 말로 풀어 씁니다(`slack.sh thread --text`, 이미 있는 쓰레드는 첫 메시지를 고칩니다).
 - `templates/planner.md`: 쓰레드에 올리는 글을 기획자도 읽을 수 있게 쓰는 안내(브리핑은 유저 스토리, 디브리핑은 "이렇게 테스트해 보세요")
 - 사용 설명서에 Slack 쓰레드 준비와 사용법, 한계를 추가했습니다.
 

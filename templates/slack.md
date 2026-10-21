@@ -22,7 +22,7 @@ Write each post's text to a temporary file and pass it with `--text`. The script
 
 | Point | Skill step | Command |
 |---|---|---|
-| Issue created | `/brief` step 1, `/discuss` backlog ending | `slack.sh thread <issue>` (`--backlog` from `/discuss`) |
+| Issue created | `/brief` step 1, `/discuss` backlog ending | `slack.sh thread <issue> --text <file>` (`--backlog` from `/discuss`). The text is the issue written out in plain words, as the first-message section of `templates/planner.md` says: planners cannot open GitHub. Run it again with a new text when the issue's content changes, for instance after the briefing rewrote the issue body; it rewrites the first message |
 | Mockup approved | `/brief` step 4 | When `slack.sh check` exits 0, make one PNG per saved artboard with `slack.sh snapshot <artboard> <dir>` into a new temporary folder (never the design folder, whose files it would overwrite), then `slack.sh post <issue> design --text <file>` with `--file <png>` for each PNG that was made (none without Chrome). Text: 디자인이 승인되었습니다, and what the screens are for |
 | Briefing | `/brief` step 8, again after 수정 | `slack.sh post <issue> brief --text <planner briefing> --page <main>/.logbook/briefs/<issue>-brief.html` |
 | Briefing approved | `/brief` step 9 | `slack.sh post <issue> approve --text <file>`: 브리핑이 승인되었습니다, now building. On 중단, what was chosen (나중에 하기 or 버리기) |
