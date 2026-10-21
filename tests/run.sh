@@ -936,7 +936,9 @@ mkdir -p "$SBIN" "$GH_STATE"
 # Fake Slack Web API on a free local port; killed on exit with the rest of the temp files.
 SLACK_PID=""
 SFLAKY="$SL/flaky-upload"
-FAKE_SLACK_REPLIES="$SREPLIES" FAKE_SLACK_UPLOAD_5XX="$SFLAKY" python3 "$ROOT/tests/fixtures/slack_api.py" "$SL/port" "$SLOG" &
+# Settings the fake server reads on every request (FAKE_SLACK_FAIL, FAKE_SLACK_INVALID_BLOCKS).
+SSET="$SL/settings.json"
+FAKE_SLACK_REPLIES="$SREPLIES" FAKE_SLACK_UPLOAD_5XX="$SFLAKY" FAKE_SLACK_SETTINGS="$SSET" python3 "$ROOT/tests/fixtures/slack_api.py" "$SL/port" "$SLOG" &
 SLACK_PID=$!
 trap 'kill $SLACK_PID 2>/dev/null; wait $SLACK_PID 2>/dev/null; rm -rf "$TMP"' EXIT
 for _ in $(seq 1 50); do [ -s "$SL/port" ] && break; sleep 0.1; done
@@ -1038,8 +1040,37 @@ slack() {
     LOGBOOK_SLACK_API="http://127.0.0.1:$SPORT" LOGBOOK_SLACK_TOKEN="${SL_TOKEN-xoxb-test}" \
     "$ROOT/scripts/slack.sh" "$@" --dir "$dir")
 }
-# Query the API log: slog <python expression over L, the list of logged requests>.
-slog() { python3 -c 'import json,sys; L=[json.loads(l) for l in open(sys.argv[1]) if l.strip()]; r=eval(sys.argv[2]); print(r if isinstance(r, str) else json.dumps(r, ensure_ascii=False))' "$SLOG" "$1"; }
+# Query the API log: slog <python expression over L, the list of logged requests> [args...].
+# The expression sees A (the extra args), SC (slack_config) and these helpers:
+# B(e) the request's blocks, T(b) a block's text, H(e) the header text (None without one),
+# ALL(e) text and every block's text, BID(e, id) the text of the block with that block_id,
+# RP(ts) the chat.postMessage replies in thread ts, UP(ts) the chat.update calls of ts,
+# PARENT(ts) the chat.postMessage that made the parent ts.
+slog() { python3 -c '
+import json, sys
+sys.path.insert(0, sys.argv[3]); import slack_config as SC
+L = [json.loads(l) for l in open(sys.argv[1]) if l.strip()]
+A = sys.argv[4:]
+def B(e):
+    try: b = json.loads(e["params"].get("blocks") or "[]")
+    except ValueError: return []
+    return b if isinstance(b, list) else []
+def T(b):
+    t = b.get("text"); parts = [t.get("text", "")] if isinstance(t, dict) else []
+    parts += [el.get("text", "") for el in b.get("elements") or [] if isinstance(el, dict) and isinstance(el.get("text"), str)]
+    return "\n".join(parts)
+def H(e):
+    b = B(e)
+    return T(b[0]) if b and b[0].get("type") == "header" else None
+def ALL(e): return "\n".join([e["params"].get("text", "")] + [T(b) for b in B(e)])
+def BID(e, i): return next((T(b) for b in B(e) if b.get("block_id") == i), None)
+def RP(ts): return [e for e in L if e["method"] == "chat.postMessage" and e["params"].get("thread_ts") == ts]
+def UP(ts): return [e for e in L if e["method"] == "chat.update" and e["params"].get("ts") == ts]
+def PARENT(ts): return next((e for e in L if e["method"] == "chat.postMessage" and e.get("ts") == ts), {"params": {}})
+r = eval(sys.argv[2])
+print(r if isinstance(r, str) else json.dumps(r, ensure_ascii=False))' "$SLOG" "$1" "$ROOT/scripts" "${@:2}"; }
+# Turn fake server settings on for one command: sfake <json object> <command...>.
+sfake() { printf '%s' "$1" > "$SSET"; shift; "$@"; local rc=$?; rm -f "$SSET"; return $rc; }
 posts() { slog '[e for e in L if e["method"] == "chat.postMessage"]'; }
 # The marker fields of issue $1's comments as JSON ({} when there is none).
 smark() { python3 -c '
@@ -1110,6 +1141,7 @@ P4="$(mfield 4 ts)"
 names="$(slog '[e["params"].get("filename", "").rsplit(".", 1)[-1] for e in L if e["method"] == "files.getUploadURLExternal"]')"
 if [ "$names" = '["html"]' ] && [ "$(slog 'len([e for e in L if e["method"] == "upload"])')" = 1 ]; then ok "slack: post brief --page without Chrome uploads the HTML copy only"; else bad "slack: post brief --page without Chrome uploads the HTML copy only" "rc=$rc $out $(cat "$SLOG")"; fi
 if [ -n "$P4" ] && [ "$(slog '[(e["params"].get("channel_id"), e["params"].get("thread_ts")) for e in L if e["method"] == "files.completeUploadExternal"]')" = "[[\"C0TEST\", \"$P4\"]]" ]; then ok "slack: the upload completes in the issue's thread"; else bad "slack: the upload completes in the issue's thread" "$(cat "$SLOG")"; fi
+if [ "$(slog '[(H(e), "initial_comment" in e["params"]) for e in L if e["method"] == "files.completeUploadExternal"] == [(SC.stage_title("brief"), False)]')" = true ]; then ok "slack: the attached post shares the blocks with the files and no initial_comment"; else bad "slack: the attached post shares the blocks with the files and no initial_comment" "$(cat "$SLOG")"; fi
 if [ "$(mfield 4 brief)" = "$HASH" ]; then ok "slack: the marker records brief=<12 hex of the page's sha256>"; else bad "slack: the marker records brief=<12 hex of the page's sha256>" "$(smark 4) want $HASH"; fi
 : > "$SLOG"
 out="$(slack post 4 brief --page "$SPAGE" 2>&1)"; rc=$?
@@ -1162,14 +1194,58 @@ printf '테스트용 본문 문장입니다.\n' > "$SL/text.md"
 printf 'e2e: 3 passed\n' > "$SL/e2e.log"
 slack thread 7 >/dev/null 2>&1
 P7="$(mfield 7 ts)"
-for stage in design wave check pr feedback; do
-  label="$(python3 -c 'import sys; sys.path.insert(0, sys.argv[1]); import slack_config; print(slack_config.STAGES[sys.argv[2]])' "$ROOT/scripts" "$stage")"
-  extra=(); [ "$stage" = check ] && extra=(--file "$SL/e2e.log")
+# Each stage replies with its title in a header block and the body in a section block and in text.
+for stage in mockup design wave check pr feedback; do
+  title="$(python3 -c 'import sys; sys.path.insert(0, sys.argv[1]); import slack_config; print(slack_config.stage_title(sys.argv[2]))' "$ROOT/scripts" "$stage")"
   : > "$SLOG"
-  out="$(slack post 7 "$stage" --text "$SL/text.md" ${extra[@]+"${extra[@]}"} 2>&1)"; rc=$?
-  said="$(python3 -c 'import json,sys; L=[json.loads(l) for l in open(sys.argv[1]) if l.strip()]; print(" ".join(e["params"].get("text", "") + e["params"].get("initial_comment", "") for e in L if e["method"] in ("chat.postMessage", "files.completeUploadExternal") and e["params"].get("thread_ts") == sys.argv[2]))' "$SLOG" "$P7")"
-  if [ $rc -eq 0 ] && [ -n "$P7" ] && printf '%s' "$said" | grep -qF "$label" && printf '%s' "$said" | grep -qF '테스트용 본문 문장입니다'; then ok "slack: post $stage replies in the thread with its label ($label) and the text"; else bad "slack: post $stage replies in the thread with its label ($label) and the text" "rc=$rc $out $(cat "$SLOG")"; fi
+  out="$(slack post 7 "$stage" --text "$SL/text.md" 2>&1)"; rc=$?
+  said="$(slog '[(H(e), any(b.get("type") == "section" and "테스트용 본문 문장입니다" in T(b) for b in B(e)), "테스트용 본문 문장입니다" in e["params"].get("text", "")) for e in RP(A[0])] == [(A[1], True, True)]' "$P7" "$title")"
+  if [ $rc -eq 0 ] && [ -n "$P7" ] && [ "$said" = true ]; then ok "slack: post $stage replies in the thread with the header $title and the text"; else bad "slack: post $stage replies in the thread with the header $title and the text" "rc=$rc $out $(cat "$SLOG")"; fi
 done
+
+# Block shape: header, progress line, divider, the body, and the developer line in the footer.
+slack thread 21 >/dev/null 2>&1
+P21="$(mfield 21 ts)"
+printf '기획자가 읽을 본문입니다.\n\n개발자용: <https://x|PR>\n' > "$SL/dev.md"
+: > "$SLOG"
+out="$(slack post 21 brief --text "$SL/dev.md" 2>&1)"; rc=$?
+said="$(slog '[(lambda b: [x.get("type") for x in b[:3]] == ["header", "context", "divider"] and SC.progress_line("plan") in T(b[1]) and b[-1].get("type") == "context" and "개발자용: <https://x|PR>" in T(b[-1]) and not any("개발자용" in T(x) for x in b if x.get("type") == "section") and any("기획자가 읽을 본문" in T(x) for x in b if x.get("type") == "section"))(B(e)) for e in RP(A[0])] == [True]' "$P21")"
+if [ $rc -eq 0 ] && [ -n "$P21" ] && [ "$said" = true ]; then ok "slack: a reply is header, progress line, divider, body sections, and the 개발자용 line in the last context block"; else bad "slack: a reply is header, progress line, divider, body sections, and the 개발자용 line in the last context block" "rc=$rc $out $(cat "$SLOG")"; fi
+
+# A body longer than one section block is split into several, each within 3000 characters.
+python3 -c 'import sys; open(sys.argv[1], "w").write("\n\n".join(["가" * 1200] * 3 + ["나" * 4000]) + "\n")' "$SL/long.md"
+: > "$SLOG"
+out="$(slack post 21 wave --text "$SL/long.md" 2>&1)"; rc=$?
+said="$(slog '[(lambda secs: len(secs) >= 3 and all(len(x) <= 3000 for x in secs) and "".join("".join(secs).split()) == "".join(open(A[1], encoding="utf-8").read().split()))([T(b) for b in B(e) if b.get("type") == "section"]) for e in RP(A[0])] == [True]' "$P21" "$SL/long.md")"
+if [ $rc -eq 0 ] && [ "$said" = true ]; then ok "slack: a body over 3000 characters is split into section blocks of 3000 at most"; else bad "slack: a body over 3000 characters is split into section blocks of 3000 at most" "rc=$rc $out $(slog '[[len(T(b)) for b in B(e) if b.get("type") == "section"] for e in L if e["method"] == "chat.postMessage"]')"; fi
+
+# --outcome: other titles for a briefing left for later and a dropped issue; close needs one
+slack thread 22 >/dev/null 2>&1
+P22="$(mfield 22 ts)"
+: > "$SLOG"
+out="$(slack post 22 approve --outcome later --text "$SL/text.md" 2>&1)"; rc=$?
+if [ $rc -eq 0 ] && [ "$(slog '[H(e) for e in RP(A[0])] == ["⏸ 나중에 하기"]' "$P22")" = true ] && [ "$(mfield 22 phase)" = later ]; then ok "slack: approve --outcome later replies under ⏸ 나중에 하기 and records phase=later"; else bad "slack: approve --outcome later replies under ⏸ 나중에 하기 and records phase=later" "rc=$rc $out $(smark 22) $(cat "$SLOG")"; fi
+: > "$SLOG"
+out="$(slack post 22 close 2>&1)"; rc=$?
+if [ $rc -eq 2 ] && [ ! -s "$SLOG" ]; then ok "slack: close without --outcome exits 2 and calls no Slack API"; else bad "slack: close without --outcome exits 2 and calls no Slack API" "rc=$rc $out"; fi
+out="$(slack post 22 approve --outcome merged 2>&1)"; rc=$?
+if [ $rc -eq 2 ] && [ ! -s "$SLOG" ]; then ok "slack: approve --outcome merged exits 2"; else bad "slack: approve --outcome merged exits 2" "rc=$rc $out"; fi
+out="$(slack post 22 wave --outcome later 2>&1)"; rc=$?
+if [ $rc -eq 2 ] && [ ! -s "$SLOG" ]; then ok "slack: --outcome on a stage that takes none exits 2"; else bad "slack: --outcome on a stage that takes none exits 2" "rc=$rc $out"; fi
+slack thread 23 >/dev/null 2>&1
+P23="$(mfield 23 ts)"
+: > "$SLOG"
+out="$(slack post 23 close --outcome dropped --text "$SL/text.md" 2>&1)"; rc=$?
+if [ $rc -eq 0 ] && [ "$(slog '[H(e) for e in RP(A[0])] == ["⏸ 중단"]' "$P23")" = true ]; then ok "slack: close --outcome dropped replies under ⏸ 중단"; else bad "slack: close --outcome dropped replies under ⏸ 중단" "rc=$rc $out $(cat "$SLOG")"; fi
+if [ "$(mfield 23 phase)" = dropped ] && [ "$(slog '[(SC.SPECIAL_PHASES["dropped"] in (BID(e, SC.BLOCK_STATUS) or ""), SC.CLOSED_NOTICE in (BID(e, SC.BLOCK_CLOSED) or "")) for e in UP(A[0])] == [(True, True)]' "$P23")" = true ]; then ok "slack: a dropped issue's first message reads 중단했습니다 with the closed notice"; else bad "slack: a dropped issue's first message reads 중단했습니다 with the closed notice" "$(smark 23) $(cat "$SLOG")"; fi
+
+# Attachments Slack refuses the blocks of: the blocks go up as a message, then the files alone.
+slack thread 24 >/dev/null 2>&1
+P24="$(mfield 24 ts)"
+: > "$SLOG"
+out="$(sfake '{"FAKE_SLACK_INVALID_BLOCKS": "1"}' slack post 24 brief --page "$SPAGE" 2>&1)"; rc=$?
+said="$(slog '[(e["method"], bool(B(e)), e["params"].get("thread_ts")) for e in L if e["method"] in ("chat.postMessage", "files.completeUploadExternal")] == [("files.completeUploadExternal", True, A[0]), ("chat.postMessage", True, A[0]), ("files.completeUploadExternal", False, A[0])]' "$P24")"
+if [ $rc -eq 0 ] && [ -n "$P24" ] && [ "$said" = true ]; then ok "slack: on invalid_blocks the blocks are posted in the thread, then the files are shared without blocks"; else bad "slack: on invalid_blocks the blocks are posted in the thread, then the files are shared without blocks" "rc=$rc $out $(cat "$SLOG")"; fi
 : > "$SLOG"
 slack post 7 check --file "$SL/e2e.log" >/dev/null 2>&1
 if [ "$(slog '[e["params"].get("filename") for e in L if e["method"] == "files.getUploadURLExternal"]')" = '["e2e.log"]' ] && [ "$(slog '[e["params"]["bytes"] for e in L if e["method"] == "upload"]')" = "[$(wc -c < "$SL/e2e.log" | tr -d ' ')]" ] && [ "$(slog '[e["params"].get("thread_ts") for e in L if e["method"] == "files.completeUploadExternal"]')" = "[\"$P7\"]" ]; then ok "slack: post check --file uploads the file as it is into the thread"; else bad "slack: post check --file uploads the file as it is into the thread" "$(cat "$SLOG")"; fi
@@ -1189,12 +1265,62 @@ rm -f "$SFLAKY"
 printf '회원이 비밀번호를 스스로 다시 만들 수 있게 합니다.\n' > "$SL/summary.md"
 : > "$SLOG"
 out="$(slack thread 11 --text "$SL/summary.md" 2>&1)"; rc=$?
-if [ $rc -eq 0 ] && slog '[e["params"]["text"] for e in L if e["method"] == "chat.postMessage"][0]' | grep -q '스스로 다시 만들' && slog '[e["params"]["text"] for e in L if e["method"] == "chat.postMessage"][0]' | grep -q '개발자용: <'; then ok "slack: thread --text puts the plain-words issue in the first message, the GitHub link last"; else bad "slack: thread --text puts the plain-words issue in the first message, the GitHub link last" "rc=$rc $out $(cat "$SLOG")"; fi
+if [ $rc -eq 0 ] && [ "$(slog '(lambda e: "스스로 다시 만들" in ALL(e) and bool(B(e)) and "개발자용: <" in T(B(e)[-1]))([e for e in L if e["method"] == "chat.postMessage"][0])')" = true ]; then ok "slack: thread --text puts the plain-words issue in the first message, the GitHub link last"; else bad "slack: thread --text puts the plain-words issue in the first message, the GitHub link last" "rc=$rc $out $(cat "$SLOG")"; fi
 P11="$(mfield 11 ts)"
 printf '이슈 내용을 고쳐 쓴 요약입니다.\n' > "$SL/summary2.md"
 : > "$SLOG"
 out="$(slack thread 11 --text "$SL/summary2.md" 2>&1)"; rc=$?
-if [ $rc -eq 0 ] && [ "$(posts)" = "[]" ] && [ "$(slog '[e["params"]["ts"] for e in L if e["method"] == "chat.update" and "고쳐 쓴 요약" in e["params"]["text"]]')" = "[\"$P11\"]" ]; then ok "slack: thread --text on an existing thread rewrites its first message"; else bad "slack: thread --text on an existing thread rewrites its first message" "rc=$rc $out $(cat "$SLOG")"; fi
+if [ $rc -eq 0 ] && [ "$(posts)" = "[]" ] && [ "$(slog '[e["params"]["ts"] for e in L if e["method"] == "chat.update" and "고쳐 쓴 요약" in ALL(e)]')" = "[\"$P11\"]" ]; then ok "slack: thread --text on an existing thread rewrites its first message"; else bad "slack: thread --text on an existing thread rewrites its first message" "rc=$rc $out $(cat "$SLOG")"; fi
+
+# The first message shows the phase and is rewritten only when the phase moves forward.
+: > "$SLOG"
+slack thread 25 >/dev/null 2>&1
+P25="$(mfield 25 ts)"
+if [ -n "$P25" ] && [ "$(mfield 25 phase)" = plan ] && [ "$(slog '(BID(PARENT(A[0]), SC.BLOCK_STATUS) or "") == SC.progress_line("plan")' "$P25")" = true ]; then ok "slack: a new thread records phase=plan and its first message has the logbook_status progress line"; else bad "slack: a new thread records phase=plan and its first message has the logbook_status progress line" "$(smark 25) $(cat "$SLOG")"; fi
+: > "$SLOG"
+out="$(slack post 25 approve --text "$SL/text.md" 2>&1)"; rc=$?
+if [ $rc -eq 0 ] && [ "$(mfield 25 phase)" = build ] && [ "$(slog '[("*만들기* ●" in (BID(e, SC.BLOCK_STATUS) or "")) for e in UP(A[0])] == [True]' "$P25")" = true ]; then ok "slack: post approve rewrites the first message to *만들기* ● and records phase=build"; else bad "slack: post approve rewrites the first message to *만들기* ● and records phase=build" "rc=$rc $out $(smark 25) $(cat "$SLOG")"; fi
+: > "$SLOG"
+out="$(slack post 25 wave --text "$SL/text.md" 2>&1)"; rc=$?
+if [ $rc -eq 0 ] && [ "$(slog 'len([e for e in L if e["method"] == "chat.update"])')" = 0 ] && [ "$(mfield 25 phase)" = build ]; then ok "slack: a post that keeps the phase does not touch the first message"; else bad "slack: a post that keeps the phase does not touch the first message" "rc=$rc $out $(cat "$SLOG")"; fi
+slack post 25 pr --text "$SL/text.md" >/dev/null 2>&1
+: > "$SLOG"
+out="$(slack post 25 check --text "$SL/text.md" 2>&1)"; rc=$?
+if [ $rc -eq 0 ] && [ "$(mfield 25 phase)" = check ] && [ "$(slog 'len([e for e in L if e["method"] == "chat.update"])')" = 0 ]; then ok "slack: check after pr keeps phase=check (the phase never moves back)"; else bad "slack: check after pr keeps phase=check (the phase never moves back)" "rc=$rc $out $(smark 25) $(cat "$SLOG")"; fi
+: > "$SLOG"
+out="$(slack post 25 close --outcome merged --text "$SL/text.md" 2>&1)"; rc=$?
+if [ $rc -eq 0 ] && [ "$(mfield 25 phase)" = done ] && [ "$(slog '[SC.CLOSED_NOTICE in (BID(e, SC.BLOCK_CLOSED) or "") for e in UP(A[0])] == [True] and [H(e) for e in RP(A[0])] == [SC.stage_title("close")]' "$P25")" = true ]; then ok "slack: close --outcome merged records phase=done and adds the closed notice to the first message"; else bad "slack: close --outcome merged records phase=done and adds the closed notice to the first message" "rc=$rc $out $(smark 25) $(cat "$SLOG")"; fi
+if [ "$(slog '[(lambda b: bool(b) and b[-1].get("type") == "context" and SC.CLOSED_NOTICE in T(b[-1]))(B(e)) for e in RP(A[0])] == [True]' "$P25")" = true ]; then ok "slack: the close reply ends with the closed notice"; else bad "slack: the close reply ends with the closed notice" "$(cat "$SLOG")"; fi
+
+# A backlog thread is marked [백로그] until a stage takes it up again.
+: > "$SLOG"
+slack thread 26 --backlog >/dev/null 2>&1
+P26="$(mfield 26 ts)"
+if [ -n "$P26" ] && [ "$(mfield 26 phase)" = later ] && [ "$(slog '(H(PARENT(A[0])) or "").startswith("[백로그] ")' "$P26")" = true ]; then ok "slack: thread --backlog heads the first message with [백로그] and records phase=later"; else bad "slack: thread --backlog heads the first message with [백로그] and records phase=later" "$(smark 26) $(cat "$SLOG")"; fi
+: > "$SLOG"
+out="$(slack post 26 brief --text "$SL/text.md" 2>&1)"; rc=$?
+if [ $rc -eq 0 ] && [ "$(mfield 26 phase)" = plan ] && [ "$(slog '[(not (H(e) or "[백로그] ").startswith("[백로그] ") and "#26" in (H(e) or "")) for e in UP(A[0])] == [True]' "$P26")" = true ]; then ok "slack: a brief on a backlog thread drops [백로그] from the header and records phase=plan"; else bad "slack: a brief on a backlog thread drops [백로그] from the header and records phase=plan" "rc=$rc $out $(smark 26) $(cat "$SLOG")"; fi
+
+# A failed rewrite of the first message exits 12 and keeps the old phase, so the next post retries.
+slack thread 27 >/dev/null 2>&1
+P27="$(mfield 27 ts)"
+: > "$SLOG"
+out="$(sfake '{"FAKE_SLACK_FAIL": "chat.update"}' slack post 27 approve --text "$SL/text.md" 2>&1)"; rc=$?
+if [ $rc -eq 12 ] && printf '%s' "$out" | tail -1 | grep -q '첫 메시지' && [ "$(mfield 27 phase)" = plan ] && [ "$(slog 'len(RP(A[0]))' "$P27")" = 1 ]; then ok "slack: when chat.update fails the reply stays, it exits 12 naming 첫 메시지, and phase is not saved"; else bad "slack: when chat.update fails the reply stays, it exits 12 naming 첫 메시지, and phase is not saved" "rc=$rc $out $(smark 27) $(cat "$SLOG")"; fi
+: > "$SLOG"
+out="$(slack post 27 wave --text "$SL/text.md" 2>&1)"; rc=$?
+if [ $rc -eq 0 ] && [ "$(mfield 27 phase)" = build ] && [ "$(slog 'len(UP(A[0]))' "$P27")" = 1 ]; then ok "slack: the next post rewrites the first message and saves the phase"; else bad "slack: the next post rewrites the first message and saves the phase" "rc=$rc $out $(smark 27) $(cat "$SLOG")"; fi
+
+# A thread made before phases existed: its first message has no summary blocks and is left alone.
+printf '[{"id": 8028, "body": "<!-- logbook:slack channel=C0TEST ts=1600000000.000028 -->"}]' > "$GH_STATE/comments-28.json"
+printf '[{"ts": "1600000000.000028", "user": "U0BOT", "text": "*#28 옛 첫 메시지*"}]' > "$SREPLIES"
+: > "$SLOG"
+out="$(slack post 28 approve --text "$SL/text.md" 2>&1)"; rc=$?
+if [ $rc -eq 0 ] && [ "$(slog 'len([e for e in L if e["method"] == "chat.update"])')" = 0 ]; then ok "slack: a first message in the old format (no summary blocks) is not rewritten"; else bad "slack: a first message in the old format (no summary blocks) is not rewritten" "rc=$rc $out $(cat "$SLOG")"; fi
+: > "$SLOG"
+out="$(slack thread 28 --text "$SL/summary.md" 2>&1)"; rc=$?
+if [ $rc -eq 0 ] && [ "$(slog '[any((b.get("block_id") or "").startswith(SC.BLOCK_SUMMARY) and "스스로 다시 만들" in T(b) for b in B(e)) for e in UP("1600000000.000028")] == [True]')" = true ]; then ok "slack: thread --text rewrites an old first message with blocks"; else bad "slack: thread --text rewrites an old first message with blocks" "rc=$rc $out $(cat "$SLOG")"; fi
+rm -f "$SREPLIES"
 
 # 8. replies
 slack thread 8 >/dev/null 2>&1
@@ -1245,9 +1371,9 @@ if [ "$(chan_lines)" = 1 ] && grep -qxF -e '- Slack 채널: `C0999ZZZZ`' "$R9/AG
 if [ $rc -eq 2 ] && grep -qxF -e '- Slack 채널: `C0999ZZZZ`' "$R9/AGENTS.md"; then ok "rulebook: --slack-channel bad-id exits 2"; else bad "rulebook: --slack-channel bad-id exits 2" "rc=$rc"; fi
 
 # 10. skills call slack.sh at their stages
-expect "brief opens the thread, posts design, brief, approve and close, and reads replies" bash -c "f='$ROOT/skills/brief/SKILL.md'; grep -q 'slack.sh thread <issue>' \"\$f\" && grep -q 'slack.sh post <issue> design' \"\$f\" && grep -q 'slack.sh post <issue> brief' \"\$f\" && grep -q 'slack.sh post <issue> approve' \"\$f\" && grep -q 'slack.sh post <issue> close' \"\$f\" && grep -q 'slack.sh replies <issue>' \"\$f\""
+expect "brief opens the thread, posts mockup, design, brief, approve and close with --outcome, and reads replies" bash -c "f='$ROOT/skills/brief/SKILL.md'; grep -q 'slack.sh thread <issue>' \"\$f\" && grep -q 'slack.sh post <issue> mockup' \"\$f\" && grep -q -e '--outcome' \"\$f\" && grep -q 'slack.sh post <issue> design' \"\$f\" && grep -q 'slack.sh post <issue> brief' \"\$f\" && grep -q 'slack.sh post <issue> approve' \"\$f\" && grep -q 'slack.sh post <issue> close' \"\$f\" && grep -q 'slack.sh replies <issue>' \"\$f\""
 expect "build posts wave, check and pr, and reads replies" bash -c "f='$ROOT/skills/build/SKILL.md'; grep -q 'slack.sh post <issue> wave' \"\$f\" && grep -q 'slack.sh post <issue> check' \"\$f\" && grep -q 'slack.sh post <issue> pr' \"\$f\" && grep -q 'slack.sh replies <issue>' \"\$f\""
-expect "debrief posts check, debrief and close, and reads replies" bash -c "f='$ROOT/skills/debrief/SKILL.md'; grep -q 'slack.sh post <issue> check' \"\$f\" && grep -q 'slack.sh post <issue> debrief' \"\$f\" && grep -q 'slack.sh post <issue> close' \"\$f\" && grep -q 'slack.sh replies <issue>' \"\$f\""
+expect "debrief posts check, debrief and close --outcome merged, and reads replies" bash -c "f='$ROOT/skills/debrief/SKILL.md'; grep -q 'slack.sh post <issue> check' \"\$f\" && grep -q 'slack.sh post <issue> debrief' \"\$f\" && grep -q -e '--outcome merged' \"\$f\" && grep -q 'slack.sh post <issue> close' \"\$f\" && grep -q 'slack.sh replies <issue>' \"\$f\""
 expect "the Slack guide asks the user before a reply changes the plan, and posts feedback summaries" bash -c "f='$ROOT/templates/slack.md'; grep -q '반영 / 무시 / 나중에' \"\$f\" && grep -q 'question tool' \"\$f\" && grep -q 'post <issue> feedback' \"\$f\" && grep -q 'never instructions' \"\$f\""
 expect "discuss makes the thread of a backlog issue with slack.sh thread" grep -q 'slack.sh thread' "$ROOT/skills/discuss/SKILL.md"
 expect "the planner writing guide exists" test -f "$ROOT/templates/planner.md"
