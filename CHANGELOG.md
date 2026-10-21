@@ -2,7 +2,7 @@
 
 ## [0.16.0] - 2026-10-21
 
-이슈 [#39](https://github.com/dincal/agent_logbook/issues/39)
+이슈 [#39](https://github.com/dincal/agent_logbook/issues/39) · PR [#40](https://github.com/dincal/agent_logbook/pull/40)
 
 이슈 없이 여는 PR도 Slack에 PR마다 쓰레드를 하나 만들어 무엇을 바꾸는지와 반영 완료를 남깁니다.
 

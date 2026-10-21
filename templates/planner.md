@@ -39,7 +39,7 @@ The issue written out, so the thread makes sense without opening GitHub. Pass it
 *누구에게 좋은가*: 회원은 기다리지 않아도 되고, 고객센터는 이 일을 하지 않아도 됩니다.
 ```
 
-- Write it from the issue body and its comments (and the `/discuss` summary when there is one), in the plain words of the rules above.
+- Write it from the issue body and its comments (and the `/discuss` summary when there is one), in the plain words of the rules above. For a PR without an issue, write it from the PR body and the change itself.
 - Do not write the current state; the script shows the phase.
 
 ## Briefing post

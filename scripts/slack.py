@@ -102,7 +102,7 @@ def _issue_number(value):
 
 def issue_kind(info):
     """"pr" when gh issue view answered for a pull request, "" for an issue."""
-    return "pr" if "/pull/" in (info.get("url") or "") else ""
+    return "pr" if re.search(r"/pull/\d+/?$", info.get("url") or "") else ""
 
 
 def _developer_link(issue, info, kind):

@@ -1445,6 +1445,12 @@ out="$(slack thread 904 --text "$SL/summary.md" 2>&1)" && out="$(slack post 904 
 P904="$(mfield 904 ts)"
 if [ $rc -eq 0 ] && [ "$(mfield 904 kind)" = pr ] && [ "$(mfield 904 phase)" = dropped ] && [ "$(slog '[BID(e, SC.BLOCK_STATUS) for e in UP(A[0])] == [SC.SPECIAL_PHASES["dropped"]]' "$P904")" = true ]; then ok "slack: close --outcome dropped on a PR thread shows 중단했습니다 and keeps kind=pr"; else bad "slack: close --outcome dropped on a PR thread shows 중단했습니다 and keeps kind=pr" "rc=$rc $out $(smark 904) $(cat "$SLOG")"; fi
 
+# 4c. an issue thread keeps the four cells, the issue developer line and no kind in its marker
+: > "$SLOG"
+out="$(slack thread 77 --text "$SL/summary.md" 2>&1)"; rc=$?
+P77="$(mfield 77 ts)"
+if [ $rc -eq 0 ] && [ -n "$P77" ] && [ -z "$(mfield 77 kind)" ] && [ "$(slog '(lambda e: BID(e, SC.BLOCK_STATUS) == "*계획* ● → 만들기 → 확인 → 반영" and "GitHub 이슈 #77" in ALL(e) and "GitHub PR" not in ALL(e))(PARENT(A[0]))' "$P77")" = true ]; then ok "slack: an issue thread keeps the four-cell line, GitHub 이슈 #n and no kind"; else bad "slack: an issue thread keeps the four-cell line, GitHub 이슈 #n and no kind" "rc=$rc $out $(smark 77) $(cat "$SLOG")"; fi
+
 # 5. debrief opens the PR thread and posts close --outcome merged for issue-less PRs
 expect "debrief opens a PR thread with slack.sh thread <pr> and posts close --outcome merged for issue-less PRs" bash -c "f='$ROOT/skills/debrief/SKILL.md'; grep -q 'slack.sh thread <pr>' \"\$f\" && grep -q -e 'close --outcome merged' \"\$f\""
 kill "$SLACK_PID" 2>/dev/null
