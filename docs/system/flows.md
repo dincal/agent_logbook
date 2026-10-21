@@ -1,4 +1,4 @@
-<!-- logbook:system sources="skills/** hooks/** agents/** templates/session-rules.md templates/docs-rules.md scripts/rulebook.sh scripts/worktree.sh templates/plan.md templates/parallel.md templates/questions.md templates/briefing.md" checked="2026-10-12" -->
+<!-- logbook:system sources="skills/** hooks/** agents/** templates/session-rules.md templates/docs-rules.md scripts/rulebook.sh scripts/worktree.sh templates/plan.md templates/parallel.md templates/questions.md templates/briefing.md templates/planner.md templates/slack.md templates/slack-app.yml scripts/slack.sh scripts/slack.py scripts/slack_config.py scripts/snapshot.py" checked="2026-10-21" -->
 # 주요 흐름
 
 ## 흐름 목록
@@ -14,6 +14,7 @@ clone마다 한 번 `/rulebook`으로 logbook을 켜면 세션마다 작업 규�
 | 화면 시안 승인 | 화면이 바뀌면 구현 전에 시안을 승인받습니다 |
 | /build로 구현 | 트랙 그래프대로 묶음마다 builder 트랙을 Workflow 하나로 동시에 돌리고, 위험한 트랙은 합치기 전에 리뷰하며, 묶음마다 전체 테스트를 돌린 뒤 PR로 넘깁니다 |
 | 구현 후 결과 보고 | 증거, 문서 대조, 별도 리뷰(큰 PR은 영역별로 나눠서), 결과 화면을 거쳐 다음 단계와 머지 방식을 고릅니다 |
+| Slack 쓰레드 | 이슈마다 쓰레드 하나에 진행 상황, 브리핑, 결과 화면을 올리고, 쓰레드에 달린 답글은 단계마다 읽어 사용자에게 넘깁니다. 채널 줄이 있는 저장소에서만 동작합니다 |
 | 문서 동기화 | 문서 구조를 정하고, 옛 흔적을 정리하고, 프로젝트 문서를 코드에 맞춥니다. 도메인 규칙이 있으면 업무 규칙 문서 초안을 쓰고 확인받습니다 |
 
 ## logbook 켜기와 세션 규칙
@@ -38,6 +39,7 @@ flowchart TD
 - `.logbook/`은 git에서 제외되어 clone에 따라오지 않습니다. 새로 clone한 저장소는 `/rulebook`을 실행하기 전까지 규칙이 들어가지 않고, 경고도 없습니다. worktree는 원래 저장소의 설정을 읽으므로 따로 켤 필요가 없습니다. worktree에서 `/rulebook`을 실행하면 설정을 원래 저장소에 쓰고, 원래 저장소의 `.git/info/exclude`에 `.logbook/`을 넣습니다.
 - 플랜 검사와 결과 보고 hook도 같은 판정(`hooks/lib.sh`)으로 logbook 저장소인지 정합니다. git 밖 폴더는 세션 규칙과 플랜 검사만 그 폴더 자체를 보고(하위 폴더는 보지 않습니다), 결과 보고 hook은 PR이 없으므로 동작하지 않습니다.
 - hook 출력은 Claude Code가 한 번에 10,000자까지 그대로 넣습니다. 규칙은 약 5,900자이고, `tests/run.sh`가 한도를 넘지 않는지 확인합니다.
+- Slack 쓰레드를 쓰려면 `/rulebook --slack-channel <ID>`를 실행합니다. AGENTS.md에 Slack 채널 줄을 한 줄 씁니다. 채널 줄 없이 환경 변수 `LOGBOOK_SLACK_CHANNEL`만 두면 모든 프로젝트가 그 채널을 씁니다. 자세한 내용은 "Slack 쓰레드"에 있습니다.
 - 시작점: `hooks/session-rules.sh`, `hooks/lib.sh`, `scripts/rulebook.sh`, `skills/rulebook/SKILL.md`
 
 ## 구현 전 토론
@@ -65,6 +67,7 @@ flowchart TD
 - 토론 중 "해 줘"가 나오면 바로 고치지 않고 끝맺음으로 가서 `/brief`로 넘기기를 권합니다.
 - `/brief`는 토론 요약의 결정을 사용자가 정한 것으로 옮기고 남은 질문만 묻습니다. backlog 이슈를 받으면 라벨을 `status:todo`로 바꿉니다.
 - logbook 규칙의 "의견을 묻는 말에는 토론으로 답한다" 때문에 명령 없이 의견을 물어도 에이전트가 `/discuss` 스킬을 불러 같은 흐름을 탑니다. 할 일인지 의견인지 애매하면 에이전트가 한 줄로 묻습니다.
+- Slack 쓰레드를 켠 저장소에서 backlog로 끝맺으면 이슈를 만들면서 쓰레드의 상위 메시지도 올립니다. 자세한 내용은 "Slack 쓰레드"에 있습니다.
 - 시작점: `skills/discuss/SKILL.md`, `templates/session-rules.md`
 
 | 모델 호출 | 모델(설정) | 넣는 것 | 요청(프롬프트 요지) | 받는 것과 검사 | 실패하면 |
@@ -136,6 +139,7 @@ flowchart LR
 - 이미 `status:in-progress`인 이슈로 `/brief`를 부르면 승인된 계획이므로 `/build #<번호>`로 넘깁니다.
 - 중단하면 나중에 할지 버릴지를 묻습니다. 나중에 하기를 고르면 계획 문서 전문을 첫 줄이 `계획 문서`인 이슈 댓글로 남깁니다. `/brief #<번호>`로 다시 시작하면 로컬 계획 문서가 있으면 그것을, 없으면 그 댓글을 읽어 이어서 씁니다.
 - 조사 에이전트는 영역이 둘이면 서브에이전트로, Workflow를 쓸 수 있고 영역이 셋 이상이면 Workflow로 띄웁니다(`templates/parallel.md`). `/discuss`와 `/sync`의 조사도 같습니다.
+- Slack 쓰레드를 켠 저장소라면 이슈 생성, 시안 승인, 브리핑, 브리핑 승인(또는 중단 결과)을 쓰레드에 올리고, 승인을 묻기 전에 새 답글을 읽습니다. 자세한 내용은 "Slack 쓰레드"에 있습니다.
 - 시작점: `skills/brief/SKILL.md`, `templates/questions.md`, `templates/briefing.md`, `agents/checker.md`, `hooks/plan-preview.sh`
 
 | 모델 호출 | 모델(설정) | 넣는 것 | 요청(프롬프트 요지) | 받는 것과 검사 | 실패하면 |
@@ -202,6 +206,7 @@ flowchart TD
 - 진행 상황은 이 기기의 계획 문서에만 남습니다. 계획 문서가 없는 기기에서는 이어 가지 않고, 계획을 세운 기기에서 이어 가거나 이슈를 `status:todo`로 돌려 다시 계획하라고 알립니다.
 - 구현 중에는 테스트를 약하게 하거나 지우지 않고, 계획에 없는 스키마 변경과 데이터 삭제는 멈추고 묻습니다. `docs/system/`이 설명하는 내용이 바뀌면 같은 PR에서 고치고, 도메인 규칙을 정하거나 바꾸면 `rules.md`도 고칩니다.
 - PR 본문에는 요약, 주요 결정(사람이 정한 것과 버린 대안, 알린 우려, 에이전트가 정한 것), 시안 링크, 완료 조건, 트랙마다 한 줄(묶음, 에이전트, 파일, Workflow와 worktree 여부), 그래프를 바꾼 이유를 적습니다. 계획 문서는 로컬에만 있기 때문입니다.
+- Slack 쓰레드를 켠 저장소라면 묶음이 끝날 때마다 만든 트랙과 전체 테스트 결과를, 사람이 눈으로 확인할 결과와 PR 링크를 쓰레드에 올립니다. 자세한 내용은 "Slack 쓰레드"에 있습니다.
 - 시작점: `skills/build/SKILL.md`, `templates/parallel.md`의 "Track graph", `templates/session-rules.md`의 "독립 트랙은 나눠서 동시에 만든다", `agents/builder.md`, `agents/builder-fast.md`, `agents/builder-deep.md`
 
 | 모델 호출 | 모델(설정) | 넣는 것 | 요청(프롬프트 요지) | 받는 것과 검사 | 실패하면 |
@@ -240,6 +245,7 @@ flowchart TD
 - 결과 화면은 `templates/briefing.md`대로 이 변경에 맞게 그림으로 설계합니다. 계획과 결과의 비교, 계획과 달라진 점과 이유, 완료 조건별 증거, 리뷰 회차, 트랙을 보여 주고, `.logbook/briefs/<번호>-debrief.html`에 쓴 뒤 Claude Code에서는 Artifact로 게시합니다. 계획 문서가 없는 PR은 결과 화면을 만들지 않습니다.
 - 다음 단계(머지, 재리뷰, 남은 지적 고치기, PR 열어 두기)와 머지 방식을 질문 도구 한 번에 두 질문으로 묻습니다. 트랙이 둘 이상인 PR은 트랙마다 커밋이 남는 merge commit을, 아니면 squash를 권합니다. 저장소가 고른 방식을 막아 두었으면 알리고 다른 방식을 제안합니다.
 - 계획의 주요 결정이 도메인 규칙을 정하거나 바꿨으면 `rules.md`에 적혔는지 확인하고, 없으면 이 PR에서 고칩니다.
+- Slack 쓰레드를 켠 저장소라면 결과 화면을 만든 뒤 결과 요약과 화면을, 머지하면 머지 방식을 쓰레드에 올리고, 머지 전에 새 답글을 읽습니다. 자세한 내용은 "Slack 쓰레드"에 있습니다.
 - 시작점: `skills/debrief/SKILL.md`, `templates/briefing.md`, `agents/reviewer.md`, `templates/parallel.md`의 "Review split", `hooks/debrief-gate.sh`
 
 | 모델 호출 | 모델(설정) | 넣는 것 | 요청(프롬프트 요지) | 받는 것과 검사 | 실패하면 |
@@ -247,6 +253,37 @@ flowchart TD
 | 별도 리뷰 | Opus 5.5, high effort(`agents/reviewer.md`의 `model: opus`, `effort: high`) | PR 본문의 완료 조건, diff | 완료 조건마다 충족 여부, 정상 경로에서 깨지는 곳, 프로젝트 문서와 코드의 불일치, 모델 호출 설명 누락, md 안의 HTML을 찾는다. 읽기 도구만 쓴다 | 지적마다 `file:line`, 설명, 신뢰도(0~100), 확인 방법. 세션이 재현해 보고, 확인했거나 80점 이상인 것만 남긴다 | 다른 하네스에서는 세션 모델로 같은 지침을 따른다 |
 | 영역 리뷰 | Opus 5.5, high effort(같은 에이전트의 Area mode) | PR 본문, 전체 diff 통계, 맡은 영역 파일의 diff | 자기 영역의 diff를 한 줄씩 보고, 영역 밖은 자기 영역 코드가 깨뜨린 것만 적는다 | 지적과 자기 영역이 닿는 완료 조건마다 한 줄. 세션이 모든 리뷰어의 지적을 모아 중복을 지우고 재현해 거릅니다 | 다른 하네스에서는 세션 모델로 같은 지침을 따릅니다 |
 | 이음새 리뷰 | Opus 5.5, high effort(같은 에이전트의 Seam mode) | PR 본문, 전체 diff 통계, 영역과 파일 목록, 공통 부분의 diff, 두 영역 이상이 고친 파일의 diff | 한 영역이 만들거나 바꾼 타입, 인터페이스, 스키마, 설정을 다른 영역이 맞게 쓰는지, 여러 영역에 걸친 완료 조건을 본다 | 지적과 완료 조건마다 한 줄 | 다른 하네스에서는 세션 모델로 같은 지침을 따릅니다 |
+
+## Slack 쓰레드
+
+저장소 AGENTS.md에 Slack 채널 줄이 있거나 환경 변수 `LOGBOOK_SLACK_CHANNEL`이 있으면(채널 줄이 앞섭니다), logbook은 이슈마다 Slack 쓰레드(메시지 하나에 답글이 이어지는 대화)를 하나 만들어 진행 상황을 올리고, 사람이 단 답글은 단계가 바뀔 때 읽어 사용자에게 넘깁니다. 둘 다 없으면 이 흐름 없이 동작합니다. 언제 무엇을 올리고 답글을 어떻게 다루는지는 `templates/slack.md`가 스킬에 알려 줍니다.
+
+```mermaid
+flowchart TD
+  I["이슈 생성: 상위 메시지"] --> D["시안 승인: 승인 알림과 시안 PNG"]
+  D --> B["브리핑: 기획자용 글 + PNG + HTML"]
+  B --> AP["브리핑 승인 또는 중단 결과"]
+  AP --> W["묶음 끝: 트랙과 전체 테스트 결과"]
+  W --> CK["확인할 결과: 스크린샷, e2e 로그"]
+  CK --> PR["PR 열림: 링크와 변경 규모"]
+  PR --> DB["디브리핑: 기획자용 글 + PNG + HTML"]
+  DB --> CL["머지 또는 닫힘: 한 줄"]
+  CL -.-> F["피드백 요약: 위 게시 직전, 지난 게시 이후 사용자 지시가 있을 때만"]
+  B & AP & W & PR & DB & CL --> R["단계 경계마다 slack.sh replies"]
+  R --> N{"새 답글이 있나"}
+  N -->|"없음"| G["그대로 진행"]
+  N -->|"있음"| C["에이전트가 분류: 방향 변경, 질문, 참고"]
+  C -->|"참고, 질문"| T["채팅에 알림, 질문은 답을 달지 물음"]
+  C -->|"방향 변경"| Q["질문 도구로 반영, 무시, 나중에를 물음"]
+```
+
+- 게시는 `scripts/slack.sh`가 합니다. 이슈 댓글에 남긴 쓰레드 표시(`<!-- logbook:slack ... -->`)로 쓰레드를 찾고, 없으면 상위 메시지를 올린 뒤 표시를 남깁니다. 표시를 남기지 못하면 방금 올린 상위 메시지를 지워 쓰레드가 둘로 생기지 않게 합니다. 표시에는 읽은 위치(`read`)와 단계별 화면 해시도 들어갑니다.
+- 글은 기획자도 읽는 쉬운 말로 씁니다(`templates/planner.md`). 브리핑 답글은 "~하는 사람은 ~할 수 있다"는 유저 스토리 단위로, 디브리핑 답글은 "이런 기능이 완성됐습니다. 이렇게 테스트해 보세요" 투로 쓰고, 개발자용 화면은 같은 답글에 PNG와 HTML로 붙입니다. PR 링크 같은 개발자용 정보는 끝에 한 줄로 둡니다.
+- 화면은 Chrome headless(화면 없이 도는 Chrome)로 페이지 전체 높이를 PNG 한 장으로 찍고, 참조하는 이미지를 파일 안에 넣은 HTML 사본을 함께 올립니다. 지난 게시와 화면 해시가 같으면 글만 올립니다.
+- 답글은 단계 경계(승인 요청 전, 묶음 끝, PR을 열기 전, 디브리핑, 머지 전)에서 읽습니다. 봇이 올린 메시지는 빼고, 같은 답글을 두 번 알리지 않습니다. 답글에 계획을 바꾸라는 말이 있어도 에이전트가 직접 반영하지 않고, 반영하면 `/build` 중에는 결정 기록에 남기며 승인 전이면 `/brief` 수정으로 돌아갑니다.
+- 실패해도 스킬은 멈추지 않습니다. 종료 코드 10은 채널이 정해지지 않아 꺼진 상태, 11은 토큰(`LOGBOOK_SLACK_TOKEN`)이 없어 건너뜀, 12는 Slack, GitHub, Chrome 호출 실패입니다. 스크립트가 마지막 줄에 채팅에 옮길 한 줄을 내고, 스킬은 그 줄을 알린 뒤 다음 단계로 갑니다. 쓰레드를 만들지 못했으면 다음 게시 때 다시 만듭니다.
+- 한계: logbook이 직접 한 머지와 닫힘만 올립니다. GitHub 웹에서 머지하거나 닫은 이슈는 쓰레드에 끝이 남지 않습니다. 답글은 단계 경계에서만 읽으므로 세션이 쉬는 동안 달린 답글은 다음 경계에서 알립니다.
+- 시작점: `scripts/slack.sh`, `scripts/slack.py`, `scripts/slack_config.py`, `scripts/snapshot.py`, `templates/slack.md`, `templates/planner.md`, `templates/slack-app.yml`, `skills/*/SKILL.md`의 Slack 단계
 
 ## 문서 동기화
 

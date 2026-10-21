@@ -1,4 +1,4 @@
-<!-- logbook:system sources="README.md .claude-plugin/** skills/** agents/** hooks/** templates/session-rules.md templates/docs-rules.md" checked="2026-10-12" -->
+<!-- logbook:system sources="README.md .claude-plugin/** skills/** agents/** hooks/** templates/session-rules.md templates/docs-rules.md" checked="2026-10-21" -->
 # logbook
 
 > 핸드북: https://claude.ai/artifact/LcZsiBL2JBbpMfePNVjGUh · 저장소: https://github.com/dincal/agent_logbook
@@ -23,12 +23,16 @@ flowchart LR
   U["개발자"] -->|"요청과 승인"| C["Claude Code와 logbook"]
   C -->|"이슈, 브랜치, PR"| G["GitHub"]
   C -->|"브리핑, 결과 보고, 핸드북"| A["claude.ai Artifact"]
+  C -->|"이슈별 쓰레드: 진행, 브리핑, 결과 화면"| SL["Slack 워크스페이스"]
+  SL -->|"답글을 단계마다 읽어 알림"| C
   C -->|"문서 규칙 문단, 프로젝트 문서, CHANGELOG"| R["작업하는 저장소"]
   R -->|".logbook/config.json이 있으면 세션마다 규칙을 넣음"| C
   U -->|"링크로 검토"| A
+  U -->|"쓰레드에서 확인하고 답글"| SL
 ```
 
 - Artifact는 claude.ai에 올리는 비공개 웹 페이지입니다. Artifact를 쓸 수 없는 환경에서는 로컬 HTML 파일 경로를 링크로 씁니다.
+- Slack은 선택 연결입니다. 저장소 AGENTS.md에 Slack 채널 줄이 있거나 환경 변수 `LOGBOOK_SLACK_CHANNEL`이 있을 때만 이슈마다 쓰레드를 하나 만들어 진행 상황과 브리핑·결과 화면(PNG와 HTML)을 올립니다. 쓰레드에 달린 답글은 단계가 바뀔 때 읽어 사용자에게 알리고, 계획에 반영할지는 사용자가 정합니다(자세한 흐름은 주요 흐름의 "Slack 쓰레드").
 - hook은 Claude Code가 특정 순간(세션 시작, 플랜 제출, 대화 종료)에 자동으로 실행하는 스크립트입니다.
 - logbook 작업 규칙은 저장소에 복사하지 않습니다. 세션이 시작될 때마다 플러그인이 넣으므로, 플러그인을 올리면 모든 프로젝트에 바로 적용됩니다.
 
@@ -42,6 +46,7 @@ flowchart LR
 | logbook은 clone마다 `/rulebook`으로 켠다 | 켜는 표시 `.logbook/config.json`은 git에서 제외되어 clone에 따라오지 않습니다. 그래서 logbook이 없는 사람에게는 logbook 규칙이 보이지 않고, 새로 clone하면 `/rulebook`을 한 번 실행해야 합니다. 잊어도 경고하지 않습니다 | [#20 PR](https://github.com/dincal/agent_logbook/pull/21) |
 | 문서 규칙은 프로젝트의 AGENTS.md에 둔다 | 문서와 위치 표, 코드와 함께 고치는 약속은 logbook이 없는 사람도 지킬 프로젝트의 약속이라 AGENTS.md의 일반 문단으로 둡니다. logbook은 그 표의 위치를 따르고, 문단을 다시 쓰지 않습니다 | [#20 PR](https://github.com/dincal/agent_logbook/pull/21) |
 | 보고는 이슈마다 그림으로 설계한 화면으로, 글은 채팅과 이슈 본문에 둔다 | 고정된 글 슬라이드는 읽히지 않아서, 브리핑과 결과 보고는 이슈마다 그림으로 설명하는 화면을 따로 설계하고 Artifact 링크로 GitHub 이슈와 PR에 겁니다. 버튼과 움직임은 꼭 필요할 때만 씁니다. 글 브리핑은 다른 개발자가 읽도록 이슈 본문에 두고, 승인은 채팅에서 받습니다. 화면은 승인한 순간의 기록으로 고정합니다 | [v0.1 PR](https://github.com/dincal/agent_logbook/pull/2), [#31 이슈](https://github.com/dincal/agent_logbook/issues/31) |
+| 브리핑과 결과 화면은 공개 링크 대신 Slack 워크스페이스에 올린다 | 개인 플랜의 Artifact는 "링크가 있으면 누구나" 여는 공개 링크로만 공유할 수 있어서 회사 사람에게만 보이게 제한할 수 없습니다. 브리핑에는 DB 스키마와 위험 항목이 들어가므로, 접근 범위가 워크스페이스로 정해진 Slack 쓰레드에 PNG와 HTML로 올립니다. Artifact는 작성자 본인이 보는 용도로 그대로 둡니다. 채널 줄이 없는 저장소는 올리지 않습니다 | [#34 이슈](https://github.com/dincal/agent_logbook/issues/34) |
 | 승인한 계획은 `/build`가 끝까지 진행한다 | 브리핑을 승인하면 `/brief`가 `/build`로 넘기고, `/build`가 다시 승인을 묻지 않고 트랙 그래프대로 만들어 PR과 결과 보고까지 갑니다. `status:in-progress`인 이슈만 실행하고, 끊기면 `/build #번호`로 이어 갑니다. 계획 문서는 커밋하지 않으므로 계획을 세운 기기에서만 이어 갈 수 있습니다 | [#17 PR](https://github.com/dincal/agent_logbook/pull/19), [#31 이슈](https://github.com/dincal/agent_logbook/issues/31) |
 | 사람이 정할 결정은 모두 객관식으로 묻고, 계획 전에 한 번 더 점검한다 | 에이전트가 스펙을 임의로 정하지 않도록, 쓰는 방식, 도메인 규칙과 예외 상황, 득실이 있는 기술 선택은 네 관점(구조, 동작, 기술, 계약)으로 찾아 질문 도구로 묻습니다. 계획 문서를 쓰기 전에 대화를 보지 않은 `logbook:checker`가 짐작한 결정과 빠진 결정을 찾아 다시 묻게 합니다. 질문이 늘어나는 대신, 이미 정해진 것과 조정값은 묻지 않습니다 | [#3 PR](https://github.com/dincal/agent_logbook/pull/4), [#31 이슈](https://github.com/dincal/agent_logbook/issues/31) |
 | md 문서에는 HTML을 넣지 않는다 | 계획 문서와 프로젝트 문서는 md 뷰어에서도 읽히도록 mermaid, 표, 목록만 씁니다. 핸드북의 숫자 타일 같은 HTML은 렌더러가 만들고, HTML이 든 플랜은 플랜 hook이, HTML이 든 프로젝트 문서는 `system-check.sh`가 걸러 냅니다 | [#7 이슈](https://github.com/dincal/agent_logbook/issues/7) |

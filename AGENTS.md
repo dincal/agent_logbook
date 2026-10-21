@@ -2,7 +2,7 @@
 
 `logbook` 플러그인 저장소다. 에이전트가 조사하고 사람이 정할 결정은 객관식으로 물으며, 사람은 구현 전 브리핑과 구현 후 디브리핑을 검토한다.
 
-- 구성: 스킬 `skills/`(rulebook, discuss, brief, build, debrief, sync), 리뷰어 `agents/reviewer.md`, 독립 점검 `agents/checker.md`, 병렬 구현 에이전트 `agents/builder*.md`, hook `hooks/`, 스크립트 `scripts/`, 템플릿 `templates/`(질문 안내 `questions.md`, 브리핑 화면 안내 `briefing.md`, 글쓰기 안내 `writing.md`, 그림 안내 `diagram-kit.md`, 병렬 실행 안내 `parallel.md`, 프로젝트 문서 뼈대 `system/`).
+- 구성: 스킬 `skills/`(rulebook, discuss, brief, build, debrief, sync), 리뷰어 `agents/reviewer.md`, 독립 점검 `agents/checker.md`, 병렬 구현 에이전트 `agents/builder*.md`, hook `hooks/`, 스크립트 `scripts/`(Slack 쓰레드용 `slack.sh`, `slack.py`, `slack_config.py`, `snapshot.py` 포함), 템플릿 `templates/`(질문 안내 `questions.md`, 브리핑 화면 안내 `briefing.md`, 글쓰기 안내 `writing.md`, 그림 안내 `diagram-kit.md`, 병렬 실행 안내 `parallel.md`, Slack 쓰레드 안내 `slack.md`, 기획자용 글 안내 `planner.md`, Slack 앱 매니페스트 `slack-app.yml`, 프로젝트 문서 뼈대 `system/`).
 - 검증: `claude plugin validate .`, `bash tests/run.sh`.
 - 스킬 본문과 에이전트 프롬프트는 영어로, 문서와 이슈·PR은 한국어로 쓴다.
 - SKILL.md는 150줄 이하로 두고 강조어(MUST, CRITICAL, NEVER, ALWAYS)를 쓰지 않는다. 테스트가 확인한다.
