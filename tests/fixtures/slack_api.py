@@ -4,10 +4,17 @@ usage: python3 slack_api.py <port-file> <log-file>
 
 Binds 127.0.0.1 on a free port, writes the port to <port-file> and serves until killed.
 Every request appends one JSON line {"method", "params"} to <log-file> (chat.postMessage
-also records the "ts" it handed out). Environment:
+also records the "ts" it handed out). The text and blocks of every chat.postMessage are
+remembered by ts and replaced on chat.update. Environment:
   FAKE_SLACK_REPLIES  path of a JSON file holding the messages conversations.replies returns
-                      (read on every call; when unset or missing, only the parent is returned)
+                      (read on every call; when unset or missing, only the parent is returned:
+                      the remembered message when there is one, else a bare one)
   FAKE_SLACK_FAIL     a method name that answers {"ok": false, "error": "fake_failure"}
+  FAKE_SLACK_INVALID_BLOCKS
+                      when set, files.completeUploadExternal with "blocks" answers
+                      {"ok": false, "error": "invalid_blocks"}; without blocks it still succeeds
+  FAKE_SLACK_SETTINGS path of a JSON object read on every request; its keys (the two names
+                      above) override the environment, so a test can turn them on for one run
 """
 
 import json
@@ -20,6 +27,48 @@ from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 PORT_FILE, LOG_FILE = sys.argv[1], sys.argv[2]
 LOCK = threading.Lock()
 STATE = {"ts": 0, "file": 0}
+# ts -> {"ts", "user", "text", "blocks"} of the messages chat.postMessage made.
+MESSAGES = {}
+
+
+def setting(name):
+    """FAKE_SLACK_SETTINGS' value for `name` when the file has it, else the environment's."""
+    path = os.environ.get("FAKE_SLACK_SETTINGS", "")
+    if path:
+        try:
+            with open(path, encoding="utf-8") as f:
+                data = json.load(f)
+        except (OSError, ValueError):
+            data = {}
+        if isinstance(data, dict) and name in data:
+            return str(data[name] or "")
+    return os.environ.get(name, "")
+
+
+def parse_blocks(params):
+    """The "blocks" param as a list, None when absent (or not JSON)."""
+    raw = params.get("blocks")
+    if raw is None:
+        return None
+    try:
+        return json.loads(raw)
+    except ValueError:
+        return None
+
+
+def remember(ts, params, update=False):
+    with LOCK:
+        msg = MESSAGES.get(ts)
+        if msg is None:
+            if update:
+                return
+            msg = MESSAGES[ts] = {"ts": ts, "user": "U0BOT", "text": ""}
+        msg["text"] = params.get("text", "")
+        blocks = parse_blocks(params)
+        if blocks is None:
+            msg.pop("blocks", None)
+        else:
+            msg["blocks"] = blocks
 
 
 def log(entry):
@@ -41,7 +90,11 @@ def next_file():
 
 def replies(params):
     """The thread's messages, newer than `oldest` when given (Slack's default is exclusive)."""
-    parent = {"ts": params.get("ts", ""), "user": "U0PARENT", "text": "parent"}
+    ts = params.get("ts", "")
+    with LOCK:
+        known = MESSAGES.get(ts)
+        parent = json.loads(json.dumps(known)) if known else {"ts": ts, "user": "U0PARENT",
+                                                              "text": "parent"}
     path = os.environ.get("FAKE_SLACK_REPLIES", "")
     try:
         with open(path, encoding="utf-8") as f:
@@ -52,6 +105,12 @@ def replies(params):
     if oldest:
         messages = [m for m in messages
                     if m.get("ts") == params.get("ts") or float(m["ts"]) > float(oldest)]
+    try:
+        limit = int(params.get("limit") or 0)
+    except ValueError:
+        limit = 0
+    if limit > 0:
+        messages = messages[:limit]
     return {"ok": True, "messages": messages, "has_more": False}
 
 
@@ -97,13 +156,14 @@ class Handler(BaseHTTPRequestHandler):
         form.update(urllib.parse.parse_qs(path.query, keep_blank_values=True))
         params = {k: v[-1] for k, v in form.items()}
         entry = {"method": method, "params": params}
-        if os.environ.get("FAKE_SLACK_FAIL") == method:
+        if setting("FAKE_SLACK_FAIL") == method:
             log(entry)
             self.answer({"ok": False, "error": "fake_failure"})
             return
         if method == "chat.postMessage":
             ts = next_ts()
             entry["ts"] = ts
+            remember(ts, params)
             log(entry)
             self.answer({"ok": True, "channel": params.get("channel", ""), "ts": ts})
             return
@@ -118,10 +178,14 @@ class Handler(BaseHTTPRequestHandler):
             self.answer({"ok": True, "upload_url": f"http://127.0.0.1:{port}/upload/{n}",
                          "file_id": f"F{n}"})
         elif method == "files.completeUploadExternal":
-            self.answer({"ok": True, "files": []})
+            if setting("FAKE_SLACK_INVALID_BLOCKS") and "blocks" in params:
+                self.answer({"ok": False, "error": "invalid_blocks"})
+            else:
+                self.answer({"ok": True, "files": []})
         elif method == "conversations.replies":
             self.answer(replies(params))
         elif method == "chat.update":
+            remember(params.get("ts", ""), params, update=True)
             self.answer({"ok": True, "ts": params.get("ts", "")})
         elif method == "auth.test":
             self.answer({"ok": True, "user_id": "U0BOT"})

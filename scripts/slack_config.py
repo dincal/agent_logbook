@@ -13,20 +13,116 @@ import urllib.request
 from pathlib import Path
 
 OK, OFF, NO_TOKEN, FAILED = 0, 10, 11, 12
-# The stages a reply can belong to, in the order an issue meets them, with their label.
+# The stages a reply can belong to, in the order an issue meets them, with the title a
+# planner reads in the reply's header block. The command names stay as they are.
 STAGES = {
+    "mockup": "시안",
     "design": "시안 승인",
     "brief": "브리핑",
-    "approve": "브리핑 승인",
-    "wave": "묶음 끝",
+    "approve": "개발 시작",
+    "wave": "개발 끝",
     "check": "확인할 결과",
-    "pr": "PR",
-    "debrief": "디브리핑",
-    "close": "머지와 닫힘",
-    "feedback": "피드백 요약",
+    "pr": "마지막 확인",
+    "debrief": "완성 보고",
+    "close": "반영 완료",
+    "feedback": "피드백 반영",
+}
+# The icon in front of each stage's title; the body text itself carries no emoji.
+ICONS = {
+    "mockup": "🎨",
+    "design": "✅",
+    "brief": "📋",
+    "approve": "✅",
+    "wave": "🔨",
+    "check": "🔍",
+    "pr": "👀",
+    "debrief": "📦",
+    "close": "🚀",
+    "feedback": "💬",
 }
 # Stages whose page is attached; the marker keeps the hash of the page last posted for each.
 PAGE_STAGES = ("brief", "debrief")
+
+# --outcome values a stage takes. close must say which way the issue ended, so a dropped
+# issue never reads 반영 완료; approve takes one only when the briefing was not approved.
+OUTCOMES = {"approve": ("later", "dropped"), "close": ("merged", "dropped")}
+REQUIRED_OUTCOME = ("close",)
+# Titles that replace the stage's own when the outcome is not the usual one.
+OUTCOME_TITLES = {"later": ("⏸", "나중에 하기"), "dropped": ("⏸", "중단")}
+
+
+def stage_title(stage, outcome=""):
+    """The header text of a reply: icon and title, e.g. '📋 브리핑' or '⏸ 중단'."""
+    icon, title = OUTCOME_TITLES.get(outcome, (ICONS[stage], STAGES[stage]))
+    return f"{icon} {title}"
+
+
+# ---------------------------------------------------------------- progress
+
+# The four phases the first message and every reply show, in order. later and dropped are
+# states outside the order: the issue was left for later or given up.
+PHASES = ("plan", "build", "check", "done")
+PHASE_NAMES = {"plan": "계획", "build": "만들기", "check": "확인", "done": "반영"}
+SPECIAL_PHASES = {"later": "나중에 할 일로 남겼습니다", "dropped": "중단했습니다"}
+# The phase each stage puts the issue in; feedback leaves it where it is.
+STAGE_PHASE = {
+    "mockup": "plan",
+    "design": "plan",
+    "brief": "plan",
+    "approve": "build",
+    "wave": "build",
+    "check": "build",
+    "pr": "check",
+    "debrief": "check",
+    "close": "done",
+    "feedback": None,
+}
+# Shown on the first message and the last reply once the issue ended: no stage reads the
+# thread after that, so a reply left there reaches nobody.
+CLOSED_NOTICE = ("이 일은 끝났습니다. 여기 남긴 답글은 전달되지 않습니다. "
+                 "더 할 이야기가 있으면 채널에 새 글로 남겨 주세요.")
+# block_id of the first message's parts, so a later run can find the summary again and
+# rewrite only the progress line. Summary sections are numbered: logbook_summary_0, _1, ...
+BLOCK_SUMMARY = "logbook_summary_"
+BLOCK_STATUS = "logbook_status"
+BLOCK_CLOSED = "logbook_closed"
+
+
+def next_phase(current, stage, outcome=""):
+    """The phase after posting `stage`. The four phases only move forward (a check posted
+    while 확인 keeps 확인); from later or dropped, or with no phase yet, the stage sets it."""
+    if outcome in SPECIAL_PHASES:
+        return outcome
+    target = STAGE_PHASE[stage]
+    if target is None:
+        return current
+    if current in PHASES and PHASES.index(current) > PHASES.index(target):
+        return current
+    return target
+
+
+def progress_line(phase):
+    """mrkdwn for a context block: '계획 ✓ → *만들기* ● → 확인 → 반영', or the sentence of
+    a special state; "" when the phase is unknown (a thread made before phases existed)."""
+    if phase in SPECIAL_PHASES:
+        return SPECIAL_PHASES[phase]
+    if phase not in PHASES:
+        return ""
+    now = PHASES.index(phase)
+    parts = []
+    for i, p in enumerate(PHASES):
+        name = PHASE_NAMES[p]
+        if i < now or phase == "done":
+            parts.append(f"{name} ✓")
+        elif i == now:
+            parts.append(f"*{name}* ●")
+        else:
+            parts.append(name)
+    return " → ".join(parts)
+
+
+def is_closed(phase):
+    return phase in ("done", "dropped")
 
 CHANNEL_LINE = re.compile(r"^- Slack 채널: `([A-Z0-9]+)`\s*$", re.M)
 MARKER = re.compile(r"<!-- logbook:slack ([^>]*?) -->")
@@ -94,12 +190,14 @@ def api_base():
 TRUSTED_AUTHORS = ("OWNER", "MEMBER", "COLLABORATOR")
 
 # channel and ts locate the thread, brief and debrief hold the hash of the page last posted
-# for that stage, and read is the ts of the newest reply `replies` has handed out.
-MARKER_FIELDS = ("channel", "ts") + PAGE_STAGES + ("read",)
+# for that stage, read is the ts of the newest reply `replies` has handed out, phase is the
+# issue's phase, and shown is the phase the first message shows. They differ only while a
+# rewrite of the first message failed; the next post or `thread` retries it.
+MARKER_FIELDS = ("channel", "ts") + PAGE_STAGES + ("read", "phase", "shown")
 
 
 def parse_marker(body, expected_channel=None):
-    """{channel, ts, brief, debrief, read} from an issue comment body, or None. With
+    """{channel, ts, brief, debrief, read, phase, shown} from an issue comment body, or None. With
     expected_channel, a marker naming another channel is ignored, so a comment anyone can
     add cannot send the issue's pages to a channel of their choosing."""
     m = MARKER.search(body or "")
