@@ -18,8 +18,8 @@ OK, OFF, NO_TOKEN, FAILED = 0, 10, 11, 12
 STAGES = {
     "design": "시안 승인",
     "brief": "브리핑",
-    "approve": "브리핑 승인",
-    "wave": "진행 상황",
+    "approve": "개발 시작",
+    "wave": "개발 끝",
     "check": "확인할 결과",
     "pr": "마지막 확인",
     "debrief": "완성 보고",
