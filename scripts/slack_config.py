@@ -13,6 +13,8 @@ import urllib.request
 from pathlib import Path
 
 OK, OFF, NO_TOKEN, FAILED = 0, 10, 11, 12
+# Wrong arguments, the code argparse already exits with: a stage a PR thread does not take.
+USAGE = 2
 # The stages a reply can belong to, in the order an issue meets them, with the title a
 # planner reads in the reply's header block. The command names stay as they are.
 STAGES = {
@@ -64,6 +66,10 @@ def stage_title(stage, outcome=""):
 PHASES = ("plan", "build", "check", "done")
 PHASE_NAMES = {"plan": "계획", "build": "만들기", "check": "확인", "done": "반영"}
 SPECIAL_PHASES = {"later": "나중에 할 일로 남겼습니다", "dropped": "중단했습니다"}
+# A PR opened without an issue gets a thread of its own with two posts, the first message
+# and 반영 완료, so it shows only these two phases and takes only these stages.
+PR_PHASES = ("check", "done")
+PR_STAGES = ("close",)
 # The phase each stage puts the issue in; feedback leaves it where it is.
 STAGE_PHASE = {
     "mockup": "plan",
@@ -101,16 +107,18 @@ def next_phase(current, stage, outcome=""):
     return target
 
 
-def progress_line(phase):
+def progress_line(phase, kind=""):
     """mrkdwn for a context block: '계획 ✓ → *만들기* ● → 확인 → 반영', or the sentence of
-    a special state; "" when the phase is unknown (a thread made before phases existed)."""
+    a special state; "" when the phase is unknown (a thread made before phases existed).
+    A PR thread (kind "pr") draws only the PR phases: '*확인* ● → 반영'."""
     if phase in SPECIAL_PHASES:
         return SPECIAL_PHASES[phase]
-    if phase not in PHASES:
+    phases = PR_PHASES if kind == "pr" else PHASES
+    if phase not in phases:
         return ""
-    now = PHASES.index(phase)
+    now = phases.index(phase)
     parts = []
-    for i, p in enumerate(PHASES):
+    for i, p in enumerate(phases):
         name = PHASE_NAMES[p]
         if i < now or phase == "done":
             parts.append(f"{name} ✓")
@@ -192,12 +200,13 @@ TRUSTED_AUTHORS = ("OWNER", "MEMBER", "COLLABORATOR")
 # channel and ts locate the thread, brief and debrief hold the hash of the page last posted
 # for that stage, read is the ts of the newest reply `replies` has handed out, phase is the
 # issue's phase, and shown is the phase the first message shows. They differ only while a
-# rewrite of the first message failed; the next post or `thread` retries it.
-MARKER_FIELDS = ("channel", "ts") + PAGE_STAGES + ("read", "phase", "shown")
+# rewrite of the first message failed; the next post or `thread` retries it. kind is "pr"
+# for the thread of a PR opened without an issue, empty for an issue.
+MARKER_FIELDS = ("channel", "ts") + PAGE_STAGES + ("read", "phase", "shown", "kind")
 
 
 def parse_marker(body, expected_channel=None):
-    """{channel, ts, brief, debrief, read, phase, shown} from an issue comment body, or None. With
+    """{channel, ts, brief, debrief, read, phase, shown, kind} from an issue comment body, or None. With
     expected_channel, a marker naming another channel is ignored, so a comment anyone can
     add cannot send the issue's pages to a channel of their choosing."""
     m = MARKER.search(body or "")

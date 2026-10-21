@@ -1,6 +1,8 @@
 """The thread, post and replies commands behind scripts/slack.sh.
 
-Each issue gets one Slack thread, recorded by a hidden marker in an issue comment. `thread`
+Each issue gets one Slack thread, recorded by a hidden marker in an issue comment. A PR
+opened without an issue gets one too, keyed by the PR number (kind=pr in the marker): it shows
+two phases and takes only the close stage. `thread`
 posts the parent message, `post` replies in the thread with a stage's text and attachments,
 and `replies` hands out the replies people added since the last call. Messages go up as Block
 Kit blocks (a header per stage, the progress line, the body, a small footer) with the same
@@ -23,14 +25,18 @@ sys.path.insert(0, str(Path(__file__).resolve().parent))
 
 from slack_config import (  # noqa: E402
     BLOCK_CLOSED, BLOCK_STATUS, BLOCK_SUMMARY, CLOSED_NOTICE, FAILED, MARKER_FIELDS, NO_TOKEN,
-    OFF, OK, OUTCOME_TITLES, OUTCOMES, PAGE_STAGES, REQUIRED_OUTCOME, STAGES, TRUSTED_AUTHORS,
-    Failure, GitHub, channel, is_closed, marker_comment, next_phase, parse_marker,
+    OFF, OK, OUTCOME_TITLES, OUTCOMES, PAGE_STAGES, PR_STAGES, REQUIRED_OUTCOME, STAGES,
+    TRUSTED_AUTHORS, USAGE, Failure, GitHub, channel, is_closed, marker_comment, next_phase, parse_marker,
     progress_line, replace_marker, slack_call, stage_title, token, tracker, upload_bytes,
 )
 
 PERMALINK = re.compile(r"Slack 쓰레드: (\S+)")
 # The first message's developer line, read back so a redraw keeps who posted the thread.
 WHO = re.compile(r"올린 사람: (.*?) · 개발자용:")
+
+
+class Refused(Exception):
+    """Arguments a PR thread does not take; exits USAGE (2) before any Slack call."""
 
 
 class Context:
@@ -90,8 +96,18 @@ def _read_bytes(path, what):
 def _issue_number(value):
     digits = value.lstrip("#")
     if not digits.isdigit():
-        raise argparse.ArgumentTypeError(f"이슈 번호는 숫자여야 합니다: {value}")
+        raise argparse.ArgumentTypeError(f"이슈나 PR 번호는 숫자여야 합니다: {value}")
     return int(digits)
+
+
+def issue_kind(info):
+    """"pr" when gh issue view answered for a pull request, "" for an issue."""
+    return "pr" if "/pull/" in (info.get("url") or "") else ""
+
+
+def _developer_link(issue, info, kind):
+    label = "GitHub PR" if kind == "pr" else "GitHub 이슈"
+    return f"<{info.get('url', '')}|{label} #{issue}>"
 
 
 # ---------------------------------------------------------------- Block Kit
@@ -183,13 +199,13 @@ def _reply_parts(body, notes):
     return "\n".join(kept), footer
 
 
-def reply_blocks(stage, outcome, phase, body, notes):
+def reply_blocks(stage, outcome, phase, body, notes, kind=""):
     """A stage's reply: the title header, the progress line (when the phase is known), a
     divider, the body as sections, and the footer lines under a divider."""
     kept, footer = _reply_parts(body, notes)
     head = [_header(stage_title(stage, outcome))]
-    if progress_line(phase):
-        head.append(_context(progress_line(phase)))
+    if progress_line(phase, kind):
+        head.append(_context(progress_line(phase, kind)))
     head.append(DIVIDER)
     tail = [DIVIDER, _context("\n".join(footer))] if footer else []
     sections = _cap(_body_sections(kept), BLOCKS_MAX - len(head) - len(tail))
@@ -223,42 +239,44 @@ def permalink(ctx, ts):
         return ""
 
 
-def parent_text(issue, info, who, summary, phase):
+def parent_text(issue, info, who, summary, phase, kind=""):
     """The first message's plain text, the fallback notifications and search read."""
     prefix = "[백로그] " if phase == "later" else ""
     lines = [f"{prefix}*#{issue} {_escape(info.get('title', ''))}*"]
     if summary.strip():
         lines += [summary.strip(), ""]
-    if progress_line(phase):
-        lines.append(progress_line(phase))
+    if progress_line(phase, kind):
+        lines.append(progress_line(phase, kind))
     lines += [f"올린 사람: {_escape(who)}",
-              f"개발자용: <{info.get('url', '')}|GitHub 이슈 #{issue}>"]
+              f"개발자용: {_developer_link(issue, info, kind)}"]
     return "\n".join(lines)
 
 
-def parent_blocks(issue, info, who, summary, phase):
+def parent_blocks(issue, info, who, summary, phase, kind=""):
     """The thread's first message as blocks. Planners cannot open GitHub, so `summary` (the
     issue written out in plain words) carries the content and the issue link is a developer
     line. The summary and status blocks carry block_ids so a later run can find the summary
-    again and redraw only the status; `phase` must be one progress_line knows."""
+    again and redraw only the status; `phase` must be one progress_line knows for `kind`."""
     prefix = "[백로그] " if phase == "later" else ""
+    status = progress_line(phase, kind)
     head = [_header(f"{prefix}#{issue} {info.get('title', '')}")]
-    tail = [_context(progress_line(phase), BLOCK_STATUS)] if progress_line(phase) else []
+    tail = [_context(status, BLOCK_STATUS)] if status else []
     if is_closed(phase):
         tail.append(_context(CLOSED_NOTICE, BLOCK_CLOSED))
     tail.append(_context(f"올린 사람: {_escape(who)} · "
-                         f"개발자용: <{info.get('url', '')}|GitHub 이슈 #{issue}>"))
+                         f"개발자용: {_developer_link(issue, info, kind)}"))
     sections = _cap(_body_sections(summary), BLOCKS_MAX - len(head) - len(tail))
     return (head + [_section(text, f"{BLOCK_SUMMARY}{i}") for i, text in enumerate(sections)]
             + tail)
 
 
-def parent_message(ctx, issue, summary, phase, who=None):
-    """{text, blocks} of the first message, with the issue's current title and link."""
-    info = ctx.gh.issue(issue)
+def parent_message(ctx, issue, summary, phase, who=None, kind="", info=None):
+    """{text, blocks} of the first message, with the issue's current title and link; `info`
+    is the gh issue view answer when the caller already has it."""
+    info = info or ctx.gh.issue(issue)
     who = who or ctx.account or ctx.gh.login()
-    return {"text": parent_text(issue, info, who, summary, phase),
-            "blocks": parent_blocks(issue, info, who, summary, phase)}
+    return {"text": parent_text(issue, info, who, summary, phase, kind),
+            "blocks": parent_blocks(issue, info, who, summary, phase, kind)}
 
 
 def parent_parts(message):
@@ -289,7 +307,7 @@ def read_parent(ctx, ts):
     raise Failure("Slack 쓰레드 첫 메시지를 찾지 못했습니다")
 
 
-def rewrite_parent(ctx, issue, ts, phase):
+def rewrite_parent(ctx, issue, ts, phase, kind=""):
     """Redraw the first message for `phase`, keeping its summary and who posted it; False
     when it was made before the blocks and is left as it is (`thread --text` converts it)."""
     parts = parent_parts(read_parent(ctx, ts))
@@ -297,20 +315,25 @@ def rewrite_parent(ctx, issue, ts, phase):
         return False
     summary, who = parts
     ctx.call("chat.update", channel=ctx.chan, ts=ts,
-             **parent_message(ctx, issue, summary, phase, who))
+             **parent_message(ctx, issue, summary, phase, who, kind))
     return True
 
 
-def create_thread(ctx, issue, backlog=False, summary=""):
-    """Post the parent message and record it in an issue comment. When the record cannot
-    be written, delete the message so the next run does not leave a second thread."""
-    phase = "later" if backlog else "plan"
+def create_thread(ctx, issue, backlog=False, summary="", info=None):
+    """Post the parent message and record it in an issue comment (a PR comment for a PR,
+    which starts at 확인 and cannot be backlog). When the record cannot be written, delete
+    the message so the next run does not leave a second thread."""
+    info = info or ctx.gh.issue(issue)
+    kind = issue_kind(info)
+    if kind == "pr" and backlog:
+        raise Refused(f"#{issue}은 PR이라 --backlog를 쓸 수 없습니다. PR 쓰레드는 백로그로 두지 않습니다")
+    phase = "check" if kind == "pr" else ("later" if backlog else "plan")
     resp = ctx.call("chat.postMessage", channel=ctx.chan,
-                    **parent_message(ctx, issue, summary, phase))
+                    **parent_message(ctx, issue, summary, phase, kind=kind, info=info))
     ts = _field(resp, "ts", "chat.postMessage")
     link = permalink(ctx, ts)
     mark = {k: "" for k in MARKER_FIELDS}
-    mark.update(channel=ctx.chan, ts=ts, phase=phase, shown=phase)
+    mark.update(channel=ctx.chan, ts=ts, phase=phase, shown=phase, kind=kind)
     body = marker_comment(mark, link)
     try:
         comment_id = ctx.gh.add_comment(issue, body)
@@ -324,19 +347,23 @@ def create_thread(ctx, issue, backlog=False, summary=""):
     return {"id": comment_id, "body": body, "mark": mark, "link": link}
 
 
-def ensure_thread(ctx, issue):
+def thread_kind(ctx, issue):
+    """(record or None, kind, gh issue view answer or None): the kind a marker records, or
+    for a number without a thread the one gh issue view tells. No Slack call is made."""
     record = find_record(ctx, issue)
-    if record is None:
-        record = create_thread(ctx, issue)
-        print(f"Slack 쓰레드를 만들었습니다: {record['link'] or record['mark']['ts']}")
-    return record
+    if record is not None:
+        return record, record["mark"].get("kind", ""), None
+    info = ctx.gh.issue(issue)
+    return None, issue_kind(info), info
 
 
 # ---------------------------------------------------------------- thread
 
 def cmd_thread(ctx, args):
     summary = _read_bytes(args.text, "글 파일").decode("utf-8", "replace") if args.text else ""
-    record = find_record(ctx, args.issue)
+    record, kind, info = thread_kind(ctx, args.issue)
+    if kind == "pr" and args.backlog:
+        raise Refused(f"#{args.issue}은 PR이라 --backlog를 쓸 수 없습니다. PR 쓰레드는 백로그로 두지 않습니다")
     if record is not None:
         m = PERMALINK.search(record["body"])
         where = m.group(1) if m else record["mark"]["ts"]
@@ -344,18 +371,19 @@ def cmd_thread(ctx, args):
         if summary:
             # Rewrite the first message so a thread made before the summary or the blocks
             # existed gets them; a marker without a known phase gets the one drawn.
-            phase = (mark.get("phase") if progress_line(mark.get("phase", ""))
-                     else ("later" if args.backlog else "plan"))
+            start = "check" if kind == "pr" else ("later" if args.backlog else "plan")
+            phase = (mark.get("phase") if progress_line(mark.get("phase", ""), kind)
+                     else start)
             ctx.call("chat.update", channel=ctx.chan, ts=mark["ts"],
-                     **parent_message(ctx, args.issue, summary, phase))
+                     **parent_message(ctx, args.issue, summary, phase, kind=kind))
             if (mark.get("phase"), mark.get("shown")) != (phase, phase):
                 mark.update(phase=phase, shown=phase)
                 save_mark(ctx, record)
             print(f"쓰레드 첫 메시지를 이슈 내용으로 고쳤습니다: {where}")
-        elif progress_line(mark.get("phase", "")) and mark.get("shown") != mark["phase"]:
+        elif progress_line(mark.get("phase", ""), kind) and mark.get("shown") != mark["phase"]:
             # An earlier post could not redraw the first message (the last one, close, has no
             # later post to retry it), so this run does.
-            redrawn = rewrite_parent(ctx, args.issue, mark["ts"], mark["phase"])
+            redrawn = rewrite_parent(ctx, args.issue, mark["ts"], mark["phase"], kind)
             mark["shown"] = mark["phase"]
             save_mark(ctx, record)
             if redrawn:
@@ -365,7 +393,7 @@ def cmd_thread(ctx, args):
         else:
             print(f"이미 쓰레드가 있습니다: {where}")
         return OK
-    record = create_thread(ctx, args.issue, backlog=args.backlog, summary=summary)
+    record = create_thread(ctx, args.issue, backlog=args.backlog, summary=summary, info=info)
     if record["link"]:
         print(f"Slack 쓰레드를 만들었습니다: {record['link']}")
     else:
@@ -391,13 +419,13 @@ def page_attachments(page, page_hash):
         return [(Path(p).name, _read_bytes(p, "화면 사본")) for p in files], snap.get("note") or ""
 
 
-def reply_message(stage, outcome, phase, body, notes):
+def reply_message(stage, outcome, phase, body, notes, kind=""):
     """{text, blocks} of a stage's reply: the blocks for the thread, and the same words as
     plain text for notifications and search."""
     kept, footer = _reply_parts(body, notes)
     lines = [f"*{stage_title(stage, outcome)}*"] + ([kept.strip()] if kept.strip() else [])
     return {"text": "\n".join(lines + footer),
-            "blocks": reply_blocks(stage, outcome, phase, body, notes)}
+            "blocks": reply_blocks(stage, outcome, phase, body, notes, kind)}
 
 
 def upload(ctx, ts, message, attachments):
@@ -446,7 +474,12 @@ def cmd_post(ctx, args):
     if args.page:
         page_hash = hashlib.sha256(_read_bytes(args.page, "화면 파일")).hexdigest()[:12]
 
-    record = ensure_thread(ctx, args.issue)
+    record, kind, info = thread_kind(ctx, args.issue)
+    if kind == "pr" and stage not in PR_STAGES:
+        raise Refused(f"#{args.issue}은 PR 쓰레드라 {', '.join(PR_STAGES)} 단계만 올릴 수 있습니다: {stage}")
+    if record is None:
+        record = create_thread(ctx, args.issue, info=info)
+        print(f"Slack 쓰레드를 만들었습니다: {record['link'] or record['mark']['ts']}")
     mark = record["mark"]
     ts = mark["ts"]
     phase = next_phase(mark.get("phase", ""), stage, outcome)
@@ -460,7 +493,7 @@ def cmd_post(ctx, args):
             shots, snap_note = page_attachments(args.page, page_hash)
             attachments = shots + attachments
             notes += [ATTACH_NOTE] + ([_escape(snap_note)] if snap_note else [])
-        message = reply_message(stage, outcome, phase, text, notes + closed)
+        message = reply_message(stage, outcome, phase, text, notes + closed, kind)
         if attachments:
             upload(ctx, ts, message, attachments)
         else:
@@ -473,7 +506,8 @@ def cmd_post(ctx, args):
         if not getattr(e, "posted", False):
             kept = [n for n in notes if n != ATTACH_NOTE]
             reply(ctx, ts, reply_message(stage, outcome, phase, text,
-                                         kept + [f"첨부 실패: {_escape(str(e))}"] + closed))
+                                         kept + [f"첨부 실패: {_escape(str(e))}"] + closed,
+                                         kind))
 
     changed, problems = False, []
     if page_changed and attach_error is None:
@@ -484,7 +518,7 @@ def cmd_post(ctx, args):
         changed = True
     if phase != mark.get("shown", ""):
         try:
-            rewrite_parent(ctx, args.issue, ts, phase)
+            rewrite_parent(ctx, args.issue, ts, phase, kind)
             # Recorded only once the first message shows it, so a failed rewrite is retried
             # by the next post or by `slack.sh thread <issue>`.
             mark["shown"] = phase
@@ -595,7 +629,8 @@ def cmd_replies(ctx, args):
 
 def parser():
     p = argparse.ArgumentParser(prog="slack.sh",
-                                description="Post an issue's logbook stages to its Slack thread.")
+                                description="Post an issue's (or an issue-less PR's) "
+                                            "logbook stages to its Slack thread.")
     sub = p.add_subparsers(dest="command", required=True)
 
     t = sub.add_parser("thread", help="post the issue's parent message unless it has a thread")
@@ -662,6 +697,9 @@ def main(argv):
             print("LOGBOOK_SLACK_TOKEN이 없어 Slack 게시를 건너뜁니다.")
             return NO_TOKEN
         return COMMANDS[args.command](Context(chan, tok, directory), args)
+    except Refused as e:
+        print(" ".join(str(e).split()))
+        return USAGE
     except Failure as e:
         # One line for the chat, even when gh or Slack answered with several.
         print(" ".join(str(e).split()))

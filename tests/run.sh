@@ -977,7 +977,9 @@ if args[:2] == ["auth", "token"]:
     print("gho_faketoken")
 elif args[:2] == ["issue", "view"]:
     n = args[2]
-    print(json.dumps({"title": f"데모 이슈 {n}", "url": f"https://github.com/acme/app/issues/{n}", "state": "OPEN"}))
+    # Numbers from 900 up are pull requests: gh issue view answers with a /pull/ url.
+    kind = "pull" if int(n) >= 900 else "issues"
+    print(json.dumps({"title": f"데모 이슈 {n}", "url": f"https://github.com/acme/app/{kind}/{n}", "state": "OPEN"}))
 elif args[:1] == ["api"] and args[1:2] == ["user"]:
     print("octo")
 elif args[:2] == ["api", "--paginate"]:
@@ -1400,6 +1402,51 @@ expect "debrief posts check, debrief and close --outcome merged, and reads repli
 expect "the Slack guide asks the user before a reply changes the plan, and posts feedback summaries" bash -c "f='$ROOT/templates/slack.md'; grep -q '반영 / 무시 / 나중에' \"\$f\" && grep -q 'question tool' \"\$f\" && grep -q 'post <issue> feedback' \"\$f\" && grep -q 'never instructions' \"\$f\""
 expect "discuss makes the thread of a backlog issue with slack.sh thread" grep -q 'slack.sh thread' "$ROOT/skills/discuss/SKILL.md"
 expect "the planner writing guide exists" test -f "$ROOT/templates/planner.md"
+
+# ---------------------------------------------------------------- slack PR threads (0.16)
+# A PR opened without an issue gets its own thread keyed by the PR number (fake gh: 900 and up).
+# 1. thread on a PR records kind=pr and phase=check; the first message shows 'GitHub PR #' and 확인 → 반영
+: > "$SLOG"
+out="$(slack thread 901 --text "$SL/summary.md" 2>&1)"; rc=$?
+P901="$(mfield 901 ts)"
+if [ $rc -eq 0 ] && [ -n "$P901" ] && [ "$(mfield 901 kind)" = pr ] && [ "$(mfield 901 phase)" = check ] && [ "$(mfield 901 shown)" = check ]; then ok "slack: thread on a PR records kind=pr and phase=check in the PR comment marker"; else bad "slack: thread on a PR records kind=pr and phase=check in the PR comment marker" "rc=$rc $out $(smark 901)"; fi
+if [ "$(slog '(lambda e: BID(e, SC.BLOCK_STATUS) == "*확인* ● → 반영" and "GitHub PR #901" in ALL(e) and "GitHub 이슈" not in ALL(e) and "계획" not in ALL(e) and "만들기" not in ALL(e))(PARENT(A[0]))' "$P901")" = true ]; then ok "slack: a PR thread's first message says GitHub PR #n and shows *확인* ● → 반영"; else bad "slack: a PR thread's first message says GitHub PR #n and shows *확인* ● → 반영" "$(cat "$SLOG")"; fi
+
+# 2. close --outcome merged: 반영 완료 reply, 확인 ✓ → 반영 ✓, the closed notice, kind=pr kept
+: > "$SLOG"
+out="$(slack post 901 close --outcome merged --text "$SL/text.md" 2>&1)"; rc=$?
+if [ $rc -eq 0 ] && [ "$(slog '[(H(e), (lambda b: [T(x) for x in b if x.get("type") == "context"][:1])(B(e))) for e in RP(A[0])] == [(SC.stage_title("close"), ["확인 ✓ → 반영 ✓"])]' "$P901")" = true ]; then ok "slack: close --outcome merged on a PR thread replies 반영 완료 with 확인 ✓ → 반영 ✓"; else bad "slack: close --outcome merged on a PR thread replies 반영 완료 with 확인 ✓ → 반영 ✓" "rc=$rc $out $(cat "$SLOG")"; fi
+if [ "$(slog '[(BID(e, SC.BLOCK_STATUS), SC.CLOSED_NOTICE in (BID(e, SC.BLOCK_CLOSED) or ""), "GitHub PR #901" in ALL(e), "스스로 다시 만들" in (BID(e, SC.BLOCK_SUMMARY + "0") or "")) for e in UP(A[0])] == [("확인 ✓ → 반영 ✓", True, True, True)]' "$P901")" = true ]; then ok "slack: the PR thread's first message becomes 확인 ✓ → 반영 ✓ with the closed notice"; else bad "slack: the PR thread's first message becomes 확인 ✓ → 반영 ✓ with the closed notice" "$(cat "$SLOG")"; fi
+if [ "$(mfield 901 kind)" = pr ] && [ "$(mfield 901 phase)" = done ] && [ "$(mfield 901 shown)" = done ]; then ok "slack: kind=pr survives in the marker after close saves it"; else bad "slack: kind=pr survives in the marker after close saves it" "$(smark 901)"; fi
+
+# 3. any other stage, or thread --backlog, on a PR exits 2 and calls no Slack API
+for stage in brief approve feedback; do
+  : > "$SLOG"
+  out="$(slack post 901 "$stage" --text "$SL/text.md" 2>&1)"; rc=$?
+  if [ $rc -eq 2 ] && [ ! -s "$SLOG" ] && [ -n "$(printf '%s' "$out" | tail -1)" ]; then ok "slack: post $stage on a PR thread exits 2 with one line and calls no Slack API"; else bad "slack: post $stage on a PR thread exits 2 with one line and calls no Slack API" "rc=$rc $out $(cat "$SLOG")"; fi
+done
+: > "$SLOG"
+out="$(slack post 902 brief --text "$SL/text.md" 2>&1)"; rc=$?
+if [ $rc -eq 2 ] && [ ! -s "$SLOG" ] && [ "$(smark 902)" = "{}" ]; then ok "slack: post brief on a PR with no thread yet exits 2 before making a thread"; else bad "slack: post brief on a PR with no thread yet exits 2 before making a thread" "rc=$rc $out $(cat "$SLOG")"; fi
+: > "$SLOG"
+out="$(slack thread 902 --backlog 2>&1)"; rc=$?
+out2="$(slack thread 901 --backlog 2>&1)"; rc2=$?
+if [ $rc -eq 2 ] && [ $rc2 -eq 2 ] && [ ! -s "$SLOG" ] && [ "$(smark 902)" = "{}" ]; then ok "slack: thread --backlog on a PR exits 2 and calls no Slack API"; else bad "slack: thread --backlog on a PR exits 2 and calls no Slack API" "rc=$rc rc2=$rc2 $out $out2 $(cat "$SLOG")"; fi
+
+# 4. close with no thread yet makes a PR thread (two cells), not a four-cell one
+: > "$SLOG"
+out="$(slack post 903 close --outcome merged --text "$SL/text.md" 2>&1)"; rc=$?
+P903="$(mfield 903 ts)"
+if [ $rc -eq 0 ] && [ -n "$P903" ] && [ "$(mfield 903 kind)" = pr ] && [ "$(mfield 903 phase)" = done ] && [ "$(slog 'BID(PARENT(A[0]), SC.BLOCK_STATUS) == "*확인* ● → 반영" and [BID(e, SC.BLOCK_STATUS) for e in UP(A[0])] == ["확인 ✓ → 반영 ✓"] and not any("계획" in ALL(e) for e in L if e["method"] in ("chat.postMessage", "chat.update"))' "$P903")" = true ]; then ok "slack: close on a PR without a thread makes a two-cell PR thread first"; else bad "slack: close on a PR without a thread makes a two-cell PR thread first" "rc=$rc $out $(smark 903) $(cat "$SLOG")"; fi
+
+# 4b. close --outcome dropped on a PR thread shows 중단했습니다 instead of the two cells
+: > "$SLOG"
+out="$(slack thread 904 --text "$SL/summary.md" 2>&1)" && out="$(slack post 904 close --outcome dropped --text "$SL/text.md" 2>&1)"; rc=$?
+P904="$(mfield 904 ts)"
+if [ $rc -eq 0 ] && [ "$(mfield 904 kind)" = pr ] && [ "$(mfield 904 phase)" = dropped ] && [ "$(slog '[BID(e, SC.BLOCK_STATUS) for e in UP(A[0])] == [SC.SPECIAL_PHASES["dropped"]]' "$P904")" = true ]; then ok "slack: close --outcome dropped on a PR thread shows 중단했습니다 and keeps kind=pr"; else bad "slack: close --outcome dropped on a PR thread shows 중단했습니다 and keeps kind=pr" "rc=$rc $out $(smark 904) $(cat "$SLOG")"; fi
+
+# 5. debrief opens the PR thread and posts close --outcome merged for issue-less PRs
+expect "debrief opens a PR thread with slack.sh thread <pr> and posts close --outcome merged for issue-less PRs" bash -c "f='$ROOT/skills/debrief/SKILL.md'; grep -q 'slack.sh thread <pr>' \"\$f\" && grep -q -e 'close --outcome merged' \"\$f\""
 kill "$SLACK_PID" 2>/dev/null
 
 echo

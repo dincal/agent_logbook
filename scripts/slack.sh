@@ -5,9 +5,9 @@ set -euo pipefail
 
 usage() {
   cat <<'EOF'
-usage: slack.sh thread <issue> [--backlog] [--text FILE] [--dir DIR]
-       slack.sh post <issue> <stage> [--outcome VALUE] [--text FILE] [--page HTML] [--file PATH]... [--dir DIR]
-       slack.sh replies <issue> [--dir DIR]
+usage: slack.sh thread <issue|pr> [--backlog] [--text FILE] [--dir DIR]
+       slack.sh post <issue|pr> <stage> [--outcome VALUE] [--text FILE] [--page HTML] [--file PATH]... [--dir DIR]
+       slack.sh replies <issue|pr> [--dir DIR]
        slack.sh check [--dir DIR]
        slack.sh snapshot <page.html> <out-dir>
 
@@ -30,10 +30,13 @@ check     Exit 0 when posting is on, 10 or 11 when it is off, 12 on a setup erro
 snapshot  Write <out-dir>/<name>.png (full page height, Google Chrome headless) and
           <out-dir>/<name>.html (doctype, UTF-8, local resources inlined).
 
+A PR number (a PR opened without an issue) gets a PR thread: progress 확인 → 반영, only
+close is accepted, and any other stage or --backlog exits 2 without calling Slack.
+
 The channel comes from the line "- Slack 채널: `<ID>`" in AGENTS.md, else from
 LOGBOOK_SLACK_CHANNEL (a default for every project); the token from
 LOGBOOK_SLACK_TOKEN, the repo and gh account from .logbook/config.json.
-Exit codes: 0 posted, 10 off (no channel line and no LOGBOOK_SLACK_CHANNEL),
+Exit codes: 0 posted, 2 wrong arguments, 10 off (no channel line and no LOGBOOK_SLACK_CHANNEL),
 11 skipped (no token), 12 failed (Slack, GitHub or Chrome, or a channel name in
 LOGBOOK_SLACK_CHANNEL instead of an ID). The last line of stdout is one line for the chat.
 EOF
