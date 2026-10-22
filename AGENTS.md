@@ -5,6 +5,7 @@
 - 구성: 스킬 `skills/`(rulebook, discuss, brief, build, debrief, sync), 리뷰어 `agents/reviewer.md`, 독립 점검 `agents/checker.md`, 병렬 구현 에이전트 `agents/builder*.md`, hook `hooks/`, 스크립트 `scripts/`(Slack 쓰레드용 `slack.sh`, `slack.py`, `slack_config.py`, `snapshot.py` 포함), 템플릿 `templates/`(질문 안내 `questions.md`, 브리핑 화면 안내 `briefing.md`, 글쓰기 안내 `writing.md`, 그림 안내 `diagram-kit.md`, 병렬 실행 안내 `parallel.md`, Slack 쓰레드 안내 `slack.md`, 기획자용 글 안내 `planner.md`, Slack 앱 매니페스트 `slack-app.yml`, 프로젝트 문서 뼈대 `system/`).
 - 검증: `claude plugin validate .`, `bash tests/run.sh`.
 - 스킬 본문과 에이전트 프롬프트는 영어로, 문서와 이슈·PR은 한국어로 쓴다.
+- 공개 저장소다. 커밋 메시지, 이슈, PR, 문서, 테스트 데이터에는 이 플러그인에서 바뀐 것만 쓴다. logbook을 적용한 다른 프로젝트의 이름과 내용, 개인 정보(회사 메일, 다른 계정, 로컬 경로, Slack 채널 ID)는 쓰지 않는다. 계기가 된 사례가 필요하면 프로젝트 이름 없이 일반적인 상황으로 쓰고, 예시에는 `acme/app` 같은 가상의 이름을 쓴다.
 - SKILL.md는 150줄 이하로 두고 강조어(MUST, CRITICAL, NEVER, ALWAYS)를 쓰지 않는다. 테스트가 확인한다.
 - logbook 작업 규칙은 이 파일에 없다. 플러그인의 SessionStart hook(`hooks/session-rules.sh`)이 `templates/session-rules.md`를 세션마다 넣는다. 이 저장소에서 logbook을 쓰려면 clone한 뒤 `/logbook:rulebook`을 한 번 실행한다.
 
