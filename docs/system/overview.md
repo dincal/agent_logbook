@@ -1,4 +1,4 @@
-<!-- logbook:system sources="README.md .claude-plugin/** skills/** agents/** hooks/** templates/session-rules.md templates/docs-rules.md" checked="2026-10-21" -->
+<!-- logbook:system sources="README.md .claude-plugin/** skills/** agents/** hooks/** templates/session-rules.md templates/docs-rules.md" checked="2026-10-22" -->
 # logbook
 
 > 저장소: https://github.com/dincal/agent_logbook
@@ -32,7 +32,7 @@ flowchart LR
 ```
 
 - Artifact는 claude.ai에 올리는 비공개 웹 페이지입니다. Artifact를 쓸 수 없는 환경에서는 로컬 HTML 파일 경로를 링크로 씁니다.
-- Slack은 선택 연결입니다. 저장소 AGENTS.md에 Slack 채널 줄이 있거나 환경 변수 `LOGBOOK_SLACK_CHANNEL`이 있을 때만 이슈마다 쓰레드를 하나 만들어 진행 상황과 시안, 브리핑·결과 화면(PNG와 HTML)을 단계별 큰 제목을 단 글로 올리고, 첫 메시지에 지금 단계(계획, 만들기, 확인, 반영)를 보입니다. 이슈 없는 PR은 PR마다 쓰레드를 열어 무엇을 바꾸는지와 반영 완료 두 글만 올리고, 단계는 확인과 반영 두 칸만 보입니다. 쓰레드에 달린 답글은 단계가 바뀔 때 읽어 사용자에게 알리고, 계획에 반영할지는 사용자가 정합니다(자세한 흐름은 주요 흐름의 "Slack 쓰레드").
+- Slack은 선택 연결입니다. 저장소 AGENTS.md에 Slack 채널 줄이 있거나 환경 변수 `LOGBOOK_SLACK_CHANNEL`이 있을 때만 계획하거나 만드는 이슈마다(`/discuss`에서 backlog로 남겨 아직 쓰레드가 없는 이슈는 빼고) 쓰레드를 하나 만들어 진행 상황과 시안, 브리핑·결과 화면(PNG와 HTML)을 단계별 큰 제목을 단 글로 올리고, 첫 메시지에 지금 단계(계획, 만들기, 확인, 반영)를 보입니다. 이슈 없는 PR은 PR마다 쓰레드를 열어 무엇을 바꾸는지와 반영 완료 두 글만 올리고, 단계는 확인과 반영 두 칸만 보입니다. 쓰레드에 달린 답글은 단계가 바뀔 때 읽어 사용자에게 알리고, 계획에 반영할지는 사용자가 정합니다(자세한 흐름은 주요 흐름의 "Slack 쓰레드").
 - hook은 Claude Code가 특정 순간(세션 시작, 플랜 제출, 대화 종료)에 자동으로 실행하는 스크립트입니다.
 - logbook 작업 규칙은 저장소에 복사하지 않습니다. 세션이 시작될 때마다 플러그인이 넣으므로, 플러그인을 올리면 모든 프로젝트에 바로 적용됩니다.
 

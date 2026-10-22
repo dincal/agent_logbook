@@ -5,7 +5,7 @@ set -euo pipefail
 
 usage() {
   cat <<'EOF'
-usage: slack.sh thread <issue|pr> [--backlog] [--text FILE] [--dir DIR]
+usage: slack.sh thread <issue|pr> [--text FILE] [--dir DIR]
        slack.sh post <issue|pr> <stage> [--outcome VALUE] [--text FILE] [--page HTML] [--file PATH]... [--dir DIR]
        slack.sh replies <issue|pr> [--dir DIR]
        slack.sh check [--dir DIR]
@@ -14,8 +14,9 @@ usage: slack.sh thread <issue|pr> [--backlog] [--text FILE] [--dir DIR]
 thread    Post the issue's parent message unless the issue already has a thread, and record
           the thread in an issue comment. --text is the issue written out in plain words for
           people who cannot open GitHub; given for an existing thread, it rewrites the first
-          message. Without --text on an existing thread, it redraws a first message whose
-          progress line a failed post left behind.
+          message, and a thread left for later goes back to 계획. Without --text on an
+          existing thread, it redraws a first message whose progress line a failed post left
+          behind.
 post      Reply in the issue's thread as Slack blocks, creating the thread first when it has
           none. Stages: mockup, design, brief, approve, wave, check, pr, debrief, close,
           feedback. close takes --outcome merged|dropped, which it requires; approve takes
@@ -31,12 +32,16 @@ snapshot  Write <out-dir>/<name>.png (full page height, Google Chrome headless) 
           <out-dir>/<name>.html (doctype, UTF-8, local resources inlined).
 
 A PR number (a PR opened without an issue) gets a PR thread: progress 확인 → 반영, only
-close is accepted, and any other stage or --backlog exits 2 without calling Slack.
+close is accepted, and any other stage exits 2 without calling Slack.
+
+Only issues under development get a thread. For an issue with no thread yet, thread and
+post post nothing and exit 0 when it is labelled status:backlog, or when the post is
+approve --outcome later|dropped or close --outcome dropped.
 
 The channel comes from the line "- Slack 채널: `<ID>`" in AGENTS.md, else from
 LOGBOOK_SLACK_CHANNEL (a default for every project); the token from
 LOGBOOK_SLACK_TOKEN, the repo and gh account from .logbook/config.json.
-Exit codes: 0 posted, 2 wrong arguments, 10 off (no channel line and no LOGBOOK_SLACK_CHANNEL),
+Exit codes: 0 posted (or nothing to post, as above), 2 wrong arguments, 10 off (no channel line and no LOGBOOK_SLACK_CHANNEL),
 11 skipped (no token), 12 failed (Slack, GitHub or Chrome, or a channel name in
 LOGBOOK_SLACK_CHANNEL instead of an ID). The last line of stdout is one line for the chat.
 EOF

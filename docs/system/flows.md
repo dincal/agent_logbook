@@ -1,4 +1,4 @@
-<!-- logbook:system sources="skills/** hooks/** agents/** templates/session-rules.md templates/docs-rules.md scripts/rulebook.sh scripts/worktree.sh templates/plan.md templates/parallel.md templates/questions.md templates/briefing.md templates/planner.md templates/slack.md templates/slack-app.yml scripts/slack.sh scripts/slack.py scripts/slack_config.py scripts/snapshot.py" checked="2026-10-21" -->
+<!-- logbook:system sources="skills/** hooks/** agents/** templates/session-rules.md templates/docs-rules.md scripts/rulebook.sh scripts/worktree.sh templates/plan.md templates/parallel.md templates/questions.md templates/briefing.md templates/planner.md templates/slack.md templates/slack-app.yml scripts/slack.sh scripts/slack.py scripts/slack_config.py scripts/snapshot.py" checked="2026-10-22" -->
 # 주요 흐름
 
 ## 흐름 목록
@@ -14,7 +14,7 @@ clone마다 한 번 `/rulebook`으로 logbook을 켜면 세션마다 작업 규�
 | 화면 시안 승인 | 화면이 바뀌면 구현 전에 시안을 승인받습니다. Slack을 켰으면 승인 전에 시안부터 올려 의견을 받습니다 |
 | /build로 구현 | 트랙 그래프대로 묶음마다 builder 트랙을 Workflow 하나로 동시에 돌리고, 위험한 트랙은 합치기 전에 리뷰하며, 묶음마다 전체 테스트를 돌린 뒤 PR로 넘깁니다 |
 | 구현 후 결과 보고 | 증거, 문서 대조, 별도 리뷰(큰 PR은 영역별로 나눠서), 결과 화면을 거쳐 다음 단계와 머지 방식을 고릅니다 |
-| Slack 쓰레드 | 이슈마다 쓰레드 하나에 진행 상황, 브리핑, 결과 화면을 올리고(이슈 없는 PR은 PR마다 첫 메시지와 반영 완료 두 글만), 쓰레드에 달린 답글은 단계마다 읽어 사용자에게 넘깁니다. AGENTS.md의 채널 줄이나 환경 변수 `LOGBOOK_SLACK_CHANNEL`로 채널이 정해진 저장소에서만 동작합니다 |
+| Slack 쓰레드 | 개발하는 이슈마다(백로그 이슈는 빼고) 쓰레드 하나에 진행 상황, 브리핑, 결과 화면을 올리고(이슈 없는 PR은 PR마다 첫 메시지와 반영 완료 두 글만), 쓰레드에 달린 답글은 단계마다 읽어 사용자에게 넘깁니다. AGENTS.md의 채널 줄이나 환경 변수 `LOGBOOK_SLACK_CHANNEL`로 채널이 정해진 저장소에서만 동작합니다 |
 | 문서 동기화 | 문서 구조를 정하고, 옛 흔적을 정리하고, 프로젝트 문서를 코드에 맞춥니다. 도메인 규칙이 있으면 업무 규칙 문서 초안을 쓰고 확인받습니다 |
 
 ## logbook 켜기와 세션 규칙
@@ -68,7 +68,7 @@ flowchart TD
 - backlog 이슈도 만든 사람(트래커 줄의 gh 계정)을 담당자로 붙입니다.
 - `/brief`는 토론 요약의 결정을 사용자가 정한 것으로 옮기고 남은 질문만 묻습니다. backlog 이슈를 받으면 라벨을 `status:todo`로 바꿉니다.
 - logbook 규칙의 "의견을 묻는 말에는 토론으로 답한다" 때문에 명령 없이 의견을 물어도 에이전트가 `/discuss` 스킬을 불러 같은 흐름을 탑니다. 할 일인지 의견인지 애매하면 에이전트가 한 줄로 묻습니다.
-- Slack 쓰레드를 켠 저장소에서 backlog로 끝맺으면 이슈를 만들면서 쓰레드의 상위 메시지도 올립니다. 자세한 내용은 "Slack 쓰레드"에 있습니다.
+- backlog로 끝맺은 이슈는 Slack에 올리지 않습니다. 나중에 `/brief`로 시작하면 그때 쓰레드가 생깁니다. 자세한 내용은 "Slack 쓰레드"에 있습니다.
 - 시작점: `skills/discuss/SKILL.md`, `templates/session-rules.md`
 
 | 모델 호출 | 모델(설정) | 넣는 것 | 요청(프롬프트 요지) | 받는 것과 검사 | 실패하면 |
@@ -259,7 +259,7 @@ flowchart TD
 
 ## Slack 쓰레드
 
-저장소 AGENTS.md에 Slack 채널 줄이 있거나 환경 변수 `LOGBOOK_SLACK_CHANNEL`이 있으면(채널 줄이 앞섭니다), logbook은 이슈마다, 이슈 없는 PR은 PR마다 Slack 쓰레드(메시지 하나에 답글이 이어지는 대화)를 하나 만들어 진행 상황을 올리고, 사람이 단 답글은 단계가 바뀔 때 읽어 사용자에게 넘깁니다. 둘 다 없으면 이 흐름 없이 동작합니다. 언제 무엇을 올리고 답글을 어떻게 다루는지는 `templates/slack.md`가 스킬에 알려 줍니다.
+저장소 AGENTS.md에 Slack 채널 줄이 있거나 환경 변수 `LOGBOOK_SLACK_CHANNEL`이 있으면(채널 줄이 앞섭니다), logbook은 계획하거나 만드는 이슈마다, 이슈 없는 PR은 PR마다 Slack 쓰레드(메시지 하나에 답글이 이어지는 대화)를 하나 만들어 진행 상황을 올리고, 사람이 단 답글은 단계가 바뀔 때 읽어 사용자에게 넘깁니다. 둘 다 없으면 이 흐름 없이 동작합니다. 언제 무엇을 올리고 답글을 어떻게 다루는지는 `templates/slack.md`가 스킬에 알려 줍니다.
 
 ```mermaid
 flowchart TD
@@ -281,6 +281,7 @@ flowchart TD
   C -->|"방향 변경"| Q["질문 도구로 반영, 무시, 나중에를 물음"]
 ```
 
+- 채널에는 계획하거나 만드는 일만 올립니다. `/discuss`를 backlog로 끝맺으면 Slack을 부르지 않습니다. 쓰레드가 아직 없는 이슈에 대해서는 스크립트도 아무것도 올리지 않고 종료 코드 0으로 끝냅니다. `status:backlog` 라벨이 붙은 이슈이거나, 올리는 글이 나중에 하기(`approve --outcome later`)나 버리기(`approve --outcome dropped`, `close --outcome dropped`)일 때입니다. 라벨은 이미 하던 `gh issue view` 조회에서 함께 읽습니다. 쓰레드가 있는 이슈는 나중에 하기도 지금처럼 올리고 첫 메시지에 `[백로그]`를 붙이며, `/brief`로 다시 시작해 1단계에서 `slack.sh thread <이슈> --text`를 부르면 `[백로그]`를 떼고 계획 단계로 돌립니다. 이미 채널에 있는 `[백로그]` 쓰레드는 그대로 둡니다.
 - 기획자는 GitHub에 들어갈 수 없으므로, 상위 메시지에는 이슈 내용(무엇을, 왜, 누구에게 좋은지)을 쉬운 말로 풀어 쓰고 GitHub 링크는 끝에 개발자용 한 줄로 둡니다. 이슈 내용이 바뀌면 `slack.sh thread <이슈> --text <파일>`을 다시 실행해 상위 메시지를 고칩니다(`chat.update`).
 - 게시는 `scripts/slack.sh`가 합니다. 이슈 댓글에 남긴 쓰레드 표시(`<!-- logbook:slack ... -->`)로 쓰레드를 찾고, 없으면 상위 메시지를 올린 뒤 표시를 남깁니다. 표시를 남기지 못하면 방금 올린 상위 메시지를 지워 쓰레드가 둘로 생기지 않게 합니다. 표시에는 읽은 위치(`read`)와 단계별 화면 해시도 들어갑니다.
 - 스크립트는 모든 글을 Slack Block Kit으로 바꿉니다. 단계의 아이콘과 이름을 단 큰 제목, 진행 줄(계획 → 만들기 → 확인 → 반영), 구분선, 본문, 작고 회색인 바닥글 순서입니다. `개발자용:`으로 시작하는 줄은 바닥글로 옮기고, 브리핑과 완성 보고의 첨부는 개발자용이라는 안내를 스크립트가 바닥글에 붙입니다. 첨부가 있는 글은 블록과 파일을 한 메시지로 올리고, Slack이 첨부 메시지의 블록을 거부하면(`invalid_blocks`) 블록 글을 먼저 올린 뒤 바로 아래에 파일만 올립니다.
@@ -290,7 +291,7 @@ flowchart TD
 - 화면은 Chrome headless(화면 없이 도는 Chrome)로 페이지 전체 높이를 PNG 한 장으로 찍고, 참조하는 이미지를 파일 안에 넣은 HTML 사본을 함께 올립니다. 지난 게시와 화면 해시가 같으면 글만 올립니다.
 - 답글은 단계 경계(시안 승인 요청 전, 브리핑 승인 요청 전, 묶음 끝, PR을 열기 전, 디브리핑 시작, 머지 전)에서 읽습니다. 봇이 올린 메시지는 빼고, 같은 답글을 두 번 알리지 않습니다. 답글에 계획을 바꾸라는 말이 있어도 에이전트가 직접 반영하지 않고, 반영하면 `/build` 중에는 결정 기록에 남기며 승인 전이면 `/brief` 수정으로 돌아갑니다.
 - 실패해도 스킬은 멈추지 않습니다. 종료 코드 10은 채널이 정해지지 않아 꺼진 상태, 11은 토큰(`LOGBOOK_SLACK_TOKEN`)이 없어 건너뜀, 12는 Slack, GitHub, Chrome 호출 실패나 `LOGBOOK_SLACK_CHANNEL`에 채널 ID가 아닌 값이 든 설정 오류입니다. 스크립트가 마지막 줄에 채팅에 옮길 한 줄을 내고, 스킬은 그 줄을 알린 뒤 다음 단계로 갑니다. 쓰레드를 만들지 못했으면 다음 게시 때 다시 만듭니다.
-- PR 쓰레드: `Closes #n`이 없는 PR은 `/debrief` 시작에 `slack.sh thread <PR번호> --text <파일>`로 자기 쓰레드를 엽니다. `gh issue view`가 돌려준 주소가 `/pull/<번호>`로 끝나면 PR로 보고, 쓰레드 표시(`kind=pr`)를 PR 댓글에 남깁니다. 글은 첫 메시지와 반영 완료 둘뿐이고, 피드백과 답글에 대한 답은 반영 완료 본문에 한두 줄로 넣으며, "나중에"로 미룬 방향 변경은 PR 댓글로 남깁니다. 진행 줄은 `확인 → 반영` 두 칸이고 첫 메시지의 개발자용 줄은 "GitHub PR #n"입니다. PR 쓰레드에는 `close`만 올릴 수 있고, 다른 단계나 `--backlog`는 종료 코드 2로 거부합니다. 저장소를 고치지 않는 로컬 작업은 올리지 않습니다.
+- PR 쓰레드: `Closes #n`이 없는 PR은 `/debrief` 시작에 `slack.sh thread <PR번호> --text <파일>`로 자기 쓰레드를 엽니다. `gh issue view`가 돌려준 주소가 `/pull/<번호>`로 끝나면 PR로 보고, 쓰레드 표시(`kind=pr`)를 PR 댓글에 남깁니다. 글은 첫 메시지와 반영 완료 둘뿐이고, 피드백과 답글에 대한 답은 반영 완료 본문에 한두 줄로 넣으며, "나중에"로 미룬 방향 변경은 PR 댓글로 남깁니다. 진행 줄은 `확인 → 반영` 두 칸이고 첫 메시지의 개발자용 줄은 "GitHub PR #n"입니다. PR 쓰레드에는 `close`만 올릴 수 있고, 다른 단계는 종료 코드 2로 거부합니다. 저장소를 고치지 않는 로컬 작업은 올리지 않습니다.
 - 한계: logbook이 직접 한 머지와 닫힘만 올립니다. GitHub 웹에서 머지하거나 닫은 이슈나 PR은 닫힘 글도 닫힘 안내도 붙지 않습니다. 답글은 단계 경계에서만 읽으므로 세션이 쉬는 동안 달린 답글은 다음 경계에서 알립니다.
 - 시작점: `scripts/slack.sh`, `scripts/slack.py`, `scripts/slack_config.py`, `scripts/snapshot.py`, `templates/slack.md`, `templates/planner.md`, `templates/slack-app.yml`, `skills/*/SKILL.md`의 Slack 단계
 

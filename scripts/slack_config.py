@@ -269,9 +269,9 @@ class GitHub:
         return out.stdout
 
     def issue(self, number):
-        """{title, url, state}"""
+        """{title, url, state, labels}"""
         return _json(self._run(["issue", "view", str(number), "--repo", self.repo,
-                                "--json", "title,url,state"]))
+                                "--json", "title,url,state,labels"]))
 
     def comments(self, number):
         """[{id, body, author_association}] oldest first."""

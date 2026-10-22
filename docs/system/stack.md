@@ -1,4 +1,4 @@
-<!-- logbook:system sources=".claude-plugin/** hooks/** scripts/** templates/** tests/** agents/**" checked="2026-10-21" -->
+<!-- logbook:system sources=".claude-plugin/** hooks/** scripts/** templates/** tests/** agents/**" checked="2026-10-22" -->
 # 기술 스택
 
 ## 구성과 기술 스택

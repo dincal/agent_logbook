@@ -1,6 +1,6 @@
 # Slack thread
 
-How `/discuss`, `/brief`, `/build` and `/debrief` share an issue's progress in one Slack thread, and how they handle what people reply there. The thread is for the team, planners included: every post is written by `templates/planner.md`.
+How `/brief`, `/build` and `/debrief` share an issue's progress in one Slack thread, and how they handle what people reply there. The thread is for the team, planners included: every post is written by `templates/planner.md`.
 
 ## When it is on
 
@@ -8,7 +8,7 @@ How `/discuss`, `/brief`, `/build` and `/debrief` share an issue's progress in o
 
 | Exit | Meaning | What you do |
 |---|---|---|
-| 0 | Posted | Nothing more |
+| 0 | Posted, or nothing to post (see "Only issues under development") | Nothing more |
 | 10 | No channel: Slack is off for this project | Say nothing |
 | 11 | No token | Once per session, say in one line that Slack posting is skipped and that `LOGBOOK_SLACK_TOKEN` turns it on |
 | 12 | Slack, GitHub or Chrome failed, or `LOGBOOK_SLACK_CHANNEL` holds a name instead of a channel ID | Relay its last line in one line of chat |
@@ -16,17 +16,21 @@ How `/discuss`, `/brief`, `/build` and `/debrief` share an issue's progress in o
 
 Slack never stops or delays a skill step: on 11 or 12 carry on. The script makes the thread when it is missing, so a skipped post is made up by the next one.
 
+## Only issues under development
+
+The channel shows work that is being planned or built, not ideas left for later. `/discuss` posts nothing when it ends with a backlog issue; `/brief` opens the thread when the work starts. For an issue that has no thread yet, `slack.sh` itself posts nothing and exits 0 when the issue is labelled `status:backlog`, or when the post is `approve --outcome later|dropped` or `close --outcome dropped`. An issue that already has a thread keeps getting its posts, 나중에 하기 included, and `/brief`'s `thread --text` takes a thread left for later back to 계획.
+
 ## What goes where
 
 Write each post's text to a temporary file and pass it with `--text`. The script adds the title on top.
 
 | Point | Skill step | Command |
 |---|---|---|
-| Issue created | `/brief` step 1, `/discuss` backlog ending | `slack.sh thread <issue> --text <file>` (`--backlog` from `/discuss`). The text is the issue written out in plain words, as the first-message section of `templates/planner.md` says: planners cannot open GitHub. Run it again with a new text when the issue's content changes, for instance after the briefing rewrote the issue body; it rewrites the first message |
+| Issue created | `/brief` step 1 | `slack.sh thread <issue> --text <file>`. The text is the issue written out in plain words, as the first-message section of `templates/planner.md` says: planners cannot open GitHub. Run it again with a new text when the issue's content changes, for instance after the briefing rewrote the issue body; it rewrites the first message |
 | Mockup drafted | `/brief` step 4, before asking for approval and again after each change | When `slack.sh check` exits 0, read the canvas back and save the draft artboards (`project/*.dc.html`) to a new temporary folder, never the design folder, which holds the approved copy only; make one PNG per artboard with `slack.sh snapshot <artboard> <dir>` into another new temporary folder, then `slack.sh post <issue> mockup --text <file>` with one `--file <png>` per PNG that was made (none without Chrome, then the text goes alone). Text: what the screens are for, and that comments are welcome. Read the replies before asking |
 | Mockup approved | `/brief` step 4 | `slack.sh post <issue> design --text <file>`, text only: 시안이 승인되었습니다 |
 | Briefing | `/brief` step 8, again after 수정 | `slack.sh post <issue> brief --text <planner briefing> --page <main>/.logbook/briefs/<issue>-brief.html` |
-| Briefing approved | `/brief` step 9 | `slack.sh post <issue> approve --text <file>`: 브리핑이 승인되어 개발을 시작합니다. On 중단 → 나중에 하기, `slack.sh post <issue> approve --outcome later` with why it waits and what would start it again. On 중단 → 버리기, post only the `close --outcome dropped` row below |
+| Briefing approved | `/brief` step 9 | `slack.sh post <issue> approve --text <file>`: 브리핑이 승인되어 개발을 시작합니다. On 중단 → 나중에 하기, `slack.sh post <issue> approve --outcome later` with why it waits and what would start it again; without a thread it posts nothing. On 중단 → 버리기, post only the `close --outcome dropped` row below |
 | Development done | `/build` Finish, once, before the PR | `slack.sh post <issue> wave --text <file>`: what was built, that it was checked. Not after every wave |
 | Something to look at | `/build` or `/debrief`, when screenshots, e2e test runs or logs exist that a person should look at | `slack.sh post <issue> check --text <file> --file <path>...`: what to look at and what it should show. Issue threads only |
 | PR opened | `/build` Finish | `slack.sh post <issue> pr --text <file>`: the work is ready to be merged after a final check, with the PR link as the last line |
@@ -41,7 +45,7 @@ Write each post's text to a temporary file and pass it with `--text`. The script
 A PR without `Closes #n` gets its own thread keyed by the PR number. `slack.sh` sees a PR when `gh issue view` returns a url ending in `/pull/<number>`, and records `kind=pr` in the thread marker, a PR comment. Repo-less local work posts nothing.
 
 - The thread has two posts: the first message at the start of `/debrief`, and 반영 완료 after the merge. The progress line has two cells, `*확인* ● → 반영`, and `확인 ✓ → 반영 ✓` after a merge; `dropped` shows 중단했습니다 as usual. The first message's developer line says `GitHub PR #n`.
-- Only the `close` stage is allowed on a PR thread. With Slack on, any other stage, and `thread --backlog`, exits 2 without calling Slack (with no channel or token the usual 10 or 11 comes first).
+- Only the `close` stage is allowed on a PR thread. With Slack on, any other stage exits 2 without calling Slack (with no channel or token the usual 10 or 11 comes first).
 - Feedback goes into the 반영 완료 text as one or two lines, not as a `feedback` post, and no `check` post is made. Answers to thread replies go there too. A 방향 변경 reply decided as 나중에 becomes a PR comment. The feedback summary and replies sections below say where these differ.
 - Read the replies at the start of `/debrief` and before merging, as below.
 - Limitation: a merge or close made outside logbook (the GitHub web page) posts nothing, so no 반영 완료 follows.

@@ -1,5 +1,21 @@
 # 변경 이력
 
+## [0.17.0] - 2026-10-22
+
+이슈 [#3](https://github.com/dincal/agent_logbook/issues/3) · PR [#4](https://github.com/dincal/agent_logbook/pull/4)
+
+Slack 채널에는 계획하거나 만드는 이슈만 올라오고, `/discuss`에서 backlog로 남긴 이슈는 계획을 시작하기 전까지 올라오지 않습니다.
+
+### 변경
+
+- `/discuss`를 "backlog 이슈로 남기기"로 끝내면 Slack 쓰레드를 만들지 않습니다. 그 이슈를 `/brief`로 시작할 때 쓰레드가 생깁니다.
+- 쓰레드가 없는 이슈에 대해서는 `slack.sh`도 아무것도 올리지 않고 종료 코드 0으로 끝냅니다. `status:backlog` 라벨이 붙은 이슈, 나중에 하기(`approve --outcome later`), 버리기(`approve --outcome dropped`, `close --outcome dropped`)가 그렇습니다. 쓰레드가 있는 이슈의 나중에 하기는 지금처럼 올라갑니다.
+- 나중에 하기로 미뤘던 이슈를 `/brief`로 다시 시작하면 첫 메시지의 `[백로그]` 표시를 1단계에서 바로 뗍니다.
+
+### 삭제
+
+- `slack.sh thread`의 `--backlog` 옵션. 넘기면 종료 코드 2입니다. 채널에 이미 올라간 `[백로그]` 쓰레드는 그대로 남으니 필요하면 손으로 지웁니다.
+
 ## [0.16.0] - 2026-10-21
 
 이슈 #39 · PR #40

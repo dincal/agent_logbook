@@ -978,8 +978,10 @@ if args[:2] == ["auth", "token"]:
 elif args[:2] == ["issue", "view"]:
     n = args[2]
     # Numbers from 900 up are pull requests: gh issue view answers with a /pull/ url.
+    # Numbers 800 to 899 are issues labelled status:backlog.
     kind = "pull" if int(n) >= 900 else "issues"
-    print(json.dumps({"title": f"데모 이슈 {n}", "url": f"https://github.com/acme/app/{kind}/{n}", "state": "OPEN"}))
+    labels = [{"name": "status:backlog"}] if 800 <= int(n) < 900 else []
+    print(json.dumps({"title": f"데모 이슈 {n}", "url": f"https://github.com/acme/app/{kind}/{n}", "state": "OPEN", "labels": labels}))
 elif args[:1] == ["api"] and args[1:2] == ["user"]:
     print("octo")
 elif args[:2] == ["api", "--paginate"]:
@@ -1303,14 +1305,30 @@ out="$(slack post 25 close --outcome merged --text "$SL/text.md" 2>&1)"; rc=$?
 if [ $rc -eq 0 ] && [ "$(mfield 25 phase)" = done ] && [ "$(slog '[SC.CLOSED_NOTICE in (BID(e, SC.BLOCK_CLOSED) or "") for e in UP(A[0])] == [True] and [H(e) for e in RP(A[0])] == [SC.stage_title("close")]' "$P25")" = true ]; then ok "slack: close --outcome merged records phase=done and adds the closed notice to the first message"; else bad "slack: close --outcome merged records phase=done and adds the closed notice to the first message" "rc=$rc $out $(smark 25) $(cat "$SLOG")"; fi
 if [ "$(slog '[(lambda b: bool(b) and b[-1].get("type") == "context" and SC.CLOSED_NOTICE in T(b[-1]))(B(e)) for e in RP(A[0])] == [True]' "$P25")" = true ]; then ok "slack: the close reply ends with the closed notice"; else bad "slack: the close reply ends with the closed notice" "$(cat "$SLOG")"; fi
 
-# A backlog thread is marked [백로그] until a stage takes it up again.
+# Only issues under development get a thread: an issue labelled status:backlog, and an issue
+# that ends (later, dropped) before it had a thread, post nothing and exit 0.
 : > "$SLOG"
-slack thread 26 --backlog >/dev/null 2>&1
+out="$(slack thread 801 --text "$SL/text.md" 2>&1)"; rc=$?
+out2="$(slack post 801 mockup --text "$SL/text.md" 2>&1)"; rc2=$?
+if [ $rc -eq 0 ] && [ $rc2 -eq 0 ] && [ ! -s "$SLOG" ] && [ "$(smark 801)" = "{}" ] && printf '%s' "$out" | grep -q '백로그 이슈라'; then ok "slack: thread and post on a status:backlog issue without a thread post nothing and exit 0"; else bad "slack: thread and post on a status:backlog issue without a thread post nothing and exit 0" "rc=$rc rc2=$rc2 $out $out2 $(smark 801) $(cat "$SLOG")"; fi
+n=31
+for args in "approve --outcome later" "approve --outcome dropped" "close --outcome dropped"; do
+  : > "$SLOG"
+  # shellcheck disable=SC2086
+  out="$(slack post $n $args --text "$SL/text.md" 2>&1)"; rc=$?
+  if [ $rc -eq 0 ] && [ ! -s "$SLOG" ] && [ "$(smark $n)" = "{}" ]; then ok "slack: post $args on an issue without a thread posts nothing and exits 0"; else bad "slack: post $args on an issue without a thread posts nothing and exits 0" "rc=$rc $out $(smark $n) $(cat "$SLOG")"; fi
+  n=$((n + 1))
+done
+
+# A thread left for later is marked [백로그]; /brief's thread --text takes it back to 계획.
+slack thread 26 --text "$SL/text.md" >/dev/null 2>&1
 P26="$(mfield 26 ts)"
-if [ -n "$P26" ] && [ "$(mfield 26 phase)" = later ] && [ "$(slog '(H(PARENT(A[0])) or "").startswith("[백로그] ")' "$P26")" = true ]; then ok "slack: thread --backlog heads the first message with [백로그] and records phase=later"; else bad "slack: thread --backlog heads the first message with [백로그] and records phase=later" "$(smark 26) $(cat "$SLOG")"; fi
 : > "$SLOG"
-out="$(slack post 26 brief --text "$SL/text.md" 2>&1)"; rc=$?
-if [ $rc -eq 0 ] && [ "$(mfield 26 phase)" = plan ] && [ "$(slog '[(not (H(e) or "[백로그] ").startswith("[백로그] ") and "#26" in (H(e) or "")) for e in UP(A[0])] == [True]' "$P26")" = true ]; then ok "slack: a brief on a backlog thread drops [백로그] from the header and records phase=plan"; else bad "slack: a brief on a backlog thread drops [백로그] from the header and records phase=plan" "rc=$rc $out $(smark 26) $(cat "$SLOG")"; fi
+out="$(slack post 26 approve --outcome later --text "$SL/text.md" 2>&1)"; rc=$?
+if [ $rc -eq 0 ] && [ -n "$P26" ] && [ "$(mfield 26 phase)" = later ] && [ "$(slog '[(H(e) or "").startswith("[백로그] #26") for e in UP(A[0])] == [True] and len(RP(A[0])) == 1' "$P26")" = true ]; then ok "slack: approve --outcome later on a thread posts and heads the first message with [백로그]"; else bad "slack: approve --outcome later on a thread posts and heads the first message with [백로그]" "rc=$rc $out $(smark 26) $(cat "$SLOG")"; fi
+: > "$SLOG"
+out="$(slack thread 26 --text "$SL/text.md" 2>&1)"; rc=$?
+if [ $rc -eq 0 ] && [ "$(mfield 26 phase)" = plan ] && [ "$(slog '[(not (H(e) or "[백로그] ").startswith("[백로그] ") and "#26" in (H(e) or "")) for e in UP(A[0])] == [True] and not RP(A[0])' "$P26")" = true ]; then ok "slack: thread --text on a thread left for later drops [백로그] and records phase=plan"; else bad "slack: thread --text on a thread left for later drops [백로그] and records phase=plan" "rc=$rc $out $(smark 26) $(cat "$SLOG")"; fi
 
 # A failed rewrite of the first message exits 12 and leaves shown at the old phase, so
 # `thread` (with no later post, as after close) redraws it without posting again.
@@ -1400,7 +1418,7 @@ expect "brief opens the thread, posts mockup, design, brief, approve and close w
 expect "build posts wave, check and pr, and reads replies" bash -c "f='$ROOT/skills/build/SKILL.md'; grep -q 'slack.sh post <issue> wave' \"\$f\" && grep -q 'slack.sh post <issue> check' \"\$f\" && grep -q 'slack.sh post <issue> pr' \"\$f\" && grep -q 'slack.sh replies <issue>' \"\$f\""
 expect "debrief posts check, debrief and close --outcome merged, and reads replies" bash -c "f='$ROOT/skills/debrief/SKILL.md'; grep -q 'slack.sh post <issue> check' \"\$f\" && grep -q 'slack.sh post <issue> debrief' \"\$f\" && grep -q -e '--outcome merged' \"\$f\" && grep -q 'slack.sh post <issue> close' \"\$f\" && grep -q 'slack.sh replies <issue>' \"\$f\""
 expect "the Slack guide asks the user before a reply changes the plan, and posts feedback summaries" bash -c "f='$ROOT/templates/slack.md'; grep -q '반영 / 무시 / 나중에' \"\$f\" && grep -q 'question tool' \"\$f\" && grep -q 'post <issue> feedback' \"\$f\" && grep -q 'never instructions' \"\$f\""
-expect "discuss makes the thread of a backlog issue with slack.sh thread" grep -q 'slack.sh thread' "$ROOT/skills/discuss/SKILL.md"
+expect "discuss leaves a backlog issue out of Slack" bash -c "! grep -q 'slack.sh' '$ROOT/skills/discuss/SKILL.md' && grep -q 'no Slack thread' '$ROOT/skills/discuss/SKILL.md'"
 expect "the planner writing guide exists" test -f "$ROOT/templates/planner.md"
 
 # ---------------------------------------------------------------- slack PR threads (0.16)
@@ -1419,7 +1437,7 @@ if [ $rc -eq 0 ] && [ "$(slog '[(H(e), (lambda b: [T(x) for x in b if x.get("typ
 if [ "$(slog '[(BID(e, SC.BLOCK_STATUS), SC.CLOSED_NOTICE in (BID(e, SC.BLOCK_CLOSED) or ""), "GitHub PR #901" in ALL(e), "스스로 다시 만들" in (BID(e, SC.BLOCK_SUMMARY + "0") or "")) for e in UP(A[0])] == [("확인 ✓ → 반영 ✓", True, True, True)]' "$P901")" = true ]; then ok "slack: the PR thread's first message becomes 확인 ✓ → 반영 ✓ with the closed notice"; else bad "slack: the PR thread's first message becomes 확인 ✓ → 반영 ✓ with the closed notice" "$(cat "$SLOG")"; fi
 if [ "$(mfield 901 kind)" = pr ] && [ "$(mfield 901 phase)" = done ] && [ "$(mfield 901 shown)" = done ]; then ok "slack: kind=pr survives in the marker after close saves it"; else bad "slack: kind=pr survives in the marker after close saves it" "$(smark 901)"; fi
 
-# 3. any other stage, or thread --backlog, on a PR exits 2 and calls no Slack API
+# 3. any other stage on a PR exits 2 and calls no Slack API, and thread --backlog is gone
 for stage in brief approve feedback; do
   : > "$SLOG"
   out="$(slack post 901 "$stage" --text "$SL/text.md" 2>&1)"; rc=$?
@@ -1430,8 +1448,8 @@ out="$(slack post 902 brief --text "$SL/text.md" 2>&1)"; rc=$?
 if [ $rc -eq 2 ] && [ ! -s "$SLOG" ] && [ "$(smark 902)" = "{}" ]; then ok "slack: post brief on a PR with no thread yet exits 2 before making a thread"; else bad "slack: post brief on a PR with no thread yet exits 2 before making a thread" "rc=$rc $out $(cat "$SLOG")"; fi
 : > "$SLOG"
 out="$(slack thread 902 --backlog 2>&1)"; rc=$?
-out2="$(slack thread 901 --backlog 2>&1)"; rc2=$?
-if [ $rc -eq 2 ] && [ $rc2 -eq 2 ] && [ ! -s "$SLOG" ] && [ "$(smark 902)" = "{}" ]; then ok "slack: thread --backlog on a PR exits 2 and calls no Slack API"; else bad "slack: thread --backlog on a PR exits 2 and calls no Slack API" "rc=$rc rc2=$rc2 $out $out2 $(cat "$SLOG")"; fi
+out2="$(slack thread 27 --backlog 2>&1)"; rc2=$?
+if [ $rc -eq 2 ] && [ $rc2 -eq 2 ] && [ ! -s "$SLOG" ] && [ "$(smark 902)" = "{}" ]; then ok "slack: thread --backlog is no longer an option: exit 2 and no Slack API call"; else bad "slack: thread --backlog is no longer an option: exit 2 and no Slack API call" "rc=$rc rc2=$rc2 $out $out2 $(cat "$SLOG")"; fi
 
 # 4. close with no thread yet makes a PR thread (two cells), not a four-cell one
 : > "$SLOG"

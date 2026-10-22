@@ -125,7 +125,7 @@
 
 <main class="deck">
   <header class="cover">
-    <div class="eyebrow">사용설명서 · logbook v0.16.0</div>
+    <div class="eyebrow">사용설명서 · logbook v0.17.0</div>
     <h1>logbook 사용설명서</h1>
     <p class="lead">에이전트가 조사해 계획을 세우고, 사람이 정할 결정은 객관식으로 묻습니다. 사람은 구현 전 브리핑과 구현 후 결과 보고만 검토하고, 지금 시스템의 모습은 코드와 맞춰 둔 프로젝트 문서로 봅니다. 설치부터 문제 해결까지 열세 장으로 설명합니다.</p>
     <div class="meta">
@@ -471,7 +471,7 @@ flowchart LR
   <!-- 12 -->
   <section class="slide" id="slack">
     <div class="slide-head"><span class="no">12 / 13</span><span>Slack 쓰레드</span></div>
-    <h2>Slack 쓰레드를 켜면 이슈마다(이슈 없는 PR은 PR마다) 쓰레드 하나에 진행 상황이 올라오고, 팀의 답글은 단계마다 읽힙니다</h2>
+    <h2>Slack 쓰레드를 켜면 계획하거나 만드는 이슈마다(이슈 없는 PR은 PR마다) 쓰레드 하나에 진행 상황이 올라오고, 팀의 답글은 단계마다 읽힙니다</h2>
     <p class="sub">선택 기능입니다. 채널이 정해지지 않은 저장소는 지금과 똑같이 동작합니다. 브리핑 화면에는 DB 스키마와 위험 항목이 들어가므로, 공개 링크 대신 회사 Slack 워크스페이스를 접근 범위로 씁니다.</p>
     <ol class="steps">
       <li><p>워크스페이스 관리자가 Slack 앱을 만듭니다. api.slack.com/apps에서 "Create New App", "From a manifest"를 고르고 이 저장소의 <code>templates/slack-app.yml</code>을 붙여 넣은 뒤 워크스페이스에 설치합니다. 권한은 <code>chat:write</code>, <code>files:write</code>, <code>channels:history</code>, <code>groups:history</code>, <code>users:read</code>입니다.</p></li>
@@ -485,11 +485,11 @@ flowchart LR
       <table>
         <thead><tr><th>시점</th><th>쓰레드에 올라오는 것</th></tr></thead>
         <tbody>
-          <tr><td>이슈 생성(backlog 포함)</td><td>상위 메시지: 이슈 제목과, 기획자가 GitHub 없이 읽도록 쉬운 말로 풀어 쓴 이슈 내용, 올린 사람. GitHub 링크는 끝에 개발자용으로</td></tr>
+          <tr><td>이슈 생성</td><td>상위 메시지: 이슈 제목과, 기획자가 GitHub 없이 읽도록 쉬운 말로 풀어 쓴 이슈 내용, 올린 사람. GitHub 링크는 끝에 개발자용으로. <code>/brief</code>를 시작할 때 올라오고, <code>/discuss</code>에서 나중에 하기로 남긴 백로그 이슈는 올라오지 않습니다</td></tr>
           <tr><td>시안</td><td>승인을 묻기 전에 올리는 화면 PNG와 설명. 의견을 받고, 고칠 때마다 다시 올립니다</td></tr>
           <tr><td>시안 승인</td><td>"시안이 승인되었습니다" 한 줄</td></tr>
           <tr><td>브리핑</td><td>유저 스토리로 쓴 기획자용 요약, 주요 결정, 판단이 필요한 항목, 브리핑 화면의 PNG와 HTML</td></tr>
-          <tr><td>개발 시작</td><td>브리핑이 승인되어 개발을 시작한다는 알림. 중단하면 나중에 하기나 버리기 결과</td></tr>
+          <tr><td>개발 시작</td><td>브리핑이 승인되어 개발을 시작한다는 알림. 중단하면 나중에 하기나 버리기 결과. 쓰레드가 없던 이슈의 중단 결과는 새로 올리지 않습니다</td></tr>
           <tr><td>개발 끝</td><td>모두 만들어졌고 확인을 마쳤다는 알림. 마지막 묶음 뒤에 한 번만 올라옵니다</td></tr>
           <tr><td>확인할 결과</td><td>사람이 눈으로 확인할 화면 스크린샷, e2e 테스트 로그</td></tr>
           <tr><td>마지막 확인</td><td>합치기 전에 마지막으로 확인하고 있다는 안내와 PR 링크</td></tr>
@@ -529,7 +529,7 @@ flowchart LR
   </section>
 
   <footer>
-    <span>logbook v0.16.0</span>
+    <span>logbook v0.17.0</span>
     <span>변경 이력: <a href="https://github.com/dincal/agent_logbook/blob/main/CHANGELOG.md">CHANGELOG.md</a></span>
     <span class="keys">← → 로 장 이동</span>
   </footer>

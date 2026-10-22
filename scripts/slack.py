@@ -105,6 +105,22 @@ def issue_kind(info):
     return "pr" if re.search(r"/pull/\d+/?$", info.get("url") or "") else ""
 
 
+BACKLOG_LABEL = "status:backlog"
+
+
+def skip_reason(info, kind, stage="", outcome=""):
+    """Why a number without a thread gets none, or "". Only issues under development get a
+    thread: not one labelled status:backlog, and not one that ends (later, dropped) before
+    any thread existed. A PR keeps its own rules."""
+    if kind == "pr":
+        return ""
+    if any((label or {}).get("name") == BACKLOG_LABEL for label in info.get("labels") or []):
+        return "백로그 이슈라 Slack에 올리지 않았습니다"
+    if stage in OUTCOMES and outcome in ("later", "dropped"):
+        return "쓰레드 없이 끝난 이슈라 Slack에 올리지 않았습니다"
+    return ""
+
+
 def _developer_link(issue, info, kind):
     label = "GitHub PR" if kind == "pr" else "GitHub 이슈"
     return f"<{info.get('url', '')}|{label} #{issue}>"
@@ -319,15 +335,13 @@ def rewrite_parent(ctx, issue, ts, phase, kind=""):
     return True
 
 
-def create_thread(ctx, issue, backlog=False, summary="", info=None):
+def create_thread(ctx, issue, summary="", info=None):
     """Post the parent message and record it in an issue comment (a PR comment for a PR,
-    which starts at 확인 and cannot be backlog). When the record cannot be written, delete
-    the message so the next run does not leave a second thread."""
+    which starts at 확인). When the record cannot be written, delete the message so the
+    next run does not leave a second thread."""
     info = info or ctx.gh.issue(issue)
     kind = issue_kind(info)
-    if kind == "pr" and backlog:
-        raise Refused(f"#{issue}은 PR이라 --backlog를 쓸 수 없습니다. PR 쓰레드는 백로그로 두지 않습니다")
-    phase = "check" if kind == "pr" else ("later" if backlog else "plan")
+    phase = "check" if kind == "pr" else "plan"
     resp = ctx.call("chat.postMessage", channel=ctx.chan,
                     **parent_message(ctx, issue, summary, phase, kind=kind, info=info))
     ts = _field(resp, "ts", "chat.postMessage")
@@ -362,18 +376,18 @@ def thread_kind(ctx, issue):
 def cmd_thread(ctx, args):
     summary = _read_bytes(args.text, "글 파일").decode("utf-8", "replace") if args.text else ""
     record, kind, info = thread_kind(ctx, args.issue)
-    if kind == "pr" and args.backlog:
-        raise Refused(f"#{args.issue}은 PR이라 --backlog를 쓸 수 없습니다. PR 쓰레드는 백로그로 두지 않습니다")
     if record is not None:
         m = PERMALINK.search(record["body"])
         where = m.group(1) if m else record["mark"]["ts"]
         mark = record["mark"]
         if summary:
             # Rewrite the first message so a thread made before the summary or the blocks
-            # existed gets them; a marker without a known phase gets the one drawn.
-            start = "check" if kind == "pr" else ("later" if args.backlog else "plan")
-            phase = (mark.get("phase") if progress_line(mark.get("phase", ""), kind)
-                     else start)
+            # existed gets them; a marker without a known phase gets the one drawn. /brief
+            # rewrites it when it takes a backlog issue up again, so later goes back to 계획.
+            start = "check" if kind == "pr" else "plan"
+            phase = mark.get("phase", "")
+            if phase == "later" or not progress_line(phase, kind):
+                phase = start
             ctx.call("chat.update", channel=ctx.chan, ts=mark["ts"],
                      **parent_message(ctx, args.issue, summary, phase, kind=kind))
             if (mark.get("phase"), mark.get("shown")) != (phase, phase):
@@ -393,7 +407,11 @@ def cmd_thread(ctx, args):
         else:
             print(f"이미 쓰레드가 있습니다: {where}")
         return OK
-    record = create_thread(ctx, args.issue, backlog=args.backlog, summary=summary, info=info)
+    reason = skip_reason(info, kind)
+    if reason:
+        print(f"#{args.issue}: {reason}")
+        return OK
+    record = create_thread(ctx, args.issue, summary=summary, info=info)
     if record["link"]:
         print(f"Slack 쓰레드를 만들었습니다: {record['link']}")
     else:
@@ -478,6 +496,10 @@ def cmd_post(ctx, args):
     if kind == "pr" and stage not in PR_STAGES:
         raise Refused(f"#{args.issue}은 PR 쓰레드라 {', '.join(PR_STAGES)} 단계만 올릴 수 있습니다: {stage}")
     if record is None:
+        reason = skip_reason(info, kind, stage, outcome)
+        if reason:
+            print(f"#{args.issue}: {reason}")
+            return OK
         record = create_thread(ctx, args.issue, info=info)
         print(f"Slack 쓰레드를 만들었습니다: {record['link'] or record['mark']['ts']}")
     mark = record["mark"]
@@ -635,7 +657,6 @@ def parser():
 
     t = sub.add_parser("thread", help="post the issue's parent message unless it has a thread")
     t.add_argument("issue", type=_issue_number)
-    t.add_argument("--backlog", action="store_true", help="mark the parent message as backlog")
     t.add_argument("--text", metavar="FILE",
                    help="the issue written out in plain words; rewrites an existing first message")
 
