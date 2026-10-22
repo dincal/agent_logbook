@@ -1,6 +1,6 @@
 # logbook v0.1 구축 (#1)
 
-> 상태: 머지 완료(PR #2) · 브리핑: https://claude.ai/artifact/E1vmwfjTJtMskpKT6iRvfd · 이슈: https://github.com/dincal/agent_logbook/issues/1 · PR: https://github.com/dincal/agent_logbook/pull/2 · 디브리핑: https://claude.ai/artifact/GcgNmvhuMmxgfxcejFk8Su
+> 상태: 머지 완료(PR #2)
 
 <!-- brief:begin -->
 ## 요약
@@ -324,7 +324,7 @@ AGENTS.md, CLAUDE.md, README.md, CHANGELOG.md
 - [x] `claude plugin validate` 통과(마켓플레이스, plugin.json, skills, agents)
 - [x] 이 저장소에 rulebook 적용, 두 번째 실행 `변경 없음`
 - [x] Codex 설치 확인(임시 CODEX_HOME, 스킬 4개)
-- [x] 사용설명서 게시: https://claude.ai/artifact/CE25qqoz3ZEzmviG9iMJMz
+- [x] 사용설명서 게시
 - [x] PR #2 생성, 독립 리뷰 21건 중 20건 수정(재현 확인 4건 포함), 테스트 73개로 확장
 - [x] 리뷰어 Sonnet·medium, 자유 도식 지원(사용자 요청 반영)
 - [x] 디브리핑

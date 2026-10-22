@@ -2,7 +2,7 @@
 
 ## [0.16.0] - 2026-10-21
 
-이슈 [#39](https://github.com/dincal/agent_logbook/issues/39) · PR [#40](https://github.com/dincal/agent_logbook/pull/40)
+이슈 #39 · PR #40
 
 이슈 없이 여는 PR도 Slack에 PR마다 쓰레드를 하나 만들어 무엇을 바꾸는지와 반영 완료를 남깁니다.
 
@@ -18,7 +18,7 @@
 
 ## [0.15.0] - 2026-10-21
 
-PR [#38](https://github.com/dincal/agent_logbook/pull/38)
+PR #38
 
 ### 추가
 
@@ -26,7 +26,7 @@ PR [#38](https://github.com/dincal/agent_logbook/pull/38)
 
 ## [0.14.0] - 2026-10-21
 
-이슈 [#36](https://github.com/dincal/agent_logbook/issues/36) · PR [#37](https://github.com/dincal/agent_logbook/pull/37)
+이슈 #36 · PR #37
 
 Slack 쓰레드의 글을 Block Kit으로 바꿔 단계마다 아이콘을 붙인 큰 제목이 보이게 하고, 첫 메시지와 각 글에 진행 단계(계획 → 만들기 → 확인 → 반영)를, 끝난 쓰레드에는 답글이 전달되지 않는다는 안내를 붙였습니다.
 
@@ -43,7 +43,7 @@ Slack 쓰레드의 글을 Block Kit으로 바꿔 단계마다 아이콘을 붙�
 
 ## [0.13.0] - 2026-10-21
 
-이슈 [#34](https://github.com/dincal/agent_logbook/issues/34) · PR [#35](https://github.com/dincal/agent_logbook/pull/35)
+이슈 #34 · PR #35
 
 이슈마다 Slack 쓰레드를 하나 만들어 진행 상황과 결정사항, 브리핑과 결과 화면을 올리고, 쓰레드에 달린 답글은 단계마다 읽어 사용자에게 알리게 했습니다. 채널(AGENTS.md의 채널 줄이나 환경 변수 `LOGBOOK_SLACK_CHANNEL`)이 정해지지 않은 저장소는 지금과 똑같이 동작합니다.
 
@@ -58,7 +58,7 @@ Slack 쓰레드의 글을 Block Kit으로 바꿔 단계마다 아이콘을 붙�
 
 ## [0.12.1] - 2026-10-13
 
-PR [#33](https://github.com/dincal/agent_logbook/pull/33)
+PR #33
 
 ### 바뀜
 
@@ -66,7 +66,7 @@ PR [#33](https://github.com/dincal/agent_logbook/pull/33)
 
 ## [0.12.0] - 2026-10-12
 
-이슈 [#31](https://github.com/dincal/agent_logbook/issues/31) · PR [#32](https://github.com/dincal/agent_logbook/pull/32)
+이슈 #31 · PR #32
 
 에픽을 없애 요청 하나를 이슈 하나와 PR 하나로 처리하고, `/brief`가 사람이 정할 것을 모두 객관식으로 물은 뒤 트랙 그래프까지 계획하면 새 명령 `/build`가 그래프대로 나눠 만들게 했습니다. 브리핑과 결과 보고는 이슈마다 그림으로 설명하는 화면으로 바꿨습니다.
 
@@ -94,7 +94,7 @@ PR [#33](https://github.com/dincal/agent_logbook/pull/33)
 
 ## [0.11.0] - 2026-10-02
 
-이슈 [#29](https://github.com/dincal/agent_logbook/issues/29) · PR [#30](https://github.com/dincal/agent_logbook/pull/30)
+이슈 #29 · PR #30
 
 에픽 단계는 유저 스토리가 명확히 갈릴 때만 크게 나누고, 단계 안에서 독립 트랙을 builder 에이전트에 동시에 맡기는 것을 기본으로 했습니다.
 
@@ -110,7 +110,7 @@ PR [#33](https://github.com/dincal/agent_logbook/pull/33)
 
 ## [0.10.0] - 2026-10-01
 
-이슈 [#27](https://github.com/dincal/agent_logbook/issues/27) · PR [#28](https://github.com/dincal/agent_logbook/pull/28)
+이슈 #27 · PR #28
 
 git worktree(한 저장소를 여러 폴더에 동시에 checkout하는 git 기능)는 물어보고 만들고, 병렬 트랙과 병렬 단계에만 에이전트 판단으로 쓰게 했습니다.
 
@@ -127,7 +127,7 @@ git worktree(한 저장소를 여러 폴더에 동시에 checkout하는 git 기�
 
 ## [0.9.0] - 2026-10-01
 
-이슈 [#25](https://github.com/dincal/agent_logbook/issues/25) · PR [#26](https://github.com/dincal/agent_logbook/pull/26)
+이슈 #25 · PR #26
 
 계획 문서와 승인된 시안 사본을 저장소에서 빼고, 변경 이력은 CHANGELOG에 이슈와 PR 링크로 남기게 했습니다. 저장소에는 logbook이 없는 사람도 읽을 문서만 남습니다.
 
@@ -147,9 +147,9 @@ git worktree(한 저장소를 여러 폴더에 동시에 checkout하는 git 기�
 
 ## [0.8.0] - 2026-10-01
 
-이슈 [#22](https://github.com/dincal/agent_logbook/issues/22) · PR [#24](https://github.com/dincal/agent_logbook/pull/24)
+이슈 #22 · PR #24
 
-전체 리뷰에서 찾은, 스킬 사용 흐름에서 틀리게 동작하는 부분을 고쳤습니다([#22](https://github.com/dincal/agent_logbook/issues/22)).
+전체 리뷰에서 찾은, 스킬 사용 흐름에서 틀리게 동작하는 부분을 고쳤습니다(#22).
 
 ### 고침
 
@@ -176,7 +176,7 @@ git worktree(한 저장소를 여러 폴더에 동시에 checkout하는 git 기�
 
 ## [0.7.0] - 2026-10-01
 
-이슈 [#20](https://github.com/dincal/agent_logbook/issues/20) · PR [#21](https://github.com/dincal/agent_logbook/pull/21)
+이슈 #20 · PR #21
 
 작업 규칙을 프로젝트에 복사하지 않고 플러그인이 세션마다 넣게 했습니다. 플러그인을 올린 뒤 프로젝트마다 `/rulebook`을 다시 실행할 필요가 없습니다.
 
@@ -198,7 +198,7 @@ git worktree(한 저장소를 여러 폴더에 동시에 checkout하는 git 기�
 
 ## [0.6.0] - 2026-10-01
 
-이슈 [#17](https://github.com/dincal/agent_logbook/issues/17) · PR [#19](https://github.com/dincal/agent_logbook/pull/19)
+이슈 #17 · PR #19
 
 `/mission`을 없애고 `/brief` 하나가 작업 하나와 에픽을 모두 계획하게 했습니다. `/goal` 문장을 만드는 기능도 없앴습니다.
 
@@ -210,11 +210,11 @@ git worktree(한 저장소를 여러 폴더에 동시에 checkout하는 git 기�
 
 ### 지움
 
-- `/mission` 스킬, `/goal` 문장 틀(`templates/goal.md`), 계획 문서의 `## Goal` 절. 측정값이 목표에 닿을 때까지 반복하는 작업은 [#18](https://github.com/dincal/agent_logbook/issues/18)에서 따로 다룹니다.
+- `/mission` 스킬, `/goal` 문장 틀(`templates/goal.md`), 계획 문서의 `## Goal` 절. 측정값이 목표에 닿을 때까지 반복하는 작업은 #18에서 따로 다룹니다.
 
 ## [0.5.0] - 2026-09-29
 
-이슈 [#15](https://github.com/dincal/agent_logbook/issues/15) · PR [#16](https://github.com/dincal/agent_logbook/pull/16)
+이슈 #15 · PR #16
 
 에픽을 에픽 브랜치에서 한 번에 진행하고, 병렬 작업을 Workflow로도 띄울 수 있게 했습니다.
 
@@ -230,7 +230,7 @@ git worktree(한 저장소를 여러 폴더에 동시에 checkout하는 git 기�
 
 ## [0.4.1] - 2026-09-29
 
-이슈 [#13](https://github.com/dincal/agent_logbook/issues/13) · PR [#14](https://github.com/dincal/agent_logbook/pull/14)
+이슈 #13 · PR #14
 
 이슈를 다른 개발자가 알아야 하거나 꼭 남길 작업에만 만들게 했습니다.
 
@@ -244,7 +244,7 @@ git worktree(한 저장소를 여러 폴더에 동시에 checkout하는 git 기�
 
 ## [0.4.0] - 2026-09-29
 
-이슈 [#11](https://github.com/dincal/agent_logbook/issues/11) · PR [#12](https://github.com/dincal/agent_logbook/pull/12)
+이슈 #11 · PR #12
 
 무엇을 만들지 정하기 전에 에이전트와 토론하는 명령을 더했습니다.
 
@@ -259,7 +259,7 @@ git worktree(한 저장소를 여러 폴더에 동시에 checkout하는 git 기�
 
 ## [0.3.1] - 2026-09-29
 
-이슈 [#9](https://github.com/dincal/agent_logbook/issues/9) · PR [#10](https://github.com/dincal/agent_logbook/pull/10)
+이슈 #9 · PR #10
 
 역할마다 모델을 맞게 고르고, 구현을 나눌 이득이 있으면 병렬로 맡기며, 사용자의 결정이 근거와 어긋나 보이면 알리게 했습니다.
 
@@ -277,7 +277,7 @@ git worktree(한 저장소를 여러 폴더에 동시에 checkout하는 git 기�
 
 ## [0.3.0] - 2026-09-29
 
-이슈 [#7](https://github.com/dincal/agent_logbook/issues/7) · PR [#8](https://github.com/dincal/agent_logbook/pull/8)
+이슈 #7 · PR #8
 
 md 문서가 md 뷰어에서도 잘 읽히도록 HTML을 뺐고, AI 모델 호출을 그림과 표로 자세히 적게 했습니다.
 
@@ -292,7 +292,7 @@ md 문서가 md 뷰어에서도 잘 읽히도록 HTML을 뺐고, AI 모델 호�
 
 ## [0.2.0] - 2026-09-28
 
-이슈 [#3](https://github.com/dincal/agent_logbook/issues/3) · PR [#4](https://github.com/dincal/agent_logbook/pull/4)
+이슈 #3 · PR #4
 
 프로젝트 문서를 코드와 맞추는 기능과, 기존 프로젝트를 logbook으로 옮기는 기능을 더했습니다. 브리핑 쓰는 방식도 바꿨습니다.
 
@@ -317,7 +317,7 @@ md 문서가 md 뷰어에서도 잘 읽히도록 HTML을 뺐고, AI 모델 호�
 
 ## [0.1.0] - 2026-09-28
 
-이슈 [#1](https://github.com/dincal/agent_logbook/issues/1) · PR [#2](https://github.com/dincal/agent_logbook/pull/2)
+이슈 #1 · PR #2
 
 첫 릴리스입니다.
 
