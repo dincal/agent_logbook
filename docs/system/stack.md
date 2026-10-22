@@ -21,7 +21,7 @@ flowchart LR
 | 명령 6개 | Markdown(`skills/<이름>/SKILL.md`) | rulebook, discuss, brief, build, debrief, sync의 절차 | 에이전트가 읽는 설명서라서 코드가 필요 없습니다 |
 | hook 3개 | POSIX sh와 jq(없으면 python3), 공통 함수 `hooks/lib.sh` | 세션 규칙 넣기, 플랜 검사(브리핑 블록과 HTML), 결과 보고 확인 | 어느 환경에서나 도는 가장 흔한 셸입니다. 세션 규칙 hook은 규칙 원문을 채울 때 python3를 씁니다 |
 | 스크립트 | bash, Python 3 표준 라이브러리 | logbook 켜기와 옛 규칙 블록 옮기기, 핸드북 렌더, markdown의 HTML 검사, 문서와 코드 대조, 병렬용 git worktree 만들기와 지우기, 이슈별, 이슈 없는 PR별 Slack 쓰레드 게시와 답글 읽기(`slack.sh`, `slack.py`, `slack_config.py`), 화면의 PNG와 독립 실행용 HTML 만들기(`snapshot.py`) | 따로 설치할 패키지가 없습니다 |
-| 템플릿 | Markdown, HTML과 CSS | 계획 문서, 세션 규칙, 문서 규칙 문단, 핸드북 슬라이드 모양, 프로젝트 문서의 뼈대(업무 규칙 포함), 질문 안내, 브리핑 화면 안내, 글쓰기와 그림 안내, 병렬 실행 안내, 기획자용 글 안내, Slack 앱 매니페스트(`slack-app.yml`) | 한 곳을 고치면 모든 프로젝트에 적용됩니다 |
+| 템플릿 | Markdown, HTML과 CSS | 계획 문서, 세션 규칙, 문서 규칙 문단, 핸드북 슬라이드 모양, 프로젝트 문서의 뼈대(업무 규칙 포함), 질문 안내(겹치는 이슈 찾기 포함), 브리핑 화면 안내, 글쓰기와 그림 안내, 병렬 실행 안내, 기획자용 글 안내, Slack 앱 매니페스트(`slack-app.yml`) | 한 곳을 고치면 모든 프로젝트에 적용됩니다 |
 | 리뷰어 | Markdown(`agents/reviewer.md`) | PR과 `/build`의 위험한 트랙을 새 컨텍스트에서 읽기만 하며 검토 | 품질 검사라 Claude Code에서는 Opus 모델, high effort로 실행합니다 |
 | 독립 점검 | Markdown(`agents/checker.md`) | `/brief`가 계획을 쓰기 전에 대화 원문과 결정 목록을 읽고 근거 없는 결정과 빠진 결정을 질문으로 돌려줌 | 대화에 참여하지 않은 눈으로 봐야 해서 새 컨텍스트에서 읽기 전용으로 돌고, Opus 모델, high effort로 실행합니다 |
 | builder 3개 | Markdown(`agents/builder-fast.md`, `builder.md`, `builder-deep.md`) | `/build`가 트랙 그래프대로 맡긴 구현 트랙을 동시에 구현 | Agent 도구는 호출할 때 effort를 넘길 수 없어서 등급마다 파일을 따로 둡니다 |

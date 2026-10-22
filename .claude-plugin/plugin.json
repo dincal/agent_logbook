@@ -1,6 +1,6 @@
 {
   "name": "logbook",
-  "version": "0.17.0",
+  "version": "0.18.0",
   "description": "Claude Code-first workflow: the agent discusses ideas read-only before a spec exists, researches, asks every decision that is the user's as multiple choice, runs an independent check for guessed decisions, and reports twice with visual pages designed per issue (a briefing before implementation and a debriefing after the PR). Once a plan is approved, /build runs its track graph wave by wave through to the pull request. It keeps project docs (tech stack, main flows, business rules, full ERD) in sync with the code, gets changed screens approved as mockups and tracks work on GitHub Issues.",
   "author": {
     "name": "dincal",

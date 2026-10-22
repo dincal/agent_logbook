@@ -1,6 +1,6 @@
 ---
 name: discuss
-description: Think an idea through with the user before any spec exists. Research the code and the web read-only, argue like a colleague with evidence, agree or push back plainly, and change nothing. When the discussion settles, summarize it and let the user pick one ending - hand it to /brief, keep it as a backlog issue, or keep nothing. Use when the user asks for an opinion or wants to explore an idea rather than asking for a change, and before /brief when the problem or the approach is still open.
+description: Think an idea through with the user before any spec exists. Research the code and the web read-only, argue like a colleague with evidence, agree or push back plainly, and change nothing. When the discussion settles, summarize it and let the user pick one ending - hand it to /brief, keep it as a backlog issue, add it to an overlapping issue of theirs, or keep nothing. Use when the user asks for an opinion or wants to explore an idea rather than asking for a change, and before /brief when the problem or the approach is still open.
 argument-hint: "[idea or question]"
 ---
 
@@ -61,12 +61,14 @@ When the conclusion settles, or the user wants to stop, close the discussion.
    - 결론: one sentence.
    - 합의한 것: each decision with the alternatives set aside.
    - 남은 질문: what is still open, and who can answer it.
+   - 겹치는 이슈: open issues covering the same work, found as "Overlapping issues" in `${CLAUDE_PLUGIN_ROOT}/templates/questions.md` says, each with how it overlaps and whose it is. Reading the tracker is fine here; it changes nothing.
    - 근거: the `file:line` references and links that carried the conclusion. Cite issues and PRs as full links, never as a bare `#<number>`, so `/brief` does not take one for the issue to work on.
-2. **Choice.** Recommend one of three endings with a reason, then ask with the question tool (numbered options in prose where there is none):
+2. **Choice.** Recommend one of the endings with a reason, then ask with the question tool (numbered options in prose where there is none):
    - **바로 진행**: invoke `/brief` with the summary as its argument. Recommend it when the value and the shape are settled.
    - **backlog 이슈로 남기기**: create an issue labelled `status:backlog` and assigned to yourself (`--assignee @me`) in the repo on the tracker line in the logbook rules the session started with, with gh run as `GH_TOKEN="$(gh auth token --user <account>)" gh ...` for the account on that line; without an account there, use the default login. The body is the summary. It gets no Slack thread: only issues under development are shared there, and `/brief` opens the thread when the work starts. Tell the user they can start later with `/logbook:brief #<issue>`. Recommend it when the idea is worth doing but not now, or when an open question waits on someone else.
+   - **기존 이슈에 더하기**: offered when one of your backlog or todo issues overlaps. Post the summary as a comment on it, with gh run as for the backlog ending, which `/brief` reads when it takes the issue up, and tell the user they can start with `/logbook:brief #<issue>`. Recommend it when the idea extends that issue rather than standing alone.
    - **남기지 않기**: end with the summary in the conversation only. Recommend it when the discussion concluded not to do it.
-3. **Hand-off.** Carry out the chosen ending. `/brief` takes the summary's decisions as the user's own and ask only about what is still open.
+3. **Hand-off.** Carry out the chosen ending. After a backlog issue or 기존 이슈에 더하기, ask about the 겹치는 이슈 and carry them out as "Overlapping issues" says; after 남기지 않기, touch no issue. On 바로 진행, `/brief` takes the summary's decisions as the user's own, asks about the 겹치는 이슈 itself, and asks only about what is still open.
 
 Without a tracker line in the logbook rules, read the tracker from `.logbook/config.json` in the main checkout when it exists; without either, offer the backlog ending only when the user names where the issue should go.
 

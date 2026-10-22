@@ -125,7 +125,7 @@
 
 <main class="deck">
   <header class="cover">
-    <div class="eyebrow">사용설명서 · logbook v0.17.0</div>
+    <div class="eyebrow">사용설명서 · logbook v0.18.0</div>
     <h1>logbook 사용설명서</h1>
     <p class="lead">에이전트가 조사해 계획을 세우고, 사람이 정할 결정은 객관식으로 묻습니다. 사람은 구현 전 브리핑과 구현 후 결과 보고만 검토하고, 지금 시스템의 모습은 코드와 맞춰 둔 프로젝트 문서로 봅니다. 설치부터 문제 해결까지 열세 장으로 설명합니다.</p>
     <div class="meta">
@@ -249,13 +249,13 @@ flowchart LR
       <div class="card">
         <div class="name">/logbook:discuss</div>
         <div class="when">스펙을 정하기 전</div>
-        <p>아이디어를 에이전트와 따져 봅니다. 에이전트는 코드와 웹을 읽기만 하며 근거를 대고, 동의하거나 자신 있게 반론합니다. 파일, 이슈, 브랜치는 건드리지 않습니다. 선택지가 있는 질문은 질문 도구로 객관식으로 묻습니다. 끝나면 요약을 보이고 <code>/brief</code>로 넘기기, backlog 이슈로 남기기, 남기지 않기 중 권장안과 함께 고르게 합니다. 명령 없이 의견만 물어도 같은 방식으로 답합니다.</p>
+        <p>아이디어를 에이전트와 따져 봅니다. 에이전트는 코드와 웹을 읽기만 하며 근거를 대고, 동의하거나 자신 있게 반론합니다. 파일, 이슈, 브랜치는 건드리지 않습니다. 선택지가 있는 질문은 질문 도구로 객관식으로 묻습니다. 끝나면 요약을 보이고 <code>/brief</code>로 넘기기, backlog 이슈로 남기기, 겹치는 기존 이슈에 더하기, 남기지 않기 중 권장안과 함께 고르게 합니다. 요약에는 열린 이슈 중 겹치는 것도 함께 보입니다. 명령 없이 의견만 물어도 같은 방식으로 답합니다.</p>
         <dl><dt>예</dt><dd><code>/logbook:discuss 로그인에 속도 제한이 필요할까?</code></dd></dl>
       </div>
       <div class="card">
         <div class="name">/logbook:brief</div>
         <div class="when">구현 전</div>
-        <p>조사하고, 구조·동작·기술·계약 네 관점으로 사람이 정할 결정을 찾아 객관식으로 묻습니다. 계획을 쓰기 전에 대화를 보지 않은 <code>logbook:checker</code>(Opus, high)가 짐작한 결정과 빠진 결정을 찾아 질문으로 돌려줍니다. 화면이 바뀌면 시안을 승인받고, 트랙 그래프를 담은 계획 문서(로컬 <code>.logbook/plans/</code>, 커밋하지 않음), 이슈마다 그림으로 설계한 브리핑 화면, 이슈 본문의 글 브리핑을 만든 뒤 채팅에서 승인을 묻습니다. 승인하면 <code>/build</code>로 넘깁니다. 중단하면 나중에 할지(이슈를 backlog로 돌리고 브랜치를 남기며, 계획 문서를 이슈 댓글로 남김) 버릴지(이슈를 닫고 브랜치 삭제)를 묻습니다. 큰 작업도 이슈 하나, PR 하나로 계획합니다.</p>
+        <p>이슈를 만들거나 이어받기 전에 열린 이슈 중 겹치는 것을 찾아, 내 이슈는 합치기·이어 가기·연결·닫기 중 어떻게 할지 묻고 남의 이슈에는 담당자를 멘션한 댓글을 남깁니다. 이어 가기는 바로 그 이슈로 진행하고, 나머지는 승인 때 실행합니다. 조사하고, 구조·동작·기술·계약 네 관점으로 사람이 정할 결정을 찾아 객관식으로 묻습니다. 계획을 쓰기 전에 대화를 보지 않은 <code>logbook:checker</code>(Opus, high)가 짐작한 결정과 빠진 결정을 찾아 질문으로 돌려줍니다. 화면이 바뀌면 시안을 승인받고, 트랙 그래프를 담은 계획 문서(로컬 <code>.logbook/plans/</code>, 커밋하지 않음), 이슈마다 그림으로 설계한 브리핑 화면, 이슈 본문의 글 브리핑을 만든 뒤 채팅에서 승인을 묻습니다. 승인하면 <code>/build</code>로 넘깁니다. 중단하면 나중에 할지(이슈를 backlog로 돌리고 브랜치를 남기며, 계획 문서를 이슈 댓글로 남김) 버릴지(이슈를 닫고 브랜치 삭제)를 묻습니다. 큰 작업도 이슈 하나, PR 하나로 계획합니다.</p>
         <dl><dt>예</dt><dd><code>/logbook:brief 로그인에 속도 제한 추가</code> · <code>/logbook:brief #42</code></dd></dl>
       </div>
       <div class="card">
@@ -529,7 +529,7 @@ flowchart LR
   </section>
 
   <footer>
-    <span>logbook v0.17.0</span>
+    <span>logbook v0.18.0</span>
     <span>변경 이력: <a href="https://github.com/dincal/agent_logbook/blob/main/CHANGELOG.md">CHANGELOG.md</a></span>
     <span class="keys">← → 로 장 이동</span>
   </footer>

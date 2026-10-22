@@ -35,7 +35,7 @@ Write each post's text to a temporary file and pass it with `--text`. The script
 | Something to look at | `/build` or `/debrief`, when screenshots, e2e test runs or logs exist that a person should look at | `slack.sh post <issue> check --text <file> --file <path>...`: what to look at and what it should show. Issue threads only |
 | PR opened | `/build` Finish | `slack.sh post <issue> pr --text <file>`: the work is ready to be merged after a final check, with the PR link as the last line |
 | Debriefing | `/debrief` step 6 | `slack.sh post <issue> debrief --text <planner debriefing> --page <main>/.logbook/briefs/<issue>-debrief.html` |
-| Merged or closed | `/debrief` 머지, `/brief` 버리기 | `slack.sh post <issue> close --outcome merged --text <file>` after a merge: it is live in the code. `--outcome dropped` when the issue is dropped, with why. `close` without `--outcome` exits 2 |
+| Merged or closed | `/debrief` 머지, `/brief` 버리기, an overlapping issue closed ("Overlapping issues" in `templates/questions.md`) | `slack.sh post <issue> close --outcome merged --text <file>` after a merge: it is live in the code. `--outcome dropped` when the issue is dropped or closed in favour of another, with why or where the work went. `close` without `--outcome` exits 2 |
 | Feedback summary | right before any post above, on issue threads | see below |
 | Issue-less PR opened | `/debrief` step 1 | `slack.sh thread <pr> --text <file>`: the change in plain words, as the first-message section of `templates/planner.md` says |
 | Issue-less PR merged or closed | `/debrief` 머지 | `slack.sh post <pr> close --outcome merged --text <file>`, or `--outcome dropped` when the user asked in chat to close it unmerged |

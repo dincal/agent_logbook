@@ -90,7 +90,7 @@ case "$(field '.hook_event_name // empty' 'd.get("hook_event_name")')" in
     exit 0
     ;;
   PostToolUse)
-    respond context '플랜이 승인됐습니다. 코드를 고치기 전에 /brief 절차를 마치세요. 이슈와 작업 브랜치가 없으면 만들고, 플랜 파일을 원래 checkout의 .logbook/plans/<이슈번호>-<slug>.md로 옮긴 뒤(worktree에서는 플랜이 worktree의 .logbook/plans에 저장됩니다. 커밋하지 않습니다), 화면을 새로 만들거나 크게 바꾸는 계획이면 시안을 만들어 승인을 받습니다. 그다음 logbook의 templates/briefing.md대로 브리핑 화면을 만들어 게시하고, 이슈 본문에 글 브리핑과 화면 링크를 넣은 뒤, 채팅에서 진행 / 수정 / 중단을 질문 도구로 한 번 더 묻습니다. 진행이면 이슈를 status:in-progress로 옮기고 /build로 넘겨 PR과 결과 보고까지 다시 묻지 않고 진행합니다.'
+    respond context '플랜이 승인됐습니다. 코드를 고치기 전에 /brief 절차를 마치세요. 이슈와 작업 브랜치가 없으면 만들고(겹치는 이슈는 플랜 안에서 확인했으니 이어 가기로 고른 이슈가 있으면 그 이슈로. logbook의 templates/questions.md "Overlapping issues"), 플랜 파일을 원래 checkout의 .logbook/plans/<이슈번호>-<slug>.md로 옮긴 뒤(worktree에서는 플랜이 worktree의 .logbook/plans에 저장됩니다. 커밋하지 않습니다), 화면을 새로 만들거나 크게 바꾸는 계획이면 시안을 만들어 승인을 받습니다. 그다음 logbook의 templates/briefing.md대로 브리핑 화면을 만들어 게시하고, 이슈 본문에 글 브리핑과 화면 링크를 넣은 뒤, 채팅에서 진행 / 수정 / 중단을 질문 도구로 한 번 더 묻습니다. 진행이면 겹치는 이슈 처리를 실행하고 이슈를 status:in-progress로 옮기고 /build로 넘겨 PR과 결과 보고까지 다시 묻지 않고 진행합니다.'
     exit 0
     ;;
 esac
