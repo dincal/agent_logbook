@@ -1,5 +1,21 @@
 # 변경 이력
 
+## [0.18.1] - 2026-11-03
+
+이슈 [#8](https://github.com/dincal/agent_logbook/issues/8) · PR [#9](https://github.com/dincal/agent_logbook/pull/9)
+
+`/debrief`가 머지를 먼저 하고, worktree는 보고를 마친 뒤 맨 끝에 지웁니다.
+
+### 고침
+
+- `/debrief`에서 머지를 고르면 PR을 머지하기 전에 worktree를 지워, 세션이 그 안에서 돌고 있으면 턴이 끊기고 머지가 되지 않던 문제를 고쳤습니다. 이제 `gh pr merge --repo`로 머지하고 `MERGED`를 확인한 뒤, 이슈·Slack·핸드북·채팅 보고를 마치고 맨 끝에 worktree와 로컬 브랜치를 정리합니다. `MERGED`가 아니면 멈추고 폴더는 그대로 둡니다.
+- `worktree.sh`가 worktree를 폴더 이름으로만 찾아, 다른 이름으로 만든 뒤 이슈 브랜치로 바꾼 worktree를 찾지 못하던 문제를 고쳤습니다. 이제 그 안에 checkout된 브랜치로 찾고, 같은 이름의 폴더에 다른 브랜치가 있으면 지우지 않습니다(`add`와 `path`는 종료 코드 1로 거부).
+
+### 추가
+
+- `worktree.sh remove --outside`: `.logbook/worktrees/` 밖의 worktree는 `remove`와 `add`가 종료 코드 5로 멈추고(`path`는 그 경로를 알려 줌), `/debrief`가 머지 질문과 함께 지울지 물은 뒤 이 옵션으로 지웁니다.
+- `worktree.sh remove --delete-branch --merged-head <SHA>`: 스쿼시 머지한 브랜치는 끝이 머지된 PR head와 같을 때만 지웁니다.
+
 ## [0.18.0] - 2026-10-22
 
 이슈 [#5](https://github.com/dincal/agent_logbook/issues/5) · PR [#6](https://github.com/dincal/agent_logbook/pull/6)
