@@ -1,4 +1,4 @@
-<!-- logbook:system sources="README.md .claude-plugin/** skills/** agents/** hooks/** templates/session-rules.md templates/docs-rules.md" checked="2026-10-22" -->
+<!-- logbook:system sources="README.md .claude-plugin/** skills/** agents/** hooks/** templates/session-rules.md templates/docs-rules.md" checked="2026-11-03" -->
 # logbook
 
 > 저장소: https://github.com/dincal/agent_logbook
@@ -53,6 +53,7 @@ flowchart LR
 | 이슈는 남길 일에만 만든다 | 다른 개발자가 알아야 하거나 꼭 남길 작업만 이슈가 됩니다. 작은 수정은 이슈 없이 PR만 열고, 따라오는 문서 갱신은 관련 작업의 PR에 얹으며, 저장소를 고치지 않는 로컬 작업은 채팅으로만 보고합니다. 이슈를 만들거나 이어받기 전에는 열린 이슈 중 겹치는 것을 찾아, 내 이슈는 처리를 묻고 남의 이슈에는 멘션 댓글만 남깁니다 | #13 PR |
 | 병렬 작업은 서브에이전트나 Workflow로 띄운다 | `/build`는 builder 트랙이 있는 묶음마다 트랙 수와 상관없이 Workflow로 돌리고(크기 설정을 넘으면 여러 번에 나눠), 묶음 사이의 합치기와 전체 테스트는 세션이 합니다. 나눠 보는 리뷰는 Workflow로, 조사는 영역이 셋 이상이면 Workflow, 아니면 서브에이전트입니다. 어느 쪽이든 같은 모델 등급을 쓰고, Workflow를 쓸 수 없으면 서브에이전트로 띄웁니다 | #15 PR, #31 이슈 |
 | 작업은 원래 checkout에서 하고, worktree는 병렬 개발과 물어본 경우에만 만든다 | 이슈는 원래 checkout에서 브랜치만 바꿔 진행합니다. 트랙마다 전체 테스트가 필요하면 `.logbook/worktrees/`에 worktree를 만들고 합친 뒤 바로 지웁니다. 원래 checkout을 쓰면 안 될 이유가 보이면 worktree를 만들기 전에 묻습니다 | #27 PR |
+| 머지를 먼저 하고, worktree는 맨 끝에 지운다 | `/debrief`는 머지하고 `MERGED`를 확인한 뒤 이슈, Slack, 핸드북, 채팅 보고를 마치고 맨 끝에 worktree와 로컬 브랜치를 정리합니다. 세션이 돌던 폴더를 먼저 지우면 턴이 끊겨 머지가 되지 않았기 때문입니다. `.logbook/worktrees/` 밖의 worktree는 머지 질문과 함께 지울지 묻습니다 | #8 |
 | 요청 하나는 이슈 하나, PR 하나로 하고, 그 안을 트랙 그래프로 나눈다 | 단계마다 이슈, PR, 리뷰, 머지가 한 번씩 더 들어서 하위 이슈와 단계를 두지 않습니다. 관련 없는 기능이 섞인 요청도 이슈 하나입니다. `/brief`가 계획 문서에 트랙 그래프(묶음, 트랙, 맡을 에이전트, 파일, 기다리는 트랙, 위험, 확인 명령)를 쓰고 사람에게는 묻지 않습니다. 그래프에 위험으로 표시한 트랙(까다로운 로직, 다른 트랙이 기대는 계약, 예외가 많은 수정)은 합치기 전에 리뷰하고, 묶음마다 전체 테스트를 돌리며, 트랙마다 커밋해 merge commit에서 트랙 하나만 되돌릴 수 있게 합니다. 대신 PR이 커지므로 큰 PR은 영역별 리뷰어와 이음새 리뷰어가 나눠 봅니다 | #29 PR, #31 이슈 |
 | 계획 문서와 시안 사본은 저장소에 두지 않는다 | 계획 문서와 승인된 시안 사본은 원래 checkout(git worktree가 아닌 처음 clone한 폴더)의 `.logbook/plans/`, `.logbook/designs/`에 두고 커밋하지 않습니다. 저장소에는 logbook이 없는 사람도 읽을 문서만 남기고, 결정 이유는 PR 본문에, 변경 이력은 CHANGELOG에 이슈와 PR 링크로 남깁니다. 그 기기를 잃으면 계획 문서도 사라지므로, 미뤄 둔 계획은 이슈 댓글로 남깁니다 | #25 PR |
 | 위험: md 뷰어가 mermaid를 그려야 그림이 보인다 | GitHub와 흔한 편집기는 mermaid를 그리지만, 지원하지 않는 뷰어에서는 그림이 코드로 보입니다. 핸드북에서는 늘 그림으로 보입니다 | `templates/diagram-kit.md` |
