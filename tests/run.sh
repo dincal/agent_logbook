@@ -710,6 +710,64 @@ expect "worktree: remove --delete-branch on a branch already gone says so" bash 
 /bin/rm -rf "$W/.logbook/worktrees/feat-9-d"
 "$WS" remove feat/9-d --dir "$W" --delete-branch >/dev/null 2>&1; rc=$?
 expect "worktree: remove prunes a worktree folder deleted by hand so its branch can go" bash -c "[ $rc -eq 0 ] && ! git -C '$W' worktree list | grep -q feat-9-d && ! git -C '$W' show-ref --verify --quiet refs/heads/feat/9-d"
+# A worktree made under one name that switched to the issue branch is found by that branch.
+"$WS" add s3 main --dir "$W" >/dev/null 2>&1
+WS3="$W/.logbook/worktrees/s3"
+git -C "$WS3" switch -q -c feat/94-x
+out="$("$WS" path feat/94-x --dir "$W" 2>&1)"
+expect "worktree: path finds a worktree by the branch checked out in it" bash -c "[ \"\$1\" = \"\$(cd '$W' && pwd -P)/.logbook/worktrees/s3\" ]" _ "$out"
+out="$("$WS" add feat/94-x --dir "$W" 2>&1)"
+expect "worktree: add reuses the worktree its branch is checked out in" bash -c "printf '%s' \"\$1\" | grep -q 'reusing .*/worktrees/s3' && [ ! -e '$W/.logbook/worktrees/feat-94-x' ]" _ "$out"
+"$WS" remove feat/94-x --dir "$W" >/dev/null 2>&1; rc=$?
+expect "worktree: remove finds a worktree by its branch, not its folder name" bash -c "[ $rc -eq 0 ] && [ ! -e '$WS3' ] && git -C '$W' show-ref --verify --quiet refs/heads/feat/94-x"
+# A folder of the branch's name that holds another branch is left alone.
+"$WS" add feat/10-e main --dir "$W" >/dev/null 2>&1
+git -C "$W/.logbook/worktrees/feat-10-e" switch -q -c other-e
+out="$("$WS" remove feat/10-e --dir "$W" 2>&1)"; rc=$?
+expect "worktree: remove leaves a folder of the branch's name that holds another branch" bash -c "[ $rc -eq 0 ] && [ -e '$W/.logbook/worktrees/feat-10-e/.git' ] && printf '%s' \"\$1\" | grep -q 'holds other-e and is left alone'" _ "$out"
+"$WS" add feat/10-e --dir "$W" >/dev/null 2>&1; rc=$?
+expect "worktree: add refuses a folder of the branch's name that holds another branch" bash -c "[ $rc -eq 1 ]"
+out="$("$WS" path feat/10-e --dir "$W" 2>&1)"; rc=$?
+expect "worktree: path refuses a folder of the branch's name that holds another branch" bash -c "[ $rc -eq 1 ]"
+git -C "$W/.logbook/worktrees/feat-10-e" switch -q --detach
+out="$("$WS" remove feat/10-e --dir "$W" 2>&1)"; rc=$?
+expect "worktree: remove leaves a folder of the branch's name on a detached HEAD" bash -c "[ $rc -eq 0 ] && [ -e '$W/.logbook/worktrees/feat-10-e/.git' ] && printf '%s' \"\$1\" | grep -q 'holds a detached HEAD'" _ "$out"
+# A worktree outside .logbook/worktrees/ is removed only with --outside.
+git -C "$W" worktree add -q "$TMP/outside-wt" -b feat/11-f main
+out="$("$WS" path feat/11-f --dir "$W" 2>&1)"
+expect "worktree: path prints a worktree outside .logbook/worktrees" bash -c "[ \"\$1\" = \"\$(cd '$TMP/outside-wt' && pwd -P)\" ]" _ "$out"
+"$WS" add feat/11-f --dir "$W" >/dev/null 2>&1; rc=$?
+expect "worktree: add refuses a branch checked out outside .logbook/worktrees with exit 5" bash -c "[ $rc -eq 5 ] && [ ! -e '$W/.logbook/worktrees/feat-11-f' ]"
+out="$("$WS" remove feat/11-f --dir "$W" 2>&1)"; rc=$?
+expect "worktree: remove stops with exit 5 at a worktree outside .logbook/worktrees" bash -c "[ $rc -eq 5 ] && [ -e '$TMP/outside-wt/.git' ] && printf '%s' \"\$1\" | grep -q 'outside .logbook/worktrees/; not removed'" _ "$out"
+printf 'x\n' > "$TMP/outside-wt/dirty.txt"
+"$WS" remove feat/11-f --outside --dir "$W" >/dev/null 2>&1; rc=$?
+expect "worktree: remove --outside still refuses uncommitted changes with exit 3" bash -c "[ $rc -eq 3 ] && [ -e '$TMP/outside-wt/dirty.txt' ]"
+/bin/rm -f "$TMP/outside-wt/dirty.txt"
+"$WS" remove feat/11-f --outside --delete-branch --dir "$W" >/dev/null 2>&1; rc=$?
+expect "worktree: remove --outside removes a clean outside worktree" bash -c "[ $rc -eq 0 ] && [ ! -e '$TMP/outside-wt' ] && ! git -C '$W' show-ref --verify --quiet refs/heads/feat/11-f"
+# A squash-merged branch never looks merged; --merged-head proves it.
+"$WS" add feat/12-g main --dir "$W" >/dev/null 2>&1
+git -C "$W/.logbook/worktrees/feat-12-g" -c user.email=t@example.com -c user.name=t commit -q --allow-empty -m squashed
+tip="$(git -C "$W" rev-parse feat/12-g)"
+"$WS" remove feat/12-g --delete-branch --merged-head "$(git -C "$W" rev-parse main)" --dir "$W" >/dev/null 2>&1; rc=$?
+expect "worktree: --merged-head that is not the branch tip keeps the branch with exit 4" bash -c "[ $rc -eq 4 ] && git -C '$W' show-ref --verify --quiet refs/heads/feat/12-g"
+out="$("$WS" remove feat/12-g --delete-branch --merged-head "$tip" --dir "$W" 2>&1)"; rc=$?
+expect "worktree: --merged-head equal to the branch tip deletes a squash-merged branch" bash -c "[ $rc -eq 0 ] && ! git -C '$W' show-ref --verify --quiet refs/heads/feat/12-g && printf '%s' \"\$1\" | grep -q 'its tip is the merged head'" _ "$out"
+"$WS" remove feat/12-g --merged-head "$tip" --dir "$W" >/dev/null 2>&1; rc=$?
+expect "worktree: --merged-head without --delete-branch fails with exit 2" bash -c "[ $rc -eq 2 ]"
+git -C "$W" branch -q feat/12-h main
+"$WS" remove feat/12-h --delete-branch --merged-head feat/12-h --dir "$W" >/dev/null 2>&1; rc=$?
+expect "worktree: --merged-head takes only a full SHA, not a branch name" bash -c "[ $rc -eq 2 ] && git -C '$W' show-ref --verify --quiet refs/heads/feat/12-h"
+git -C "$W" tag feat/94-t main
+"$WS" add feat/94-t main --dir "$W" >/dev/null 2>&1
+"$WS" remove feat/94-t --dir "$W" >/dev/null 2>&1; rc=$?
+expect "worktree: a tag of the same name does not hide the branch's worktree" bash -c "[ $rc -eq 0 ] && [ ! -e '$W/.logbook/worktrees/feat-94-t' ]"
+# The branch the main checkout is on is never deleted from under it.
+git -C "$W" switch -q -c feat/13-h
+out="$("$WS" remove feat/13-h --delete-branch --dir "$W" 2>&1)"; rc=$?
+git -C "$W" switch -q main
+expect "worktree: remove --delete-branch keeps the branch the main checkout is on with exit 4" bash -c "[ $rc -eq 4 ] && printf '%s' \"\$1\" | grep -q 'checked out in the main checkout' && git -C '$W' show-ref --verify --quiet refs/heads/feat/13-h" _ "$out"
 W2="$TMP/wtrepo-noignore"
 mkdir -p "$W2"
 git -C "$W2" init -q -b main
@@ -817,7 +875,7 @@ expect "rule block: one request is one issue and one PR, split into tracks insid
 expect "rule block asks the merge method along with the merge" grep -q '머지를 고르면 squash와 merge commit 중에서도 고르게 한다' "$B"
 expect "rule block mentions no epic" bash -c "! grep -qiE 'epic|에픽' '$B'"
 DB="$ROOT/skills/debrief/SKILL.md"
-expect "debrief: one question call asks the next step and the merge method, and merges with the chosen gh flag" bash -c "grep -q 'two questions in one call: the next step' '$DB' && grep -q 'exactly one option marked (Recommended)' '$DB' && grep -q 'the merge method for when 머지 is picked: merge commit' '$DB' && grep -q 'gh pr merge --squash --delete-branch' '$DB' && grep -q 'gh pr merge --merge --delete-branch' '$DB' && grep -q 'squashMergeAllowed,mergeCommitAllowed' '$DB'"
+expect "debrief: one question call asks the next step and the merge method, and merges with the chosen gh flag" bash -c "grep -q 'two questions in one call: the next step' '$DB' && grep -q 'exactly one option marked (Recommended)' '$DB' && grep -q 'the merge method for when 머지 is picked: merge commit' '$DB' && grep -q 'gh pr merge <pr> --repo <repo> --squash --delete-branch' '$DB' && grep -q 'or .--merge --delete-branch.' '$DB' && grep -q 'squashMergeAllowed,mergeCommitAllowed' '$DB'"
 expect "debrief: the result page follows the briefing guide and is written to .logbook/briefs, with no slide renderer" bash -c "grep -q 'templates/briefing.md' '$DB' && grep -q '<main>/.logbook/briefs/<issue>-debrief.html' '$DB' && grep -q 'origin/<PR base>...HEAD' '$DB' && ! grep -q 'render-brief' '$DB'"
 expect "debrief mentions no epic" bash -c "! grep -qiE 'epic|에픽' '$DB'"
 expect "reviewer has no epic mode and reviews a risky /build track in area mode" bash -c "! grep -qiE 'epic|에픽' '$ROOT/agents/reviewer.md' && grep -q '\`/build\` also uses area mode for a risky track before merging it' '$ROOT/agents/reviewer.md'"
@@ -881,7 +939,9 @@ expect "debrief splits round 1 for tracked or large PRs, and the reviewer has ar
 expect "brief: main checkout by default, asks before a worktree, large work split into tracks, not child issues" bash -c "grep -q 'say what and ask with the question tool before making a worktree' '$BR' && grep -q 'It is not a question for the user and stays off the briefing page' '$BR' && ! grep -q '일정과 검증 names the tracks' '$BR' && grep -q 'Large work is split into tracks inside it (step 5), never into child issues' '$BR' && grep -q 'One request is one issue and one PR' '$BR'"
 expect "no prompt or doc still runs steps side by side" bash -c "for d in '$ROOT/agents' '$ROOT/skills' '$ROOT/templates' '$ROOT/docs/system' '$ROOT/docs/manual' '$ROOT/README.md'; do test -e \"\$d\" || exit 1; done && ! grep -rnE 'beside other steps|Epic steps side by side|병렬 단계|서로 기다리지 않는 (에픽 )?단계|이득이 있을 때만' '$ROOT/agents' '$ROOT/skills' '$ROOT/templates' '$ROOT/docs/system' '$ROOT/docs/manual' '$ROOT/README.md'"
 expect "split review covers files outside the tracks, and the PR body lists the tracks" bash -c "grep -q 'files no track changed' '$P' && grep -q 'one line per track (wave, agent, files' '$BU' && grep -q 'Split round 1 when the PR was built in builder tracks' '$DB'"
-expect "debrief: an asked-for worktree is removed before the merge" bash -c "! grep -q 'when the epic branch has moved since this step was cut' '$DB' && ! grep -q 'A step built in a worktree' '$DB' && grep -q 'when the work ran in a worktree made by' '$DB'"
+expect "debrief: the merge comes first and the worktree is removed last" bash -c "! grep -q 'when the epic branch has moved since this step was cut' '$DB' && ! grep -q 'A step built in a worktree' '$DB' && ! grep -q 'remove it first' '$DB' && line=\$(grep '   - 머지:' '$DB') && m=\${line%%gh pr merge <pr> --repo*} && v=\${line%%anything but ?MERGED?*} && r=\${line%%worktree.sh remove <branch> --delete-branch --merged-head*} && [ \${#m} -lt \${#v} ] && [ \${#v} -lt \${#r} ] && [ \${#r} -lt \${#line} ]"
+expect "debrief: the session's own worktree goes last, with a note, and nothing removes it by other means" bash -c "grep -q 'clean up last of all, since removing the folder the session runs in can end the turn' '$DB' && grep -q '다음 작업은 <main>에서 새 세션으로 하세요' '$DB' && grep -q 'never remove the PR.s worktree or branch by other means' '$DB' && ! grep -q 'exits 5 for it' '$DB'"
+expect "debrief: a worktree outside .logbook/worktrees is asked about with the merge question" bash -c "grep -q 'add a third question to that call: remove that folder after the merge' '$DB' && grep -q 'adding .--outside. when the user picked removing' '$DB'"
 
 # ---------------------------------------------------------------- questions, briefing pages, /build, no epics (0.12)
 Q="$ROOT/templates/questions.md"
