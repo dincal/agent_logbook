@@ -16,7 +16,7 @@ The target is the branch an issue is cut from and its PR goes to. `/discuss` and
 
 An issue with a target other than an epic branch and the default branch follows the ordinary flow in full. Only its branch base and PR target differ, its issue is closed by `/debrief`, and the handbook is not published.
 
-An issue in `status:in-progress`, or with a branch or PR already, stays on the target it started on; say so instead of moving it. A flag that changes a planned issue's target rewrites its section. When a recorded target is no longer on the remote, say so and ask which target to use.
+An issue in `status:in-progress`, or with a branch or PR already, stays on the target it started on; say so instead of moving it. A flag that changes a planned issue's target rewrites its section and moves or removes its sub-issue link (`gh api --method DELETE repos/<repo>/issues/<parent>/sub_issue -F sub_issue_id=<id>`). When a recorded target is no longer on the remote, say so and ask which target to use.
 
 ## Recording the target
 
@@ -30,7 +30,7 @@ An issue with any target other than the default branch, whether new or given, ca
 에픽: #12
 ```
 
-Create a child with `gh issue create --parent <parent>`. Link a given issue with `gh api --method POST repos/<repo>/issues/<parent>/sub_issues -F sub_issue_id=<id>`, where `<id>` comes from `gh api repos/<repo>/issues/<issue> --jq .id`. When a gh too old for `--parent` refuses, create the issue without it. When linking fails (an old gh, a host without sub-issues), keep the body section and say so in one line.
+Create a child with `gh issue create --parent <parent>`. Link a given issue with `gh api --method POST repos/<repo>/issues/<parent>/sub_issues -F sub_issue_id=<id>`, where `<id>` comes from `gh api repos/<repo>/issues/<issue> --jq .id`. When a gh too old for `--parent` refuses, create the issue without it and link it with that call. When linking fails (an old gh, a host without sub-issues), keep the body section and say so in one line.
 
 ## A child issue
 
@@ -62,7 +62,7 @@ The user can drop a child or a whole epic at any moment by asking in chat, whate
 1. **Collect.** Fetch first.
    - A child: its issue, open PR, branch and any worktree.
    - An epic: the parent, every open child with the same (`gh api --paginate repos/<repo>/issues/<parent>/sub_issues`, and open issues whose body has the `에픽:` line where linking failed), every open PR into the integration branch (`gh pr list --base <epic branch> --state open --limit 1000`), the integration branch and any open PR from it to the default branch.
-   - Merged children stay closed and untouched. For an epic, count them in the list: their code goes with the integration branch and stays reachable through their closed PRs.
+   - Merged children stay closed and untouched. An open child whose PR was merged, on the GitHub page for instance, counts as merged: close it with `--reason completed` instead of listing it. For an epic, count them in the list: their code goes with the integration branch and stays reachable through their closed PRs.
 2. **Mark.** On each branch, its uncommitted changes (`git status --porcelain` where it is checked out) and its unmerged commits (`git rev-list --count origin/<target>..<branch>`, using `origin/<branch>` when it is only on the remote, and the larger number when both exist).
    - Someone else's issue or branch, as "Overlapping issues" in `templates/questions.md` tells them apart, is not touched. Plan one comment mentioning its assignees that says what is being dropped, and for an epic that its integration branch is going away, so any PR of theirs needs a new target. A parent that is someone else's is not dropped: report that and stop.
 3. **Confirm once.** Show the list with the marks and ask with the question tool: 지우기 / 그만두기. Any other answer the user types is followed. Ask nothing further.
