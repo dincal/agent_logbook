@@ -17,6 +17,10 @@ bad() { FAIL=$((FAIL + 1)); printf 'FAIL  %s\n' "$1"; [ -n "${2:-}" ] && printf 
 expect() { local name="$1"; shift; if "$@" >/dev/null 2>&1; then ok "$name"; else bad "$name"; fi; }
 # True when tab-separated output $1 has a row whose first two fields are $2 and $3.
 has_row() { printf '%s\n' "$1" | awk -F'\t' -v a="$2" -v b="$3" '$1 == a && $2 == b {f = 1} END {exit !f}'; }
+# True when file $1 holds every one of the fixed strings that follow.
+has_all() { local f="$1" p; shift; for p in "$@"; do grep -qF -e "$p" "$f" || return 1; done; }
+# True when the section of file $1 under the heading line $2 holds every one of the fixed strings that follow.
+in_section() { local f="$1" h="$2" body p; shift 2; body="$(awk -v h="$h" '$0 == h {f = 1; next} /^## / {f = 0} f' "$f")"; [ -n "$body" ] || return 1; for p in "$@"; do grep -qF -e "$p" <<< "$body" || return 1; done; }
 mode_of() { stat -f '%Lp' "$1" 2>/dev/null || stat -c '%a' "$1"; }
 
 # ---------------------------------------------------------------- rulebook
@@ -768,6 +772,40 @@ git -C "$W" switch -q -c feat/13-h
 out="$("$WS" remove feat/13-h --delete-branch --dir "$W" 2>&1)"; rc=$?
 git -C "$W" switch -q main
 expect "worktree: remove --delete-branch keeps the branch the main checkout is on with exit 4" bash -c "[ $rc -eq 4 ] && printf '%s' \"\$1\" | grep -q 'checked out in the main checkout' && git -C '$W' show-ref --verify --quiet refs/heads/feat/13-h" _ "$out"
+# --discard is for dropping work: without it exits 3 and 4 still stop the run.
+"$WS" add feat/20-drop main --dir "$W" >/dev/null 2>&1
+WD="$W/.logbook/worktrees/feat-20-drop"
+git -C "$WD" -c user.email=t@example.com -c user.name=t commit -q --allow-empty -m unmerged
+printf 'x\n' > "$WD/dirty.txt"
+"$WS" remove feat/20-drop --delete-branch --dir "$W" >/dev/null 2>&1; rc=$?
+expect "worktree: without --discard, remove --delete-branch still exits 3 on a dirty worktree" bash -c "[ $rc -eq 3 ] && [ -e '$WD/dirty.txt' ] && git -C '$W' show-ref --verify --quiet refs/heads/feat/20-drop"
+rm -f "$WD/dirty.txt"
+"$WS" remove feat/20-drop --delete-branch --dir "$W" >/dev/null 2>&1; rc=$?
+expect "worktree: without --discard, remove --delete-branch still exits 4 on an unmerged branch" bash -c "[ $rc -eq 4 ] && git -C '$W' show-ref --verify --quiet refs/heads/feat/20-drop"
+"$WS" remove feat/20-drop --delete-branch --discard --dir "$W" >/dev/null 2>&1; rc=$?
+expect "worktree: remove --discard deletes an unmerged branch with exit 0" bash -c "[ $rc -eq 0 ] && ! git -C '$W' show-ref --verify --quiet refs/heads/feat/20-drop"
+"$WS" add feat/21-drop main --dir "$W" >/dev/null 2>&1
+WD="$W/.logbook/worktrees/feat-21-drop"
+git -C "$WD" -c user.email=t@example.com -c user.name=t commit -q --allow-empty -m unmerged
+printf 'x\n' > "$WD/dirty.txt"
+printf 'changed\n' >> "$WD/.env.example"
+"$WS" remove feat/21-drop --delete-branch --discard --dir "$W" >/dev/null 2>&1; rc=$?
+expect "worktree: remove --discard removes a dirty worktree and its unmerged branch with exit 0" bash -c "[ $rc -eq 0 ] && [ ! -e '$WD' ] && ! git -C '$W' worktree list | grep -q feat-21-drop && ! git -C '$W' show-ref --verify --quiet refs/heads/feat/21-drop"
+git -C "$W" switch -q -c feat/22-drop
+git -C "$W" -c user.email=t@example.com -c user.name=t commit -q --allow-empty -m unmerged
+out="$("$WS" remove feat/22-drop --delete-branch --discard --dir "$W" 2>&1)"; rc=$?
+git -C "$W" switch -q main
+expect "worktree: remove --discard still keeps the branch the main checkout is on with exit 4" bash -c "[ $rc -eq 4 ] && printf '%s' \"\$1\" | grep -q 'checked out in the main checkout' && git -C '$W' show-ref --verify --quiet refs/heads/feat/22-drop" _ "$out"
+git -C "$W" worktree add -q -b feat/24-drop "$TMP/outside-drop" main
+printf 'x\n' > "$TMP/outside-drop/dirty.txt"
+"$WS" remove feat/24-drop --delete-branch --discard --dir "$W" >/dev/null 2>&1; rc=$?
+expect "worktree: remove --discard still stops with exit 5 at a worktree outside .logbook/worktrees" bash -c "[ $rc -eq 5 ] && [ -e '$TMP/outside-drop/dirty.txt' ] && git -C '$W' show-ref --verify --quiet refs/heads/feat/24-drop"
+"$WS" remove feat/24-drop --delete-branch --discard --outside --dir "$W" >/dev/null 2>&1; rc=$?
+expect "worktree: remove --discard --outside removes a dirty outside worktree" bash -c "[ $rc -eq 0 ] && [ ! -e '$TMP/outside-drop' ] && ! git -C '$W' show-ref --verify --quiet refs/heads/feat/24-drop"
+"$WS" add feat/23-drop main --discard --dir "$W" >/dev/null 2>&1; rc=$?
+expect "worktree: add --discard fails with exit 2 and makes nothing" bash -c "[ $rc -eq 2 ] && [ ! -e '$W/.logbook/worktrees/feat-23-drop' ] && ! git -C '$W' show-ref --verify --quiet refs/heads/feat/23-drop"
+"$WS" path feat/5-shared --discard --dir "$W" >/dev/null 2>&1; rc=$?
+expect "worktree: path --discard fails with exit 2" test $rc -eq 2
 W2="$TMP/wtrepo-noignore"
 mkdir -p "$W2"
 git -C "$W2" init -q -b main
@@ -779,7 +817,7 @@ expect "worktree: a repository that does not ignore .logbook/ yet gets it in .gi
 echo "== plugin files =="
 expect "hooks.json is valid JSON with the four hooks" jq -e '.hooks.SessionStart and .hooks.PreToolUse and .hooks.PostToolUse and .hooks.Stop' "$ROOT/hooks/hooks.json"
 expect "SessionStart runs on every source (no matcher)" jq -e '.hooks.SessionStart[0] | has("matcher") | not' "$ROOT/hooks/hooks.json"
-for skill in rulebook discuss brief build debrief sync; do
+for skill in rulebook discuss brief build debrief sync epic epic-finish; do
   f="$ROOT/skills/$skill/SKILL.md"
   if [ ! -f "$f" ]; then bad "skill $skill exists"; continue; fi
   lines="$(wc -l < "$f" | tr -d ' ')"
@@ -873,11 +911,9 @@ expect "brief, discuss and sync launch parallel work by the guide" bash -c "for 
 expect "rule block lets tracks and research run as subagents or a Workflow" bash -c "grep -q '서브에이전트나 Workflow' '$B' && grep -q 'Workflow를 쓸 수 없으면 서브에이전트로' '$B'"
 expect "rule block: one request is one issue and one PR, split into tracks inside" bash -c "grep -q '^- \*\*요청 하나는 이슈 하나.\*\*' '$B' && grep -q '하위 이슈나 단계로 나누지 않고 이슈 하나, PR 하나로 하며' '$B' && grep -q '관련 없는 기능이 섞인 요청도 마찬가지다' '$B'"
 expect "rule block asks the merge method along with the merge" grep -q '머지를 고르면 squash와 merge commit 중에서도 고르게 한다' "$B"
-expect "rule block mentions no epic" bash -c "! grep -qiE 'epic|에픽' '$B'"
 DB="$ROOT/skills/debrief/SKILL.md"
 expect "debrief: one question call asks the next step and the merge method, and merges with the chosen gh flag" bash -c "grep -q 'two questions in one call: the next step' '$DB' && grep -q 'exactly one option marked (Recommended)' '$DB' && grep -q 'the merge method for when 머지 is picked: merge commit' '$DB' && grep -q 'gh pr merge <pr> --repo <repo> --squash --delete-branch' '$DB' && grep -q 'or .--merge --delete-branch.' '$DB' && grep -q 'squashMergeAllowed,mergeCommitAllowed' '$DB'"
 expect "debrief: the result page follows the briefing guide and is written to .logbook/briefs, with no slide renderer" bash -c "grep -q 'templates/briefing.md' '$DB' && grep -q '<main>/.logbook/briefs/<issue>-debrief.html' '$DB' && grep -q 'origin/<PR base>...HEAD' '$DB' && ! grep -q 'render-brief' '$DB'"
-expect "debrief mentions no epic" bash -c "! grep -qiE 'epic|에픽' '$DB'"
 expect "reviewer has no epic mode and reviews a risky /build track in area mode" bash -c "! grep -qiE 'epic|에픽' '$ROOT/agents/reviewer.md' && grep -q '\`/build\` also uses area mode for a risky track before merging it' '$ROOT/agents/reviewer.md'"
 BR="$ROOT/skills/brief/SKILL.md"
 expect "no /mission skill and no /goal template" bash -c "test ! -e '$ROOT/skills/mission' && test ! -e '$ROOT/templates/goal.md' && ! grep -q '^## Goal' '$ROOT/templates/plan.md'"
@@ -886,7 +922,7 @@ expect "brief finds decisions with the questions guide and its four lenses, and 
 expect "brief writes the track graph under 상세 and keeps it off the briefing page" bash -c "grep -q 'write the track graph by the \"Track graph\" section' \"$BR\" && grep -q 'stays off the briefing page' \"$BR\""
 expect "brief builds the page by the briefing guide and puts the text briefing in the issue body under a kept 원래 요청" bash -c "grep -q 'templates/briefing.md' \"$BR\" && grep -q 'Rewrite the issue body as the text briefing' \"$BR\" && grep -q '## 원래 요청' \"$BR\" && ! grep -q 'render-brief' \"$BR\""
 expect "brief hands an approved plan to /build, and plan mode asks for approval once more" bash -c "grep -q 'invoke \`/build #<issue>\` without asking for approval again' \"$BR\" && grep -q 'hand it to \`/build #<issue>\` instead of these steps' \"$BR\" && grep -q 'ask for approval once more in the chat as step 9 says' \"$BR\" && grep -q 'do not invoke \`/build\`' \"$BR\""
-expect "brief mentions no epic and no child issues but tracks" bash -c "! grep -qiE 'epic|에픽' \"$BR\" && grep -q 'never into child issues' \"$BR\""
+expect "brief still splits large work into tracks, not child issues, except inside an epic the user started" has_all "$BR" 'never into child issues, except inside an epic the user started with `/epic`'
 BU="$ROOT/skills/build/SKILL.md"
 expect "build runs only an approved plan and stops without a plan doc" bash -c "grep -q 'the issue must be in \`status:in-progress\`' '$BU' && grep -q 'say the plan is not approved and point to \`/brief #<issue>\`, then stop' '$BU' && grep -q 'Without it on this machine, say the plan was made on another machine' '$BU' && grep -q 'Then stop.' '$BU'"
 expect "build resumes with /build #issue, and an open PR goes on to /debrief" bash -c "grep -q 'argument-hint: \"\[#issue\]\"' '$BU' && grep -q 'When the branch already has an open PR, the run is past Finish: run \`/debrief\` instead' '$BU' && grep -q \"read the plan doc's 진행 기록\" '$BU' && grep -q '\`/build #<issue>\` picks it up later' '$BU'"
@@ -943,7 +979,7 @@ expect "debrief: the merge comes first and the worktree is removed last" bash -c
 expect "debrief: the session's own worktree goes last, with a note, and nothing removes it by other means" bash -c "grep -q 'clean up last of all, since removing the folder the session runs in can end the turn' '$DB' && grep -q '다음 작업은 <main>에서 새 세션으로 하세요' '$DB' && grep -q 'never remove the PR.s worktree or branch by other means' '$DB' && grep -q 'or ends with the worktree the session runs in still there' '$DB' && ! grep -q 'exits 5 for it' '$DB'"
 expect "debrief: a worktree outside .logbook/worktrees is asked about with the merge question" bash -c "grep -q 'add a third question to that call: remove that folder after the merge' '$DB' && grep -q 'adding .--outside. when the user picked removing' '$DB'"
 
-# ---------------------------------------------------------------- questions, briefing pages, /build, no epics (0.12)
+# ---------------------------------------------------------------- questions, briefing pages, /build (0.12)
 Q="$ROOT/templates/questions.md"
 expect "questions guide: who decides, and the four lenses" bash -c "grep -q '^## Who decides' '$Q' && grep -q '\*\*Structure\*\*' '$Q' && grep -q '\*\*Behavior\*\*' '$Q' && grep -q '\*\*Technique\*\*' '$Q' && grep -q '\*\*Contract\*\*' '$Q' && grep -q 'When the request, the code and the docs disagree, do not pick one. Ask.' '$Q'"
 expect "questions guide: ask with the question tool, the recommended option first, prose as the fallback" bash -c "grep -q '^## How to ask' '$Q' && grep -q 'Use the question tool whenever the answers can be listed (AskUserQuestion on Claude Code)' '$Q' && grep -q '(Recommended)' '$Q' && grep -q 'ask the same question in prose at once' '$Q' && grep -q '다른 생각이 있다' '$Q'"
@@ -961,8 +997,6 @@ expect "document rules paragraph names 업무 규칙 among the system docs" grep
 expect "rules template: a marker with sources and checked=, and unconfirmed rules marked 확인 필요" bash -c "head -1 '$ROOT/templates/system/rules.md' | grep -q '^<!-- logbook:system sources=.* checked=' && grep -q '^# 업무 규칙' '$ROOT/templates/system/rules.md' && grep -q '확인 필요' '$ROOT/templates/system/rules.md'"
 expect "system-check and render-system order rules.md after flows.md" bash -c "grep -qF 'ORDER = [\"overview.md\", \"stack.md\", \"flows.md\", \"rules.md\", \"data-model.md\"]' '$ROOT/scripts/system_check.py' && grep -qF 'ORDER = [\"overview.md\", \"stack.md\", \"flows.md\", \"rules.md\", \"data-model.md\"]' '$ROOT/scripts/render_system.py'"
 expect "the plan-preview hook writes and opens no preview" bash -c "! grep -qE 'plan-preview\.html|open_file|xdg-open' '$ROOT/hooks/plan-preview.sh'"
-epic_hits="$(cd "$ROOT" && grep -rniE 'epic|에픽' skills agents templates hooks scripts README.md docs .claude-plugin 2>/dev/null)"
-if [ -z "$epic_hits" ]; then ok "no epic is left in skills, agents, templates, hooks, scripts, README, docs or the plugin manifest (CHANGELOG keeps history)"; else bad "no epic is left in skills, agents, templates, hooks, scripts, README, docs or the plugin manifest (CHANGELOG keeps history)" "$epic_hits"; fi
 
 # ---------------------------------------------------------------- 0.12 review round 1
 expect "brief creates rules.md when a change settles the project's first domain rule" grep -q 'settles its first domain rule, the change creates it from' "$ROOT/skills/brief/SKILL.md"
@@ -984,6 +1018,34 @@ expect "plan-mode reminder and brief move the issue to in-progress before /build
 expect "build takes over an interrupted shared-tree wave and runs a pre-0.12 plan as one wave" bash -c "grep -q 'Uncommitted files of this issue.s interrupted wave are no such reason' '$ROOT/skills/build/SKILL.md' && grep -q 'A plan doc without a track graph (one made before 0.12) runs as one wave' '$ROOT/skills/build/SKILL.md'"
 expect "brief rewrites the issue body's text briefing on 수정" grep -q "On 수정, change the plan, rewrite the issue body's text briefing" "$ROOT/skills/brief/SKILL.md"
 
+# ---------------------------------------------------------------- epics (0.19)
+echo "== epics =="
+EG="$ROOT/templates/epic.md"
+EBR="$ROOT/skills/brief/SKILL.md"
+EBU="$ROOT/skills/build/SKILL.md"
+EDB="$ROOT/skills/debrief/SKILL.md"
+EDI="$ROOT/skills/discuss/SKILL.md"
+EEP="$ROOT/skills/epic/SKILL.md"
+EEF="$ROOT/skills/epic-finish/SKILL.md"
+ERU="$ROOT/templates/session-rules.md"
+for section in "Picking the target" "Recording the target" "A child issue" "Merging the default branch in" "Direct commits" "Dropping" "Slack"; do
+  expect "epic guide has the section $section" grep -qx "## $section" "$EG"
+done
+expect "epic guide names the target section, the child link, --discard and how a dropped issue closes" has_all "$EG" '## 타겟 브랜치' 'gh issue create --parent' '--discard' 'gh issue close <issue> --reason "not planned"'
+expect "brief: argument-hint has --epic and --base" grep -qE '^argument-hint: .*--epic .*--base ' "$EBR"
+expect "brief stops on an epic's parent" has_all "$EBR" 'the remote has `epic/<issue>-*`) is not briefed' '`/epic-finish` ends the epic, then stop'
+expect "brief keeps the target section when rewriting the issue body" has_all "$EBR" 'keep `## 합친 이슈` and `## 타겟 브랜치` sections as they are'
+expect "brief: a child skips the briefing page of step 7" in_section "$EBR" '## Child issues' 'Skip step 7'
+expect "build stops on an epic's parent" has_all "$EBU" 'is never built: when the remote has `epic/<issue>-*`' '`/epic-finish` ends the epic, then stop'
+expect "build reads the target from the issue and opens the PR against it, naming the parent" has_all "$EBU" '`## 타겟 브랜치`' 'gh pr create --base <target>' 'Part of #<parent>'
+expect "debrief closes a still-open issue itself after the merge" has_all "$EDB" 'gh issue close <issue> --reason completed'
+expect "debrief: the Epics section has the child path and the epic PR path" in_section "$EDB" '## Epics' '**A child (base `epic/*`).**' '**An epic PR (head `epic/*`'
+expect "debrief: open children's PRs close before the merge and the rest happens after MERGED" in_section "$EDB" '## Epics' 'Close their open PRs before merging' 'Only after the merge reads `MERGED`'
+expect "discuss has the Inside an epic section" grep -qx '## Inside an epic' "$EDI"
+expect "epic names the integration branch" has_all "$EEP" 'epic/<issue>-<slug>'
+expect "epic has no briefing or approval step" bash -c "grep -q 'with no briefing and no approval' '$EEP' && ! grep -qiE '^[0-9]+\. \*\*[^*]*(brief|approv)' '$EEP'"
+expect "epic-finish opens the PR to the default branch, closes the parent and runs /debrief" has_all "$EEF" 'gh pr create --base <default> --head <epic branch>' 'Closes #<parent>' 'Run `/debrief`'
+expect "rule block points at /epic, /epic-finish and the epic guide, and one request is still one issue" has_all "$ERU" '`/epic`' '`/epic-finish`' 'templates/epic.md' '요청 하나는 이슈 하나'
 # ---------------------------------------------------------------- slack (0.13)
 echo "== slack =="
 SL="$TMP/slack"
@@ -1262,7 +1324,7 @@ printf 'e2e: 3 passed\n' > "$SL/e2e.log"
 slack thread 7 >/dev/null 2>&1
 P7="$(mfield 7 ts)"
 # Each stage replies with its title in a header block and the body in a section block and in text.
-for stage in mockup design wave check pr feedback; do
+for stage in mockup design wave check pr feedback part; do
   title="$(python3 -c 'import sys; sys.path.insert(0, sys.argv[1]); import slack_config; print(slack_config.stage_title(sys.argv[2]))' "$ROOT/scripts" "$stage")"
   : > "$SLOG"
   out="$(slack post 7 "$stage" --text "$SL/text.md" 2>&1)"; rc=$?
@@ -1358,6 +1420,12 @@ if [ $rc -eq 0 ] && [ "$(mfield 25 phase)" = build ] && [ "$(slog '[("*만들기
 : > "$SLOG"
 out="$(slack post 25 wave --text "$SL/text.md" 2>&1)"; rc=$?
 if [ $rc -eq 0 ] && [ "$(slog 'len([e for e in L if e["method"] == "chat.update"])')" = 0 ] && [ "$(mfield 25 phase)" = build ]; then ok "slack: a post that keeps the phase does not touch the first message"; else bad "slack: a post that keeps the phase does not touch the first message" "rc=$rc $out $(cat "$SLOG")"; fi
+: > "$SLOG"
+out="$(slack post 25 part --text "$SL/text.md" 2>&1)"; rc=$?
+if [ $rc -eq 0 ] && [ "$(slog 'len(RP(A[0]))' "$P25")" = 1 ] && [ "$(slog 'len([e for e in L if e["method"] == "chat.update"])')" = 0 ] && [ "$(mfield 25 phase)" = build ] && [ "$(mfield 25 shown)" = build ]; then ok "slack: post part replies and leaves the phase line alone"; else bad "slack: post part replies and leaves the phase line alone" "rc=$rc $out $(smark 25) $(cat "$SLOG")"; fi
+: > "$SLOG"
+out="$(slack post 25 part --text "$SL/text.md" --file "$SL/e2e.log" 2>&1)"; rc=$?
+if [ $rc -eq 0 ] && [ "$(slog '[e["params"].get("filename") for e in L if e["method"] == "files.getUploadURLExternal"]')" = '["e2e.log"]' ] && [ "$(slog 'len([e for e in L if e["method"] == "chat.update"])')" = 0 ] && [ "$(mfield 25 phase)" = build ]; then ok "slack: post part attaches a file and leaves the phase line alone"; else bad "slack: post part attaches a file and leaves the phase line alone" "rc=$rc $out $(smark 25) $(cat "$SLOG")"; fi
 slack post 25 pr --text "$SL/text.md" >/dev/null 2>&1
 : > "$SLOG"
 out="$(slack post 25 check --text "$SL/text.md" 2>&1)"; rc=$?
@@ -1473,7 +1541,8 @@ if [ "$(chan_lines)" = 1 ] && grep -qxF -e '- Slack 채널: `C0999ZZZZ`' "$R9/AG
 if [ $rc -eq 2 ] && grep -qxF -e '- Slack 채널: `C0999ZZZZ`' "$R9/AGENTS.md"; then ok "rulebook: --slack-channel bad-id exits 2"; else bad "rulebook: --slack-channel bad-id exits 2" "rc=$rc"; fi
 
 # The stage titles planners read, written out so a changed table shows up here.
-expect "slack: the stage titles are the planner words with their icons" python3 -c 'import sys; sys.path.insert(0, sys.argv[1]); import slack_config as c; want = {"mockup": "🎨 시안", "design": "✅ 시안 승인", "brief": "📋 브리핑", "approve": "✅ 개발 시작", "wave": "🔨 개발 끝", "check": "🔍 확인할 결과", "pr": "👀 마지막 확인", "debrief": "📦 완성 보고", "close": "🚀 반영 완료", "feedback": "💬 피드백 반영"}; sys.exit(0 if {s: c.stage_title(s) for s in c.STAGES} == want else 1)' "$ROOT/scripts"
+expect "slack: the stage titles are the planner words with their icons" python3 -c 'import sys; sys.path.insert(0, sys.argv[1]); import slack_config as c; want = {"mockup": "🎨 시안", "design": "✅ 시안 승인", "brief": "📋 브리핑", "approve": "✅ 개발 시작", "wave": "🔨 개발 끝", "check": "🔍 확인할 결과", "pr": "👀 마지막 확인", "debrief": "📦 완성 보고", "close": "🚀 반영 완료", "feedback": "💬 피드백 반영", "part": "🧩 진행 소식"}; sys.exit(0 if {s: c.stage_title(s) for s in c.STAGES} == want else 1)' "$ROOT/scripts"
+expect "slack: part is a stage titled 진행 소식, and it sets no phase" python3 -c 'import sys; sys.path.insert(0, sys.argv[1]); import slack_config as c; sys.exit(0 if c.STAGES.get("part") == "진행 소식" and c.STAGE_PHASE.get("part", "missing") is None and c.next_phase("build", "part") == "build" else 1)' "$ROOT/scripts"
 
 # 10. skills call slack.sh at their stages
 expect "brief opens the thread, posts mockup, design, brief, approve and close with --outcome, and reads replies" bash -c "f='$ROOT/skills/brief/SKILL.md'; grep -q 'slack.sh thread <issue>' \"\$f\" && grep -q 'slack.sh post <issue> mockup' \"\$f\" && grep -q -e '--outcome' \"\$f\" && grep -q 'slack.sh post <issue> design' \"\$f\" && grep -q 'slack.sh post <issue> brief' \"\$f\" && grep -q 'slack.sh post <issue> approve' \"\$f\" && grep -q 'slack.sh post <issue> close' \"\$f\" && grep -q 'slack.sh replies <issue>' \"\$f\""
@@ -1500,7 +1569,7 @@ if [ "$(slog '[(BID(e, SC.BLOCK_STATUS), SC.CLOSED_NOTICE in (BID(e, SC.BLOCK_CL
 if [ "$(mfield 901 kind)" = pr ] && [ "$(mfield 901 phase)" = done ] && [ "$(mfield 901 shown)" = done ]; then ok "slack: kind=pr survives in the marker after close saves it"; else bad "slack: kind=pr survives in the marker after close saves it" "$(smark 901)"; fi
 
 # 3. any other stage on a PR exits 2 and calls no Slack API, and thread --backlog is gone
-for stage in brief approve feedback; do
+for stage in brief approve feedback part; do
   : > "$SLOG"
   out="$(slack post 901 "$stage" --text "$SL/text.md" 2>&1)"; rc=$?
   if [ $rc -eq 2 ] && [ ! -s "$SLOG" ] && [ -n "$(printf '%s' "$out" | tail -1)" ]; then ok "slack: post $stage on a PR thread exits 2 with one line and calls no Slack API"; else bad "slack: post $stage on a PR thread exits 2 with one line and calls no Slack API" "rc=$rc $out $(cat "$SLOG")"; fi
