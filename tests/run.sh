@@ -802,6 +802,12 @@ printf 'x\n' > "$TMP/outside-drop/dirty.txt"
 expect "worktree: remove --discard still stops with exit 5 at a worktree outside .logbook/worktrees" bash -c "[ $rc -eq 5 ] && [ -e '$TMP/outside-drop/dirty.txt' ] && git -C '$W' show-ref --verify --quiet refs/heads/feat/24-drop"
 "$WS" remove feat/24-drop --delete-branch --discard --outside --dir "$W" >/dev/null 2>&1; rc=$?
 expect "worktree: remove --discard --outside removes a dirty outside worktree" bash -c "[ $rc -eq 0 ] && [ ! -e '$TMP/outside-drop' ] && ! git -C '$W' show-ref --verify --quiet refs/heads/feat/24-drop"
+"$WS" add feat/25-drop main --dir "$W" >/dev/null 2>&1
+git -C "$W/.logbook/worktrees/feat-25-drop" switch -q -c feat/25-other
+printf 'x\n' > "$W/.logbook/worktrees/feat-25-drop/keep.txt"
+"$WS" remove feat/25-drop --delete-branch --discard --dir "$W" >/dev/null 2>&1; rc=$?
+expect "worktree: remove --discard leaves a folder that holds another branch alone" bash -c "[ $rc -eq 0 ] && [ -e '$W/.logbook/worktrees/feat-25-drop/keep.txt' ]"
+"$WS" remove feat/25-other --delete-branch --discard --dir "$W" >/dev/null 2>&1
 "$WS" add feat/23-drop main --discard --dir "$W" >/dev/null 2>&1; rc=$?
 expect "worktree: add --discard fails with exit 2 and makes nothing" bash -c "[ $rc -eq 2 ] && [ ! -e '$W/.logbook/worktrees/feat-23-drop' ] && ! git -C '$W' show-ref --verify --quiet refs/heads/feat/23-drop"
 "$WS" path feat/5-shared --discard --dir "$W" >/dev/null 2>&1; rc=$?
@@ -1040,7 +1046,11 @@ expect "build stops on an epic's parent" has_all "$EBU" 'is never built: when th
 expect "build reads the target from the issue and opens the PR against it, naming the parent" has_all "$EBU" '`## 타겟 브랜치`' 'gh pr create --base <target>' 'Part of #<parent>'
 expect "debrief closes a still-open issue itself after the merge" has_all "$EDB" 'gh issue close <issue> --reason completed'
 expect "debrief: the Epics section has the child path and the epic PR path" in_section "$EDB" '## Epics' '**A child (base `epic/*`).**' '**An epic PR (head `epic/*`'
-expect "debrief: open children's PRs close before the merge and the rest happens after MERGED" in_section "$EDB" '## Epics' 'Close their open PRs before merging' 'Only after the merge reads `MERGED`'
+expect "debrief: the epic PR merges without deleting its branch, and children are cleaned up after MERGED" in_section "$EDB" '## Epics' 'Merge without `--delete-branch`' 'Only after the merge reads `MERGED`'
+expect "the agent never suggests an epic" bash -c "grep -q 'Do not suggest an epic' '$EBR' && grep -q '에이전트가 먼저 권하지 않는다' '$ERU'"
+expect "a child posts under its parent and never under its own number" has_all "$ROOT/templates/epic.md" 'slack.sh post <parent> part' 'A child never calls `slack.sh` with its own number'
+expect "the guide picks an epic from the checked-out branch and keeps merged children" has_all "$ROOT/templates/epic.md" 'The checked-out branch' 'Merged children stay closed and untouched' 'never rebase'
+expect "plan mode picks the target and stops on a parent" has_all "$EBR" 'picking the target and stopping on an epic'"'"'s parent'
 expect "discuss has the Inside an epic section" grep -qx '## Inside an epic' "$EDI"
 expect "epic names the integration branch" has_all "$EEP" 'epic/<issue>-<slug>'
 expect "epic has no briefing or approval step" bash -c "grep -q 'with no briefing and no approval' '$EEP' && ! grep -qiE '^[0-9]+\. \*\*[^*]*(brief|approv)' '$EEP'"

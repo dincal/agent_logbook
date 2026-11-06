@@ -19,7 +19,7 @@ Run gh with the account on the tracker line in the logbook rules the session sta
    - Fetch first. Child issues: `gh api --paginate repos/<repo>/issues/<parent>/sub_issues`, with the `에픽:` line of open issues as a fallback where linking failed.
    - PRs into the integration branch: `gh pr list --base <epic branch> --state all --limit 1000 --json number,title,state,headRefName,body,mergeCommit`.
    - Direct commits, as "Direct commits" in the guide says. When the integration branch holds nothing beyond the default branch, say there is nothing to put in and stop.
-   - Sort the children into merged, dropped and still open. Open ones are not touched here; `/debrief` shows them at the merge question.
+   - Sort the children into merged, dropped and still open. A child still open whose PR was merged, on the GitHub page for instance, counts as merged: close it with `--reason completed`. Open ones are not touched here; `/debrief` shows them at the merge question.
    - Write the sorted list in the chat, one line each. This is a report, not a question.
 3. **Merge the default branch in** as "Merging the default branch in" in the guide says, checked out in the main checkout or the worktree that holds the integration branch. Say so and stop when the full tests fail in a way you cannot fix.
 4. **Write what it became.** Read the merged children's issues and PR bodies, then:

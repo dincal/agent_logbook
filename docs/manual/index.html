@@ -125,7 +125,7 @@
 
 <main class="deck">
   <header class="cover">
-    <div class="eyebrow">사용설명서 · logbook v0.18.1</div>
+    <div class="eyebrow">사용설명서 · logbook v0.19.0</div>
     <h1>logbook 사용설명서</h1>
     <p class="lead">에이전트가 조사해 계획을 세우고, 사람이 정할 결정은 객관식으로 묻습니다. 사람은 구현 전 브리핑과 구현 후 결과 보고만 검토하고, 지금 시스템의 모습은 코드와 맞춰 둔 프로젝트 문서로 봅니다. 설치부터 문제 해결까지 열세 장으로 설명합니다.</p>
     <div class="meta">
@@ -232,7 +232,7 @@ flowchart LR
         </tbody>
       </table>
     </div>
-    <p class="sub">플랜 모드는 코드를 고치기 전에 계획만 세우는 Claude Code의 읽기 전용 모드입니다. 승인한 뒤에는 <code>/build</code>가 다시 승인을 묻지 않고 PR과 결과 보고까지 진행합니다. 요청 하나는 이슈 하나, PR 하나이고, 큰 작업도 이슈 안에서 트랙으로 나눠 만듭니다. 이슈는 다른 개발자가 알아야 하거나 꼭 남길 작업에만 만듭니다. 한 문장으로 설명되는 작은 수정은 이슈와 브리핑 없이 PR만 열고, 방금 한 로컬 작업의 반영처럼 다른 작업에 따라오는 문서 갱신은 관련 작업의 PR에 얹습니다. 저장소를 고치지 않는 로컬 작업(도구 설치, 로컬 서비스 정지)은 채팅으로만 보고합니다.</p>
+    <p class="sub">플랜 모드는 코드를 고치기 전에 계획만 세우는 Claude Code의 읽기 전용 모드입니다. 승인한 뒤에는 <code>/build</code>가 다시 승인을 묻지 않고 PR과 결과 보고까지 진행합니다. 요청 하나는 이슈 하나, PR 하나이고, 큰 작업도 이슈 안에서 트랙으로 나눠 만듭니다. 직접 <code>/epic</code>으로 시작한 에픽만 예외입니다. 이슈는 다른 개발자가 알아야 하거나 꼭 남길 작업에만 만듭니다. 한 문장으로 설명되는 작은 수정은 이슈와 브리핑 없이 PR만 열고, 방금 한 로컬 작업의 반영처럼 다른 작업에 따라오는 문서 갱신은 관련 작업의 PR에 얹습니다. 저장소를 고치지 않는 로컬 작업(도구 설치, 로컬 서비스 정지)은 채팅으로만 보고합니다.</p>
   </section>
 
   <!-- 04 -->
@@ -279,7 +279,7 @@ flowchart LR
       <div class="card">
         <div class="name">/logbook:epic-finish</div>
         <div class="when">에픽의 개발이 끝났을 때</div>
-        <p>main을 통합 브랜치에 합치고 전체 테스트를 돌립니다. 충돌을 고칠 수 없으면 멈추고 묻습니다. 머지한 하위 이슈, 버린 이슈, 직접 커밋을 모아 어떤 기능이 되었는지 정리하고 완료 조건을 쓴 뒤, main 대상 PR을 열어 전체 <code>/debrief</code>로 넘깁니다. 머지 질문에 남은 하위 이슈 목록이 함께 보이고, 머지를 고르면 남은 PR과 이슈를 닫은 뒤 main에 머지합니다. 머지 방식은 하위 이슈 기록이 남는 merge commit을 권합니다.</p>
+        <p>main을 통합 브랜치에 합치고 전체 테스트를 돌립니다. 충돌을 고칠 수 없으면 멈추고 묻습니다. 머지한 하위 이슈, 버린 이슈, 직접 커밋을 모아 어떤 기능이 되었는지 정리하고 완료 조건을 쓴 뒤, main 대상 PR을 열어 전체 <code>/debrief</code>로 넘깁니다. 머지 질문에 남은 하위 이슈 목록이 함께 보이고, 머지를 고르면 main에 머지한 뒤 남은 PR과 이슈를 닫고 브랜치를 지웁니다. 머지 방식은 하위 이슈 기록이 남는 merge commit을 권합니다.</p>
         <dl><dt>예</dt><dd><code>/logbook:epic-finish</code> · <code>/logbook:epic-finish #42</code></dd></dl>
       </div>
       <div class="card">
@@ -338,7 +338,7 @@ flowchart LR
     <ul class="plain">
       <li>문서마다 첫 줄에 그 문서가 설명하는 코드 경로를 적습니다. <code>scripts/system-check.sh</code>는 그 코드가 문서보다 나중에 바뀌었으면 "뒤처짐"으로, ERD의 테이블 수가 스키마와 다르면 경고로 알려 줍니다.</li>
       <li><code>rules.md</code>는 <code>/sync</code>가 처음 쓸 때와 <code>full</code>일 때 코드에서 초안을 쓰고, <code>/brief</code>가 프로젝트의 첫 도메인 규칙을 정할 때 만들며, 규칙을 정하거나 바꾸는 PR이 함께 고칩니다.</li>
-      <li>이 문서가 설명하는 내용을 바꾸는 PR은 같은 PR에서 문서도 고칩니다. <code>/debrief</code>가 대조하고, 머지하면 핸드북을 같은 링크에 다시 게시합니다.</li>
+      <li>이 문서가 설명하는 내용을 바꾸는 PR은 같은 PR에서 문서도 고칩니다. <code>/debrief</code>가 대조하고, 기본 브랜치에 머지하면 핸드북을 같은 링크에 다시 게시합니다.</li>
       <li>핸드북은 <code>scripts/render-system.sh</code>가 프로젝트 문서를 슬라이드 하나로 묶은 웹 페이지입니다. 링크는 <code>overview.md</code> 머리말에 있습니다.</li>
     </ul>
   </section>
@@ -509,6 +509,7 @@ flowchart LR
           <tr><td>완성 보고</td><td>"이런 기능이 완성됐습니다. 이렇게 테스트해 보세요" 투의 기획자용 요약, 결과 화면의 PNG와 HTML</td></tr>
           <tr><td>반영 완료</td><td>머지했다는 알림. 버렸으면 닫은 이유 한 줄</td></tr>
           <tr><td>이슈 없는 PR</td><td>PR마다 쓰레드 하나: PR을 열 때 올리는 상위 메시지와 머지 뒤의 반영 완료, 둘뿐입니다. 피드백은 반영 완료 글에 한두 줄로 들어갑니다</td></tr>
+          <tr><td>진행 소식</td><td>에픽의 하위 이슈는 쓰레드를 따로 만들지 않고, 시안과 완성과 버림을 부모 쓰레드에 올립니다. 첫 줄에 이슈 번호를 적습니다</td></tr>
           <tr><td>피드백 반영</td><td>위 게시 직전에, 지난 게시 이후 사용자가 채팅으로 준 지시와 피드백이 있을 때만</td></tr>
         </tbody>
       </table>
@@ -542,7 +543,7 @@ flowchart LR
   </section>
 
   <footer>
-    <span>logbook v0.18.1</span>
+    <span>logbook v0.19.0</span>
     <span>변경 이력: <a href="https://github.com/dincal/agent_logbook/blob/main/CHANGELOG.md">CHANGELOG.md</a></span>
     <span class="keys">← → 로 장 이동</span>
   </footer>
