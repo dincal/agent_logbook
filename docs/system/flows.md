@@ -1,9 +1,9 @@
-<!-- logbook:system sources="skills/** hooks/** agents/** templates/session-rules.md templates/docs-rules.md scripts/rulebook.sh scripts/worktree.sh templates/plan.md templates/parallel.md templates/questions.md templates/briefing.md templates/planner.md templates/slack.md templates/slack-app.yml scripts/slack.sh scripts/slack.py scripts/slack_config.py scripts/snapshot.py" checked="2026-10-22" -->
+<!-- logbook:system sources="skills/** hooks/** agents/** templates/session-rules.md templates/docs-rules.md scripts/rulebook.sh scripts/worktree.sh templates/plan.md templates/parallel.md templates/questions.md templates/briefing.md templates/planner.md templates/slack.md templates/slack-app.yml templates/epic.md scripts/slack.sh scripts/slack.py scripts/slack_config.py scripts/snapshot.py" checked="2026-11-06" -->
 # 주요 흐름
 
 ## 흐름 목록
 
-clone마다 한 번 `/rulebook`으로 logbook을 켜면 세션마다 작업 규칙이 들어가고, 이슈로 남길 변경은 브리핑과 결과 보고를 거치고, 작은 수정은 이슈 없이 PR만 남기며, 프로젝트 문서는 `/sync`로 코드와 맞춥니다. 무엇을 만들지 정하기 전에는 `/discuss`로 토론할 수 있고, 승인한 계획은 `/build`가 트랙 그래프대로 만들어 PR까지 갑니다. 큰 작업도 이슈 하나, PR 하나입니다.
+clone마다 한 번 `/rulebook`으로 logbook을 켜면 세션마다 작업 규칙이 들어가고, 이슈로 남길 변경은 브리핑과 결과 보고를 거치고, 작은 수정은 이슈 없이 PR만 남기며, 프로젝트 문서는 `/sync`로 코드와 맞춥니다. 무엇을 만들지 정하기 전에는 `/discuss`로 토론할 수 있고, 승인한 계획은 `/build`가 트랙 그래프대로 만들어 PR까지 갑니다. 큰 작업도 이슈 하나, PR 하나입니다. 다만 사람이 `/epic`으로 시작한 에픽은 부모 이슈와 하위 이슈 여러 개로 나뉩니다.
 
 | 흐름 | 한 줄 설명 |
 |---|---|
@@ -14,6 +14,7 @@ clone마다 한 번 `/rulebook`으로 logbook을 켜면 세션마다 작업 규�
 | 화면 시안 승인 | 화면이 바뀌면 구현 전에 시안을 승인받습니다. Slack을 켰으면 승인 전에 시안부터 올려 의견을 받습니다 |
 | /build로 구현 | 트랙 그래프대로 묶음마다 builder 트랙을 Workflow 하나로 동시에 돌리고, 위험한 트랙은 합치기 전에 리뷰하며, 묶음마다 전체 테스트를 돌린 뒤 PR로 넘깁니다 |
 | 구현 후 결과 보고 | 증거, 문서 대조, 별도 리뷰(큰 PR은 영역별로 나눠서), 결과 화면을 거쳐 다음 단계와 머지 방식을 고릅니다 |
+| 에픽 | 사람이 `/epic`으로 시작한 큰 작업은 통합 브랜치에서 하위 이슈로 나눠 진행하고, `/epic-finish`에서 전체 절차로 main에 넣습니다. 버리기는 명령 없이 채팅으로 합니다 |
 | Slack 쓰레드 | 개발하는 이슈마다(백로그 이슈는 빼고) 쓰레드 하나에 진행 상황, 브리핑, 결과 화면을 올리고(이슈 없는 PR은 PR마다 첫 메시지와 반영 완료 두 글만), 쓰레드에 달린 답글은 단계마다 읽어 사용자에게 넘깁니다. AGENTS.md의 채널 줄이나 환경 변수 `LOGBOOK_SLACK_CHANNEL`로 채널이 정해진 저장소에서만 동작합니다 |
 | 문서 동기화 | 문서 구조를 정하고, 옛 흔적을 정리하고, 프로젝트 문서를 코드에 맞춥니다. 도메인 규칙이 있으면 업무 규칙 문서 초안을 쓰고 확인받습니다 |
 
@@ -38,7 +39,7 @@ flowchart TD
 - `/rulebook`은 `.logbook/config.json`(repo, 기본 브랜치, gh 계정), `.gitignore`의 `.logbook/`, 이슈 라벨 네 개(`status:*`), `plansDirectory`(플랜 모드의 계획 파일이 저장되는 폴더)를 준비합니다. `plansDirectory`는 git이 무시하는 `.logbook/plans`입니다. 다시 실행할 때 인자로 받지 않은 값은 기존 `config.json`의 값을 이어받습니다. AGENTS.md는 0.7 이전 규칙 블록이 있을 때만 고칩니다. 블록 자리에 그 안의 문서 규칙을 일반 문단(`templates/docs-rules.md`)으로 옮겨 씁니다.
 - `.logbook/`은 git에서 제외되어 clone에 따라오지 않습니다. 새로 clone한 저장소는 `/rulebook`을 실행하기 전까지 규칙이 들어가지 않고, 경고도 없습니다. worktree는 원래 저장소의 설정을 읽으므로 따로 켤 필요가 없습니다. worktree에서 `/rulebook`을 실행하면 설정을 원래 저장소에 쓰고, 원래 저장소의 `.git/info/exclude`에 `.logbook/`을 넣습니다.
 - 플랜 검사와 결과 보고 hook도 같은 판정(`hooks/lib.sh`)으로 logbook 저장소인지 정합니다. git 밖 폴더는 세션 규칙과 플랜 검사만 그 폴더 자체를 보고(하위 폴더는 보지 않습니다), 결과 보고 hook은 PR이 없으므로 동작하지 않습니다.
-- hook 출력은 Claude Code가 한 번에 10,000자까지 그대로 넣습니다. 규칙은 약 5,900자이고, `tests/run.sh`가 한도를 넘지 않는지 확인합니다.
+- hook 출력은 Claude Code가 한 번에 10,000자까지 그대로 넣습니다. 규칙은 약 6,700자이고, `tests/run.sh`가 한도를 넘지 않는지 확인합니다.
 - Slack 쓰레드를 쓰려면 `/rulebook --slack-channel <ID>`를 실행합니다. AGENTS.md에 Slack 채널 줄을 한 줄 씁니다. 채널 줄 없이 환경 변수 `LOGBOOK_SLACK_CHANNEL`만 두면 모든 프로젝트가 그 채널을 씁니다. 자세한 내용은 "Slack 쓰레드"에 있습니다.
 - 시작점: `hooks/session-rules.sh`, `hooks/lib.sh`, `scripts/rulebook.sh`, `skills/rulebook/SKILL.md`
 
@@ -141,6 +142,7 @@ flowchart LR
 - 이슈 본문은 글 브리핑(요약, 바뀌는 것, 주요 결정, 위험, 완료 조건)과 화면 링크로 바꿉니다. 다른 사람이 쓴 본문이면 그 글을 끝에 `## 원래 요청`으로 남깁니다.
 - 승인은 채팅에서 받습니다. 요약 한 문장, 동작이나 비용을 바꾸는 에이전트의 결정, 위험과 판단 필요, 완료 조건 수, 화면 링크를 붙이고 진행 / 수정 / 중단을 질문 도구로 묻습니다.
 - 정한 도메인 규칙은 업무 규칙 문서(`rules.md`)에 남깁니다. 프로젝트에 이 문서가 없고 이번 변경이 첫 도메인 규칙을 정하면 `templates/system/rules.md`로 만듭니다.
+- `/discuss`와 `/brief`는 `--epic #번호`와 `--base 브랜치`도 받아 타겟 브랜치를 정합니다. 자세한 내용은 "에픽"에 있습니다.
 - 들어오는 길은 세 가지입니다. 직접 요청과 `/discuss`에서 넘긴 요청은 채팅의 "진행"이 착수 승인입니다. 플랜 모드는 질문과 독립 점검, 트랙 그래프까지 플랜 안에서 마치고, 플랜을 승인한 뒤 브리핑 화면과 이슈 본문을 만들어 채팅에서 한 번 더 승인받습니다. `/discuss`에서 넘어오면 토론 요약의 결정은 다시 묻지 않습니다.
 - 플랜 모드에서는 hook이 브리핑 블록이 없거나 HTML이 든 플랜을 되돌려 보내고, 미리보기 창은 띄우지 않습니다. 렌더러를 실행하지 못해 HTML 검사를 못 하면(python3가 없는 경우 등) 경고 메시지를 냅니다. 승인 직후에는 남은 절차를 알려 줍니다. 플랜 파일은 작업 트리의 `.logbook/plans`에 저장되고, 승인되면 원래 checkout의 `.logbook/plans/<번호>-<slug>.md`로 옮깁니다.
 - 이미 `status:in-progress`인 이슈로 `/brief`를 부르면 승인된 계획이므로 `/build #<번호>`로 넘깁니다.
@@ -179,7 +181,7 @@ flowchart LR
 
 ```mermaid
 flowchart TD
-  ST["/build #번호 또는 /brief 승인"] --> CK{"이슈가 status:in-progress이고 계획 문서가 이 기기에 있나"}
+  ST["/build #번호 또는 /brief 승인"] --> CK{"에픽의 부모가 아니고, 이슈가 status:in-progress이고 계획 문서가 이 기기에 있나"}
   CK -->|"아니오"| STOP["이유를 알리고 멈춤: /brief #번호 안내, 또는 계획을 세운 기기에서 이어 가기"]
   CK -->|"예"| WH{"이미 PR이 열려 있나"}
   WH -->|"예"| DBR["/debrief로 넘김"]
@@ -247,15 +249,15 @@ flowchart TD
 
 - PR 본문에 결과 보고 표시(`<!-- logbook:debrief -->`)가 없으면, 대화를 끝낼 때 hook이 막고 `/debrief`를 실행하라고 알려 줍니다. 확인한 커밋을 기록해 두어 같은 커밋에서는 한 번만 막고, 새 커밋이 생기면 다시 한 번 막습니다.
 - 리뷰는 PR마다 한 번 하고, 리뷰 뒤 고친 내용이 동작을 바꾸면 고친 부분만 한 번 더 봅니다.
-- builder 트랙으로 만들었거나 바뀐 줄이 2,000줄 이상(lock 파일과 생성 파일 제외)인 PR은 첫 리뷰를 나눕니다. 트랙마다, 트랙이 없으면 폴더나 모듈 단위로 영역 리뷰어를 두고(트랙 밖에서 세션이 고친 파일은 한 영역으로 묶습니다), 영역이 만나는 곳을 보는 이음새 리뷰어를 하나 더 둡니다. 트랙으로 만들었는지는 PR 본문의 트랙 목록으로 압니다. 나눠 보는 리뷰는 리뷰어를 Workflow로 동시에 띄우고, Workflow를 쓸 수 없으면 서브에이전트로 띄웁니다(`templates/parallel.md`의 "Review split"). 고친 부분만 보는 두 번째 리뷰는 리뷰어 하나가 봅니다.
+- builder 트랙으로 만들었거나 바뀐 줄이 2,000줄 이상(lock 파일과 생성 파일 제외)인 PR은 첫 리뷰를 나눕니다. 트랙마다, 트랙이 없으면 폴더나 모듈 단위로 영역 리뷰어를 두고(트랙 밖에서 세션이 고친 파일은 한 영역으로 묶습니다), 영역이 만나는 곳을 보는 이음새 리뷰어를 하나 더 둡니다. 트랙으로 만들었는지는 PR 본문의 트랙 목록으로 압니다. 에픽 PR은 머지한 하위 이슈마다 영역을 두고, 직접 커밋을 한 영역으로 묶습니다. 나눠 보는 리뷰는 리뷰어를 Workflow로 동시에 띄우고, Workflow를 쓸 수 없으면 서브에이전트로 띄웁니다(`templates/parallel.md`의 "Review split"). 고친 부분만 보는 두 번째 리뷰는 리뷰어 하나가 봅니다.
 - 문서 대조 범위는 PR의 실제 base입니다(`system-check.sh --range origin/<PR base>...HEAD`).
 - 결과 블록은 로컬 계획 문서에 채우고 커밋하지 않습니다. PR 본문에는 계획과 달라진 점, 완료 조건별 증거를 적습니다.
 - CHANGELOG에는 쓰는 사람이 알아챌 변경만 한 줄 적고 이슈와 PR을 링크합니다. 위치와 형식(버전별, 날짜별)은 AGENTS.md 문서 표나 파일이 이미 쓰는 형식을 따르고, 파일이 없으면 루트에 Keep a Changelog 형식으로 만듭니다. PR 번호가 PR을 연 뒤에 정해지므로 `/debrief`가 씁니다. 테스트나 내부 정리만 한 PR은 적지 않습니다.
 - 결과 화면은 `templates/briefing.md`대로 이 변경에 맞게 그림으로 설계합니다. 계획과 결과의 비교, 계획과 달라진 점과 이유, 완료 조건별 증거, 리뷰 회차, 트랙을 보여 주고, `.logbook/briefs/<번호>-debrief.html`에 쓴 뒤 Claude Code에서는 Artifact로 게시합니다. 계획 문서가 없는 PR은 결과 화면을 만들지 않습니다.
-- 다음 단계(머지, 재리뷰, 남은 지적 고치기, PR 열어 두기)와 머지 방식을 질문 도구 한 번에 두 질문으로 묻습니다. 트랙이 둘 이상인 PR은 트랙마다 커밋이 남는 merge commit을, 아니면 squash를 권합니다. 저장소가 고른 방식을 막아 두었으면 알리고 다른 방식을 제안합니다. PR 브랜치가 `.logbook/worktrees/` 밖의 worktree에 있으면, 머지 뒤 그 폴더를 지울지를 같은 질문 호출에 세 번째 질문으로 넣습니다.
+- 다음 단계(머지, 재리뷰, 남은 지적 고치기, PR 열어 두기)와 머지 방식을 질문 도구 한 번에 두 질문으로 묻습니다. 트랙이 둘 이상인 PR과 에픽 PR은 트랙이나 하위 이슈마다 커밋이 남는 merge commit을, 아니면 squash를 권합니다. 저장소가 고른 방식을 막아 두었으면 알리고 다른 방식을 제안합니다. PR 브랜치가 `.logbook/worktrees/` 밖의 worktree에 있으면, 머지 뒤 그 폴더를 지울지를 같은 질문 호출에 세 번째 질문으로 넣습니다.
 - 머지는 `gh pr merge <PR> --repo <저장소>`로 합니다. `--repo`를 주면 gh는 원격 브랜치만 지우고 로컬 브랜치와 폴더는 건드리지 않으므로 worktree 안에서도 됩니다. 머지 뒤 PR 상태가 `MERGED`가 아니면(auto-merge만 걸림, 검사 실패) 멈추고, worktree와 브랜치는 그대로 둡니다.
 - worktree와 로컬 브랜치 정리는 이슈, Slack, 핸드북, 채팅 보고를 모두 마친 뒤 맨 끝에 합니다. 세션이 돌던 폴더를 지우면 턴이 끊길 수 있기 때문입니다. 그 경우 보고 마지막 줄에 다음 작업은 원래 checkout에서 새 세션으로 하라고 적습니다. 정리는 원래 checkout에서 `worktree.sh remove <브랜치> --delete-branch --merged-head <PR head SHA>`로 하고, 스쿼시 머지한 브랜치는 끝이 그 SHA와 같을 때만 지웁니다. 원래 checkout에서 작업했으면 머지 뒤 이슈와 Slack을 정리한 다음 base 브랜치로 바꾸고 `pull --ff-only`하되, 커밋하지 않은 변경이 있으면 바꾸지 않고 브랜치도 남긴 채 알립니다. 정리 명령이 실패하거나(종료 코드 3, 4, 5 등) 성공했는데도 세션 폴더가 남아 있으면 다른 방법으로 지우지 않고 메시지와 경로를 보고합니다.
-- 핸드북은 머지된 base 브랜치에서 렌더합니다. 원래 checkout을 base로 바꾸고 pull했으면 거기서, 아니면 `origin/<base>`를 임시 폴더에 detach로 checkout해 렌더하고(결과 파일은 그 폴더 밖에) 그 폴더는 바로 지웁니다. 렌더러가 문서마다 마지막 커밋을 git에서 읽기 때문입니다.
+- 핸드북은 트래커의 기본 브랜치에 머지될 때만, 머지된 그 브랜치에서 렌더합니다. 원래 checkout을 base로 바꾸고 pull했으면 거기서, 아니면 `origin/<base>`를 임시 폴더에 detach로 checkout해 렌더하고(결과 파일은 그 폴더 밖에) 그 폴더는 바로 지웁니다. 렌더러가 문서마다 마지막 커밋을 git에서 읽기 때문입니다.
 - 계획의 주요 결정이 도메인 규칙을 정하거나 바꿨으면 `rules.md`에 적혔는지 확인하고, 없으면 이 PR에서 고칩니다.
 - Slack 쓰레드를 켠 저장소라면 결과 화면을 만든 뒤 결과 요약과 화면을, 머지하면 반영 완료를 쓰레드에 올리고, 머지 전에 새 답글을 읽습니다. 이슈 없는 PR은 PR 쓰레드를 열고 반영 완료만 올립니다. 자세한 내용은 "Slack 쓰레드"에 있습니다.
 - 시작점: `skills/debrief/SKILL.md`, `templates/briefing.md`, `agents/reviewer.md`, `templates/parallel.md`의 "Review split", `hooks/debrief-gate.sh`
@@ -265,6 +267,38 @@ flowchart TD
 | 별도 리뷰 | Opus 5.5, high effort(`agents/reviewer.md`의 `model: opus`, `effort: high`) | PR 본문의 완료 조건, diff | 완료 조건마다 충족 여부, 정상 경로에서 깨지는 곳, 프로젝트 문서와 코드의 불일치, 모델 호출 설명 누락, md 안의 HTML을 찾는다. 읽기 도구만 쓴다 | 지적마다 `file:line`, 설명, 신뢰도(0~100), 확인 방법. 세션이 재현해 보고, 확인했거나 80점 이상인 것만 남긴다 | 다른 하네스에서는 세션 모델로 같은 지침을 따른다 |
 | 영역 리뷰 | Opus 5.5, high effort(같은 에이전트의 Area mode) | PR 본문, 전체 diff 통계, 맡은 영역 파일의 diff | 자기 영역의 diff를 한 줄씩 보고, 영역 밖은 자기 영역 코드가 깨뜨린 것만 적는다 | 지적과 자기 영역이 닿는 완료 조건마다 한 줄. 세션이 모든 리뷰어의 지적을 모아 중복을 지우고 재현해 거릅니다 | 다른 하네스에서는 세션 모델로 같은 지침을 따릅니다 |
 | 이음새 리뷰 | Opus 5.5, high effort(같은 에이전트의 Seam mode) | PR 본문, 전체 diff 통계, 영역과 파일 목록, 공통 부분의 diff, 두 영역 이상이 고친 파일의 diff | 한 영역이 만들거나 바꾼 타입, 인터페이스, 스키마, 설정을 다른 영역이 맞게 쓰는지, 여러 영역에 걸친 완료 조건을 본다 | 지적과 완료 조건마다 한 줄 | 다른 하네스에서는 세션 모델로 같은 지침을 따릅니다 |
+
+## 에픽
+
+main에 넣고 싶지 않은 큰 작업은 사람이 `/epic`으로 시작합니다. 에픽은 부모 이슈 하나와 통합 브랜치 `epic/<번호>-<slug>`입니다. 통합 브랜치는 하위 이슈의 PR이 모이는 긴 브랜치이고, 끝날 때만 전체 절차로 main에 들어갑니다. `/epic`을 부르지 않으면 어떤 요청도 에픽이 되지 않습니다.
+
+```mermaid
+flowchart TD
+  A["/epic 목표와 범위"] --> B["부모 이슈와 통합 브랜치"]
+  B --> C["/discuss, /brief: 타겟을 골라 하위 이슈 생성"]
+  C --> D["/build: 통합 브랜치에서 브랜치를 따고 PR도 통합 브랜치로"]
+  D --> E["/debrief: 증거와 독립 리뷰"]
+  E --> F{"사람이 머지 선택"}
+  F -->|"머지"| G["이슈를 직접 닫고 부모 쓰레드에 결과"]
+  G --> C
+  G --> H["/epic-finish: main을 합치고 하위 이슈를 모아 기능 정리"]
+  H --> I["main 대상 PR, 전체 /debrief"]
+  I --> J{"사람이 머지 선택. 남은 하위 이슈 목록도 함께 표시"}
+  J -->|"머지"| K["main에 머지하고 MERGED를 확인한 뒤 남은 하위 이슈와 브랜치 정리"]
+  C -.->|"채팅으로 버리기"| X["목록 확인 한 번, 이슈와 PR 닫기, 브랜치 강제 삭제"]
+  D -.-> X
+  E -.-> X
+```
+
+- 타겟 고르기: `/discuss`와 `/brief`는 `--base`, `--epic`, 이슈 본문의 타겟 기록, 현재 브랜치, 트래커의 기본 브랜치 순서로 처음 맞는 것을 고르고 어느 것을 골랐는지 한 줄로 알립니다. 에픽 브랜치나 하위 이슈 브랜치에서는 입력하지 않아도 그 에픽을 고르고, `--base main`은 이를 무시합니다. 에픽이 아닌 `--base`는 main 대상 이슈와 똑같은 전체 절차입니다. 다만 이슈는 `/debrief`가 직접 닫고 핸드북은 올리지 않습니다. 이미 시작한 이슈는 시작한 타겟을 유지하고, 기록된 타겟이 원격에 없으면 멈추고 묻습니다.
+- 타겟 기록: 기본 브랜치가 아닌 이슈는 본문의 `## 타겟 브랜치` 절에 브랜치 이름을 적고, 하위 이슈는 `에픽: #부모` 줄도 적습니다. `/brief`와 `/build`는 세션이 바뀌어도 이 절을 읽고, `/brief`는 본문을 다시 쓸 때 이 절을 보존합니다. `/debrief`는 PR의 브랜치로 경로를 고릅니다. 부모 이슈로 `/brief`나 `/build`를 부르면 멈추고 올바른 명령을 알려 줍니다. 부모는 `epic/<번호>-*` 브랜치가 원격에 있는 이슈로 알아보며, `epic` 라벨은 없습니다.
+- 하위 이슈가 건너뛰는 것: 질문, 독립 점검, 독립 리뷰, 증거는 보통 이슈와 같습니다. 그림 브리핑 화면(글 브리핑만 승인), 결과 화면, CHANGELOG, `docs/system/` 갱신, 핸드북은 없고 `/epic-finish`의 main PR에서 한 번 합니다. 하위 브랜치는 늘 통합 브랜치에서 따며 머지하지 않은 이슈 위에 쌓지 않습니다. PR 본문은 `Closes #하위`와 `Part of #부모`를 함께 적고, GitHub가 기본 브랜치 밖에서는 `Closes`를 처리하지 않으므로 머지 뒤 `/debrief`가 이슈를 직접 닫습니다.
+- main 합치기: 사용자가 요청할 때와 `/epic-finish`에서만 `git merge origin/<기본 브랜치>`로 합치고 전체 테스트를 돌립니다. rebase하지 않으므로 머지한 PR의 커밋이 남습니다. 충돌을 고칠 수 없으면 멈추고 묻습니다.
+- 직접 커밋: 한 문장으로 설명되는 변경은 이슈와 PR 없이 통합 브랜치에 바로 커밋합니다. `/epic-finish`가 `git log --first-parent --no-merges`로 이를 모아 최종 리뷰에 올립니다.
+- 버리기: 명령 없이 채팅으로 요청하면 어느 단계에서든 됩니다. 버릴 이슈, PR, 브랜치와 worktree 목록을 커밋 안 된 변경과 머지 안 된 커밋 표시와 함께 보여 주고 한 번만 확인받습니다. 확인하면 PR을 먼저 닫고, 이슈를 not planned로 닫고, 브랜치를 `worktree.sh remove --delete-branch --discard`로 강제로 지웁니다. 머지한 하위 이슈는 닫힌 채 그대로 두고, 남의 이슈와 브랜치는 건드리지 않고 담당자를 멘션한 댓글만 남깁니다. 부모가 남의 것이면 버리지 않고 멈춥니다.
+- Slack: 에픽의 쓰레드는 부모 것 하나입니다. 하위 이슈는 쓰레드를 만들지 않고, 시안과 완성과 버림을 부모 쓰레드에 `part` 글로 올립니다.
+- 머지한 하위 이슈를 나중에 빼는 기능은 없습니다. 하위 PR을 통합 브랜치에 머지하는 것은 main에 넣어도 좋다는 판단입니다.
+- 시작점: `skills/epic/SKILL.md`, `skills/epic-finish/SKILL.md`, `templates/epic.md`
 
 ## Slack 쓰레드
 
@@ -301,6 +335,7 @@ flowchart TD
 - 답글은 단계 경계(시안 승인 요청 전, 브리핑 승인 요청 전, 묶음 끝, PR을 열기 전, 디브리핑 시작, 머지 전)에서 읽습니다. 봇이 올린 메시지는 빼고, 같은 답글을 두 번 알리지 않습니다. 답글에 계획을 바꾸라는 말이 있어도 에이전트가 직접 반영하지 않고, 반영하면 `/build` 중에는 결정 기록에 남기며 승인 전이면 `/brief` 수정으로 돌아갑니다.
 - 실패해도 스킬은 멈추지 않습니다. 종료 코드 10은 채널이 정해지지 않아 꺼진 상태, 11은 토큰(`LOGBOOK_SLACK_TOKEN`)이 없어 건너뜀, 12는 Slack, GitHub, Chrome 호출 실패나 `LOGBOOK_SLACK_CHANNEL`에 채널 ID가 아닌 값이 든 설정 오류입니다. 스크립트가 마지막 줄에 채팅에 옮길 한 줄을 내고, 스킬은 그 줄을 알린 뒤 다음 단계로 갑니다. 쓰레드를 만들지 못했으면 다음 게시 때 다시 만듭니다.
 - PR 쓰레드: `Closes #n`이 없는 PR은 `/debrief` 시작에 `slack.sh thread <PR번호> --text <파일>`로 자기 쓰레드를 엽니다. `gh issue view`가 돌려준 주소가 `/pull/<번호>`로 끝나면 PR로 보고, 쓰레드 표시(`kind=pr`)를 PR 댓글에 남깁니다. 글은 첫 메시지와 반영 완료 둘뿐이고, 피드백과 답글에 대한 답은 반영 완료 본문에 한두 줄로 넣으며, "나중에"로 미룬 방향 변경은 PR 댓글로 남깁니다. 진행 줄은 `확인 → 반영` 두 칸이고 첫 메시지의 개발자용 줄은 "GitHub PR #n"입니다. PR 쓰레드에는 `close`만 올릴 수 있고, 다른 단계는 종료 코드 2로 거부합니다. 저장소를 고치지 않는 로컬 작업은 올리지 않습니다.
+- 에픽의 하위 이슈는 쓰레드를 만들지 않고 부모 쓰레드에 단계 `part`로 시안, 완성, 버림을 올립니다. `part`는 진행 줄을 바꾸지 않고 파일을 붙일 수 있습니다. 자세한 내용은 "에픽"에 있습니다.
 - 한계: logbook이 직접 한 머지와 닫힘만 올립니다. GitHub 웹에서 머지하거나 닫은 이슈나 PR은 닫힘 글도 닫힘 안내도 붙지 않습니다. 답글은 단계 경계에서만 읽으므로 세션이 쉬는 동안 달린 답글은 다음 경계에서 알립니다.
 - 시작점: `scripts/slack.sh`, `scripts/slack.py`, `scripts/slack_config.py`, `scripts/snapshot.py`, `templates/slack.md`, `templates/planner.md`, `templates/slack-app.yml`, `skills/*/SKILL.md`의 Slack 단계
 

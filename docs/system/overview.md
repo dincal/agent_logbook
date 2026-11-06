@@ -1,4 +1,4 @@
-<!-- logbook:system sources="README.md .claude-plugin/** skills/** agents/** hooks/** templates/session-rules.md templates/docs-rules.md" checked="2026-11-03" -->
+<!-- logbook:system sources="README.md .claude-plugin/** skills/** agents/** hooks/** templates/session-rules.md templates/docs-rules.md" checked="2026-11-06" -->
 # logbook
 
 > 저장소: https://github.com/dincal/agent_logbook
@@ -7,7 +7,7 @@
 
 logbook은 Claude Code에 설치하는 플러그인입니다. 개발은 에이전트가 맡고, 사람은 자기가 정할 결정에 답하고 구현 전 브리핑과 구현 후 결과 보고만 검토합니다.
 
-- **6** 명령(스킬): rulebook · discuss · brief · build · debrief · sync
+- **8** 명령(스킬): rulebook · discuss · brief · build · debrief · sync · epic · epic-finish
 - **3** hook(자동으로 실행되는 스크립트): 세션 규칙 · 플랜 검사 · 결과 보고 확인
 - **5** 하위 에이전트(세션이 따로 띄우는 에이전트): 리뷰어, 독립 점검(checker), 구현 트랙을 맡는 builder 세 등급
 - **3** 사람이 보는 페이지: 브리핑 화면 · 결과 화면 · 프로젝트 핸드북
@@ -32,7 +32,7 @@ flowchart LR
 ```
 
 - Artifact는 claude.ai에 올리는 비공개 웹 페이지입니다. Artifact를 쓸 수 없는 환경에서는 로컬 HTML 파일 경로를 링크로 씁니다.
-- Slack은 선택 연결입니다. 저장소 AGENTS.md에 Slack 채널 줄이 있거나 환경 변수 `LOGBOOK_SLACK_CHANNEL`이 있을 때만 계획하거나 만드는 이슈마다(`/discuss`에서 backlog로 남겨 아직 쓰레드가 없는 이슈는 빼고) 쓰레드를 하나 만들어 진행 상황과 시안, 브리핑·결과 화면(PNG와 HTML)을 단계별 큰 제목을 단 글로 올리고, 첫 메시지에 지금 단계(계획, 만들기, 확인, 반영)를 보입니다. 이슈 없는 PR은 PR마다 쓰레드를 열어 무엇을 바꾸는지와 반영 완료 두 글만 올리고, 단계는 확인과 반영 두 칸만 보입니다. 쓰레드에 달린 답글은 단계가 바뀔 때 읽어 사용자에게 알리고, 계획에 반영할지는 사용자가 정합니다(자세한 흐름은 주요 흐름의 "Slack 쓰레드").
+- Slack은 선택 연결입니다. 저장소 AGENTS.md에 Slack 채널 줄이 있거나 환경 변수 `LOGBOOK_SLACK_CHANNEL`이 있을 때만 계획하거나 만드는 이슈마다(`/discuss`에서 backlog로 남겨 아직 쓰레드가 없는 이슈는 빼고) 쓰레드를 하나 만들어(에픽의 하위 이슈는 부모 쓰레드에 올립니다) 진행 상황과 시안, 브리핑·결과 화면(PNG와 HTML)을 단계별 큰 제목을 단 글로 올리고, 첫 메시지에 지금 단계(계획, 만들기, 확인, 반영)를 보입니다. 이슈 없는 PR은 PR마다 쓰레드를 열어 무엇을 바꾸는지와 반영 완료 두 글만 올리고, 단계는 확인과 반영 두 칸만 보입니다. 쓰레드에 달린 답글은 단계가 바뀔 때 읽어 사용자에게 알리고, 계획에 반영할지는 사용자가 정합니다(자세한 흐름은 주요 흐름의 "Slack 쓰레드").
 - hook은 Claude Code가 특정 순간(세션 시작, 플랜 제출, 대화 종료)에 자동으로 실행하는 스크립트입니다.
 - logbook 작업 규칙은 저장소에 복사하지 않습니다. 세션이 시작될 때마다 플러그인이 넣으므로, 플러그인을 올리면 모든 프로젝트에 바로 적용됩니다.
 
@@ -54,7 +54,8 @@ flowchart LR
 | 병렬 작업은 서브에이전트나 Workflow로 띄운다 | `/build`는 builder 트랙이 있는 묶음마다 트랙 수와 상관없이 Workflow로 돌리고(크기 설정을 넘으면 여러 번에 나눠), 묶음 사이의 합치기와 전체 테스트는 세션이 합니다. 나눠 보는 리뷰는 Workflow로, 조사는 영역이 셋 이상이면 Workflow, 아니면 서브에이전트입니다. 어느 쪽이든 같은 모델 등급을 쓰고, Workflow를 쓸 수 없으면 서브에이전트로 띄웁니다 | #15 PR, #31 이슈 |
 | 작업은 원래 checkout에서 하고, worktree는 병렬 개발과 물어본 경우에만 만든다 | 이슈는 원래 checkout에서 브랜치만 바꿔 진행합니다. 트랙마다 전체 테스트가 필요하면 `.logbook/worktrees/`에 worktree를 만들고 합친 뒤 바로 지웁니다. 원래 checkout을 쓰면 안 될 이유가 보이면 worktree를 만들기 전에 묻습니다 | #27 PR |
 | 머지를 먼저 하고, worktree는 맨 끝에 지운다 | `/debrief`는 머지하고 `MERGED`를 확인한 뒤 이슈, Slack, 핸드북, 채팅 보고를 마치고 맨 끝에 worktree와 로컬 브랜치를 정리합니다. 세션이 돌던 폴더를 먼저 지우면 턴이 끊겨 머지가 되지 않았기 때문입니다. `.logbook/worktrees/` 밖의 worktree는 머지 질문과 함께 지울지 묻습니다 | #8 |
-| 요청 하나는 이슈 하나, PR 하나로 하고, 그 안을 트랙 그래프로 나눈다 | 단계마다 이슈, PR, 리뷰, 머지가 한 번씩 더 들어서 하위 이슈와 단계를 두지 않습니다. 관련 없는 기능이 섞인 요청도 이슈 하나입니다. `/brief`가 계획 문서에 트랙 그래프(묶음, 트랙, 맡을 에이전트, 파일, 기다리는 트랙, 위험, 확인 명령)를 쓰고 사람에게는 묻지 않습니다. 그래프에 위험으로 표시한 트랙(까다로운 로직, 다른 트랙이 기대는 계약, 예외가 많은 수정)은 합치기 전에 리뷰하고, 묶음마다 전체 테스트를 돌리며, 트랙마다 커밋해 merge commit에서 트랙 하나만 되돌릴 수 있게 합니다. 대신 PR이 커지므로 큰 PR은 영역별 리뷰어와 이음새 리뷰어가 나눠 봅니다 | #29 PR, #31 이슈 |
+| 요청 하나는 이슈 하나, PR 하나로 하고, 그 안을 트랙 그래프로 나눈다. 사람이 시작한 에픽만 예외다 | 단계마다 이슈, PR, 리뷰, 머지가 한 번씩 더 들어서 하위 이슈와 단계를 두지 않습니다. 관련 없는 기능이 섞인 요청도 이슈 하나입니다. `/brief`가 계획 문서에 트랙 그래프(묶음, 트랙, 맡을 에이전트, 파일, 기다리는 트랙, 위험, 확인 명령)를 쓰고 사람에게는 묻지 않습니다. 그래프에 위험으로 표시한 트랙(까다로운 로직, 다른 트랙이 기대는 계약, 예외가 많은 수정)은 합치기 전에 리뷰하고, 묶음마다 전체 테스트를 돌리며, 트랙마다 커밋해 merge commit에서 트랙 하나만 되돌릴 수 있게 합니다. 대신 PR이 커지므로 큰 PR은 영역별 리뷰어와 이음새 리뷰어가 나눠 봅니다 | #29 PR, #31 이슈 |
+| 에픽은 사람이 시작하고 통합 브랜치에서 하위 이슈로 나눠 진행한다 | main에 넣고 싶지 않은 큰 작업을 진행하면서 이슈로 나누려는 필요 때문입니다. 사람이 `/epic`을 부를 때만 부모 이슈와 통합 브랜치 `epic/<번호>-<slug>`가 생기고, 하위 이슈는 질문, 독립 점검, 글 브리핑, 독립 리뷰, 증거를 거쳐 통합 브랜치에 머지됩니다. 그림 화면, CHANGELOG, 문서 갱신은 `/epic-finish`가 여는 main PR에서 한 번 합니다. 0.12에서 없앤 에픽은 한 세션이 정해진 단계를 끝까지 돌렸지만, 이번 에픽은 사람이 진행하면서 이슈를 새로 따고 머지를 고릅니다 | #10 이슈 |
 | 계획 문서와 시안 사본은 저장소에 두지 않는다 | 계획 문서와 승인된 시안 사본은 원래 checkout(git worktree가 아닌 처음 clone한 폴더)의 `.logbook/plans/`, `.logbook/designs/`에 두고 커밋하지 않습니다. 저장소에는 logbook이 없는 사람도 읽을 문서만 남기고, 결정 이유는 PR 본문에, 변경 이력은 CHANGELOG에 이슈와 PR 링크로 남깁니다. 그 기기를 잃으면 계획 문서도 사라지므로, 미뤄 둔 계획은 이슈 댓글로 남깁니다 | #25 PR |
 | 위험: md 뷰어가 mermaid를 그려야 그림이 보인다 | GitHub와 흔한 편집기는 mermaid를 그리지만, 지원하지 않는 뷰어에서는 그림이 코드로 보입니다. 핸드북에서는 늘 그림으로 보입니다 | `templates/diagram-kit.md` |
 | 위험: 다른 기기에서는 진행 중인 작업을 이어 갈 수 없다 | 계획 문서와 `/build`의 진행 기록은 계획을 세운 기기에만 있습니다. 다른 기기에서는 이슈를 `status:todo`로 돌리고 다시 계획해야 합니다 | #31 이슈 |
@@ -62,7 +63,7 @@ flowchart LR
 
 ## 용어
 
-logbook에서 쓰는 말 열여덟 개입니다.
+logbook에서 쓰는 말 스무 개입니다.
 
 | 용어 | 쉬운 설명 | 코드에서 부르는 이름 |
 |---|---|---|
@@ -84,3 +85,5 @@ logbook에서 쓰는 말 열여덟 개입니다.
 | worktree | 한 저장소를 여러 폴더에 동시에 checkout하는 git 기능. logbook은 병렬 트랙과 사람이 고른 경우에만 원래 checkout의 `.logbook/worktrees/`에 만듭니다 | `scripts/worktree.sh` |
 | Workflow | 여러 하위 에이전트를 JavaScript 스크립트 하나로 순서대로, 동시에 띄우는 Claude Code 도구 | `templates/parallel.md` |
 | builder | 트랙 하나를 맡아 구현하는 하위 에이전트. 모델과 effort에 따라 세 등급(builder-fast, builder, builder-deep)이 있습니다 | `agents/builder*.md` |
+| 에픽 | 사람이 `/epic`으로 시작한 큰 작업. 부모 이슈 하나와 통합 브랜치, 그 아래 하위 이슈들로 이루어지고 끝날 때만 main에 들어갑니다 | `skills/epic/SKILL.md`, `skills/epic-finish/SKILL.md`, `templates/epic.md` |
+| 통합 브랜치 | 에픽의 하위 이슈 PR이 모이는 긴 브랜치. 부모 이슈 번호로 이름을 짓고, 끝나면 main에 PR로 들어갑니다 | `epic/<번호>-<slug>` |

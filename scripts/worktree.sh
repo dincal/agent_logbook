@@ -7,7 +7,7 @@ set -euo pipefail
 usage() {
   cat <<'EOF'
 Usage: worktree.sh add BRANCH [BASE] [--dir DIR]
-       worktree.sh remove BRANCH [--delete-branch [--merged-head SHA]] [--outside] [--dir DIR]
+       worktree.sh remove BRANCH [--delete-branch [--merged-head SHA]] [--outside] [--discard] [--dir DIR]
        worktree.sh path BRANCH [--dir DIR]
 
 The worktree of BRANCH is the one BRANCH is checked out in (the main checkout aside),
@@ -27,19 +27,26 @@ remove  Removes the worktree of BRANCH. Refuses (exit 3) when it has uncommitted
         main checkout's HEAD, or into its upstream), or, with --merged-head SHA, when its
         tip is SHA (the head of a pull request that was squash-merged); otherwise it is
         kept and the exit is 4.
+        --discard is only for dropping an epic or a child issue as templates/epic.md
+        says: uncommitted changes no longer refuse (no exit 3) and go with the worktree,
+        and --delete-branch force-deletes a branch with unmerged commits (no exit 4 for
+        those). A branch checked out in the main checkout or one git still refuses to
+        delete keeps exit 4, a worktree outside .logbook/worktrees/ still needs --outside
+        (exit 5), and a folder holding another branch is still left alone.
 path    Prints the worktree path for BRANCH, outside .logbook/worktrees/ too. Fails when
         the folder of that name holds another branch.
 EOF
 }
 
 CMD="${1:-}"; [ $# -gt 0 ] && shift
-BRANCH="" BASE="" DIR="" DELETE_BRANCH=0 MERGED_HEAD="" OUTSIDE_OK=0
+BRANCH="" BASE="" DIR="" DELETE_BRANCH=0 MERGED_HEAD="" OUTSIDE_OK=0 DISCARD=0
 while [ $# -gt 0 ]; do
   case "$1" in
     --dir) DIR="${2:?--dir needs a value}"; shift ;;
     --delete-branch) DELETE_BRANCH=1 ;;
     --merged-head) MERGED_HEAD="${2:?--merged-head needs a value}"; shift ;;
     --outside) OUTSIDE_OK=1 ;;
+    --discard) DISCARD=1 ;;
     -h|--help) usage; exit 0 ;;
     -*) echo "worktree: unknown option $1" >&2; usage >&2; exit 2 ;;
     *) if [ -z "$BRANCH" ]; then BRANCH="$1"; elif [ -z "$BASE" ]; then BASE="$1"; else usage >&2; exit 2; fi ;;
@@ -47,6 +54,7 @@ while [ $# -gt 0 ]; do
   shift
 done
 case "$CMD" in add|remove|path) ;; -h|--help) usage; exit 0 ;; *) usage >&2; exit 2 ;; esac
+[ "$DISCARD" = 0 ] || [ "$CMD" = remove ] || { echo "worktree: --discard only goes with remove" >&2; exit 2; }
 [ -n "$BRANCH" ] || { usage >&2; exit 2; }
 if [ -n "$MERGED_HEAD" ]; then
   [ "$DELETE_BRANCH" = 1 ] || { echo "worktree: --merged-head only goes with --delete-branch" >&2; exit 2; }
@@ -180,14 +188,20 @@ case "$CMD" in
         case "$line" in "?? "*) linked_env "$path" && continue ;; esac
         dirty="$dirty$line"$'\n'
       done <<< "$status"
-      if [ -n "$dirty" ]; then
+      if [ -n "$dirty" ] && [ "$DISCARD" != 1 ]; then
         echo "worktree: $WT has uncommitted changes; not removed" >&2
         printf '%s' "$dirty" >&2
         exit 3
       fi
-      # Only the linked env files can be left untracked here, so --force removes nothing else.
+      # Without --discard only the linked env files can be left untracked here, so --force
+      # removes nothing else. With it, --force is what drops the changes listed below.
       git -C "$MAIN" worktree remove --force "$WT"
-      echo "worktree: removed $WT"
+      if [ -n "$dirty" ]; then
+        echo "worktree: removed $WT and discarded its uncommitted changes"
+        printf '%s' "$dirty"
+      else
+        echo "worktree: removed $WT"
+      fi
     fi
     if [ "$DELETE_BRANCH" != 1 ]; then
       echo "worktree: branch $BRANCH kept"
@@ -202,6 +216,13 @@ case "$CMD" in
       # A squash merge never looks merged to git; the tip being the merged head is the proof.
       git -C "$MAIN" branch -q -D "$BRANCH"
       echo "worktree: deleted branch $BRANCH (its tip is the merged head $MERGED_HEAD)"
+    elif [ "$DISCARD" = 1 ]; then
+      # Git still refuses a branch another worktree is using, such as one mid-rebase.
+      if ! git -C "$MAIN" branch -q -D "$BRANCH"; then
+        echo "worktree: could not discard $BRANCH; kept" >&2
+        exit 4
+      fi
+      echo "worktree: discarded branch $BRANCH and its unmerged commits"
     else
       # -d refused: the branch holds commits not merged yet. Forcing it would lose them.
       echo "worktree: $BRANCH is not merged; kept. Stop and report it; do not force-delete it" >&2

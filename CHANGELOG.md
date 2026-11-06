@@ -1,5 +1,25 @@
 # 변경 이력
 
+## [0.19.0] - 2026-11-06
+
+이슈 [#10](https://github.com/dincal/agent_logbook/issues/10) · PR [#11](https://github.com/dincal/agent_logbook/pull/11)
+
+main에 넣고 싶지 않은 큰 작업을 통합 브랜치에서 여러 이슈로 나눠 진행하고, 끝날 때만 전체 절차로 main에 넣는 에픽을 추가했습니다.
+
+### 추가
+
+- `/epic`: 목표와 범위만 적고 부모 이슈와 통합 브랜치 `epic/<번호>-<slug>`를 만듭니다. `/epic #번호`로 기존 이슈도 바꿉니다.
+- `/epic-finish`: 하위 이슈를 모아 어떤 기능이 되었는지 정리하고 main 대상 PR과 전체 `/debrief`로 갑니다. 남은 하위 이슈는 마지막 머지 선택에서 함께 정리합니다.
+- `/discuss`와 `/brief`의 `--epic #번호`, `--base 브랜치`: 에픽 브랜치와 그 하위 이슈 브랜치에서는 입력하지 않아도 에픽을 고릅니다. 타겟은 이슈 본문에 기록해 `/build`도 읽습니다.
+- 명령 없는 버리기: 채팅으로 요청하면 대상 목록을 한 번 확인받고 이슈와 PR을 닫고 브랜치를 강제로 지웁니다(`worktree.sh remove --discard`).
+- Slack `part` 단계: 하위 이슈의 시안, 완성, 버림을 부모 쓰레드에 올립니다.
+
+### 바뀜
+
+- "요청 하나는 이슈 하나"에 예외가 생겼습니다. 사람이 `/epic`을 부른 경우만 해당하며 에이전트가 먼저 권하지 않습니다.
+- 하위 이슈는 글 브리핑으로 승인받고, 독립 점검과 독립 리뷰, 증거를 거친 뒤 사람이 머지를 고릅니다. 그림 화면, CHANGELOG, 문서 갱신은 `/epic-finish`에서 합니다.
+- 기본 브랜치가 아닌 곳으로 머지한 이슈는 `/debrief`가 직접 닫습니다. 핸드북은 트래커의 기본 브랜치에 머지될 때만 올립니다.
+
 ## [0.18.1] - 2026-11-03
 
 이슈 [#8](https://github.com/dincal/agent_logbook/issues/8) · PR [#9](https://github.com/dincal/agent_logbook/pull/9)

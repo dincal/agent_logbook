@@ -7,7 +7,8 @@ posts the parent message, `post` replies in the thread with a stage's text and a
 and `replies` hands out the replies people added since the last call. Messages go up as Block
 Kit blocks (a header per stage, the progress line, the body, a small footer) with the same
 words as plain text; a stage that moves the issue to another phase also redraws the progress
-line on the first message. The settings, the stages and phases, and the GitHub and Slack calls
+line on the first message, while feedback and part (a child issue's news in its epic parent's
+thread) leave the phase as it is. The settings, the stages and phases, and the GitHub and Slack calls
 come from slack_config.py; the last stdout line is one line for the chat.
 """
 
