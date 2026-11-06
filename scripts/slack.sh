@@ -19,8 +19,10 @@ thread    Post the issue's parent message unless the issue already has a thread,
           behind.
 post      Reply in the issue's thread as Slack blocks, creating the thread first when it has
           none. Stages: mockup, design, brief, approve, wave, check, pr, debrief, close,
-          feedback. close takes --outcome merged|dropped, which it requires; approve takes
-          --outcome later|dropped when the briefing was not approved. With --page
+          feedback, part. close takes --outcome merged|dropped, which it requires; approve
+          takes --outcome later|dropped when the briefing was not approved. part replies in
+          an epic parent's thread with a child issue's news; like feedback it leaves the
+          progress line as it is. With --page
           (brief and debrief only), attach a PNG and a standalone HTML copy of the page when
           the page differs from the one last posted for this stage; otherwise post the text
           alone. Each --file is attached as it is.

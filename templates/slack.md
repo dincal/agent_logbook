@@ -37,8 +37,11 @@ Write each post's text to a temporary file and pass it with `--text`. The script
 | Debriefing | `/debrief` step 6 | `slack.sh post <issue> debrief --text <planner debriefing> --page <main>/.logbook/briefs/<issue>-debrief.html` |
 | Merged or closed | `/debrief` 머지, `/brief` 버리기, an overlapping issue closed ("Overlapping issues" in `templates/questions.md`) | `slack.sh post <issue> close --outcome merged --text <file>` after a merge: it is live in the code. `--outcome dropped` when the issue is dropped or closed in favour of another, with why or where the work went. `close` without `--outcome` exits 2 |
 | Feedback summary | right before any post above, on issue threads | see below |
+| Epic child's news | a child's mockup, merge or drop, as "Slack" in `templates/epic.md` says | `slack.sh post <parent> part --text <file> [--file <path>...]`: the first line names the child. The progress line stays as it is. Issue threads only |
 | Issue-less PR opened | `/debrief` step 1 | `slack.sh thread <pr> --text <file>`: the change in plain words, as the first-message section of `templates/planner.md` says |
 | Issue-less PR merged or closed | `/debrief` 머지 | `slack.sh post <pr> close --outcome merged --text <file>`, or `--outcome dropped` when the user asked in chat to close it unmerged |
+
+An epic has one thread, the parent's, as "Slack" in `templates/epic.md` says. A child never posts under its own number.
 
 ## Pull requests without an issue
 

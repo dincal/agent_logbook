@@ -28,6 +28,7 @@ STAGES = {
     "debrief": "완성 보고",
     "close": "반영 완료",
     "feedback": "피드백 반영",
+    "part": "진행 소식",
 }
 # The icon in front of each stage's title; the body text itself carries no emoji.
 ICONS = {
@@ -41,6 +42,7 @@ ICONS = {
     "debrief": "📦",
     "close": "🚀",
     "feedback": "💬",
+    "part": "🧩",
 }
 # Stages whose page is attached; the marker keeps the hash of the page last posted for each.
 PAGE_STAGES = ("brief", "debrief")
@@ -70,7 +72,7 @@ SPECIAL_PHASES = {"later": "나중에 할 일로 남겼습니다", "dropped": "�
 # and 반영 완료, so it shows only these two phases and takes only these stages.
 PR_PHASES = ("check", "done")
 PR_STAGES = ("close",)
-# The phase each stage puts the issue in; feedback leaves it where it is.
+# The phase each stage puts the issue in; feedback and part leave it where it is.
 STAGE_PHASE = {
     "mockup": "plan",
     "design": "plan",
@@ -82,6 +84,7 @@ STAGE_PHASE = {
     "debrief": "check",
     "close": "done",
     "feedback": None,
+    "part": None,
 }
 # Shown on the first message and the last reply once the issue ended: no stage reads the
 # thread after that, so a reply left there reaches nobody.
