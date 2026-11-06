@@ -1,7 +1,7 @@
 ---
 name: brief
 description: Pre-implementation briefing for any change bigger than a one-sentence fix, always as one issue. Research the code and sources, find every decision the change leaves open and ask the user about the ones that are theirs as multiple choice, run an independent check for guessed decisions, mock up changed screens, write the plan doc with a track graph in the git-ignored .logbook/plans/, put a text briefing in the issue body, publish a visual briefing page designed for the issue, and ask for approval in the chat. Once approved, hand the plan to /build. Use before editing code for a walk-in request, and right after a plan-mode plan is approved.
-argument-hint: "[request | #issue]"
+argument-hint: "[--epic #issue | --base branch] [request | #issue]"
 ---
 
 # brief
@@ -14,21 +14,23 @@ Plan docs and mockup copies are working files, not project documents. They live 
 
 ## When to skip
 
-A change that one sentence fully describes (a typo, a rename, a small config tweak) gets no briefing and no issue, and so does a follow-up doc update with no related branch or issue to ride on. Cut a `<type>/<slug>` branch from the base branch, implement, open a PR without an issue, and let `/debrief` finish it, which also keeps the Slack record (a PR thread) for the issue-less PR. When `$ARGUMENTS` names an issue, keep it: read its comments as step 1 says, use `<type>/<issue>-<slug>` and put `Closes #<issue>` in the PR body.
+A change that one sentence fully describes (a typo, a rename, a small config tweak) gets no briefing and no issue, and so does a follow-up doc update with no related branch or issue to ride on. With an epic as the target such a change is committed straight to its integration branch, with no issue or PR, as `${CLAUDE_PLUGIN_ROOT}/templates/epic.md` says. Otherwise cut a `<type>/<slug>` branch from the target branch, implement, open a PR without an issue against that target, and let `/debrief` finish it, which also keeps the Slack record (a PR thread) for the issue-less PR. When `$ARGUMENTS` names an issue, keep it: read its comments as step 1 says, use `<type>/<issue>-<slug>` and put `Closes #<issue>` in the PR body.
 
 ## Steps
 
 1. **Issue and branch.**
+   - Pick the target branch first, as "Picking the target" in `${CLAUDE_PLUGIN_ROOT}/templates/epic.md` says: `--epic`, `--base`, the given issue's record, or the checked-out epic branch, and otherwise the base branch. An issue with another target, new or given, records it in its body as "Recording the target" there says, and a child of an epic follows "Child issues" below.
    - Use the issue number in `$ARGUMENTS` when given. Otherwise create one labelled `status:todo` and assigned to yourself (`--assignee @me`) in the repo named on the tracker line in the logbook rules the session started with (the SessionStart hook adds them from `.logbook/config.json`). When the session got no logbook rules (for instance `/rulebook` ran in this session), read repo, base and account from `.logbook/config.json` in the main checkout instead.
+   - An issue that is an epic's parent (the remote has `epic/<issue>-*`) is not briefed: say that `/brief --epic #<issue> <request>` makes a child and `/epic-finish` ends the epic, then stop. A number after `--epic` is the epic, not the issue to work on.
    - An issue already in `status:in-progress` was approved before: hand it to `/build #<issue>` instead of these steps.
    - Read the given issue's comments too: follow-up work deferred to this issue, such as a doc update, is left there as a comment and belongs in this change.
    - Before creating an issue, and right after reading a given one and its comments (before moving its label or adding yourself), look for overlapping open issues as "Overlapping issues" in `${CLAUDE_PLUGIN_ROOT}/templates/questions.md` says. Continuing with an existing issue instead takes effect at once: the rest of this step applies to that issue, and the given one stays as it was. The other decisions change nothing on the tracker until step 9.
    - An issue given in `status:backlog` (one `/discuss` left for later, for instance) moves to `status:todo`. A plan set aside with 나중에 하기 in step 9 is picked up again: start from the local plan doc `<main>/.logbook/plans/<issue>-<slug>.md`, or else from the issue's last comment whose first line is `계획 문서`, saving it as that doc. Check out its branch when it exists on this clone or the remote; otherwise cut it.
    - A given issue gets you as an assignee too (`gh issue edit <issue> --add-assignee @me`). When someone else is already assigned, ask with the question tool whether to add yourself beside them, replace them with yourself (`--remove-assignee <login>` alongside), or leave the assignees as they are.
    - Run gh with the account on that line: `GH_TOKEN="$(gh auth token --user <account>)" gh ...`. Without an account there, use the default login.
-   - Slug: a short kebab-case summary. Branch: `<type>/<issue>-<slug>` (feat, fix, refactor, docs or chore), cut from the base branch.
-   - One request is one issue and one PR, however large, and even when it mixes unrelated features. Large work is split into tracks inside it (step 5), never into child issues.
-   - After creating the issue, or taking up a given one (a backlog issue only after its label moved to `status:todo`, since backlog issues have no thread yet), open its Slack thread with `${CLAUDE_PLUGIN_ROOT}/scripts/slack.sh thread <issue> --text <file>`, the issue written out in plain words for people who cannot open GitHub. Every Slack post and reply check below follows `${CLAUDE_PLUGIN_ROOT}/templates/slack.md`, written by `${CLAUDE_PLUGIN_ROOT}/templates/planner.md`; Slack never holds up a step.
+   - Slug: a short kebab-case summary. Branch: `<type>/<issue>-<slug>` (feat, fix, refactor, docs or chore), cut from the fetched target branch.
+   - One request is one issue and one PR, however large, and even when it mixes unrelated features. Large work is split into tracks inside it (step 5), never into child issues, except inside an epic the user started with `/epic`. Do not suggest an epic.
+   - After creating the issue, or taking up a given one (a backlog issue only after its label moved to `status:todo`, since backlog issues have no thread yet), except a child of an epic, open its Slack thread with `${CLAUDE_PLUGIN_ROOT}/scripts/slack.sh thread <issue> --text <file>`, the issue written out in plain words for people who cannot open GitHub. Every Slack post and reply check below follows `${CLAUDE_PLUGIN_ROOT}/templates/slack.md`, written by `${CLAUDE_PLUGIN_ROOT}/templates/planner.md`; Slack never holds up a step.
    - Work in the main checkout and switch branches there. When something makes the main checkout unfit (uncommitted changes, a service running from it, another session working there), say what and ask with the question tool before making a worktree with `${CLAUDE_PLUGIN_ROOT}/scripts/worktree.sh add`; then do as the user picks: the worktree, the main checkout, or stop.
 2. **Research.**
    - Start from `docs/system/` when it exists; it describes the system as it is, and `rules.md` there holds the domain rules users settled before. Note which of those docs the change will alter.
@@ -61,7 +63,7 @@ A change that one sentence fully describes (a typo, a rename, a small config twe
 7. **Briefing page.** Build the page as `${CLAUDE_PLUGIN_ROOT}/templates/briefing.md` says: designed for this issue, pictures over text, controls and motion only where the content needs them, the approved screens inside it when step 4 ran. On Claude Code, publish it as an Artifact and keep the link; where publishing is unavailable, use the local file path as the link.
 8. **Link.**
    - Put the page link in the plan doc header.
-   - Rewrite the issue body as the text briefing from the brief block (요약, what changes, 주요 결정, risks, acceptance criteria) with the page link. Read the body first, since an edit replaces it whole: when someone else wrote it, keep their text under `## 원래 요청` at the end, and keep a `## 합친 이슈` section as it is.
+   - Rewrite the issue body as the text briefing from the brief block (요약, what changes, 주요 결정, risks, acceptance criteria) with the page link. Read the body first, since an edit replaces it whole: when someone else wrote it, keep their text under `## 원래 요청` at the end, and keep `## 합친 이슈` and `## 타겟 브랜치` sections as they are.
    - Comment on the issue with a three-line summary, the page link and the 판단 필요 items.
    - Post the briefing to the thread: `slack.sh post <issue> brief --text <planner briefing> --page <main>/.logbook/briefs/<issue>-brief.html`. The text is the planner briefing `templates/planner.md` describes: user stories in plain words, no developer terms.
    - Do not commit the plan doc.
@@ -73,6 +75,10 @@ A change that one sentence fully describes (a typo, a rename, a small config twe
    - Post the outcome to the thread with `slack.sh post <issue> approve` (브리핑이 승인되어 개발을 시작합니다; with `--outcome later` on 나중에 하기), or only `slack.sh post <issue> close --outcome dropped` on 버리기.
    - On 중단, ask 나중에 하기 / 버리기 with the question tool. 나중에 하기 moves the issue to `status:backlog`, keeps the branch, and posts the whole plan doc as an issue comment whose first line is `계획 문서`, so `/brief #<issue>` picks it up again on any clone. 버리기 closes the issue as not planned (`gh issue close --reason "not planned"`) and deletes the branch, locally and on the remote where it was pushed. Then stop, and so does a calling `/sync`.
    - Otherwise, once approved, carry out the overlapping-issue decisions as "Overlapping issues" says, move the issue to `status:in-progress` and invoke `/build #<issue>` without asking for approval again. The briefing page stays as approved; later changes to the plan appear in the debriefing.
+
+## Child issues
+
+A child of an epic goes through the steps above with the differences in "A child issue" and "Slack" of `${CLAUDE_PLUGIN_ROOT}/templates/epic.md`. Its questions and independent check stay. Skip step 7 and the page link and thread posts of steps 8 and 9: the text briefing in the issue body and the chat is what the user approves. Every Slack post of the steps above goes as the guide's "Slack" says: a mockup with `slack.sh post <parent> part`, replies from the parent's thread, and no post with the child's own number. On 버리기, follow "Dropping" in that guide.
 
 ## Plan mode
 

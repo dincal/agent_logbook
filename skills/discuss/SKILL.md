@@ -1,7 +1,7 @@
 ---
 name: discuss
 description: Think an idea through with the user before any spec exists. Research the code and the web read-only, argue like a colleague with evidence, agree or push back plainly, and change nothing. When the discussion settles, summarize it and let the user pick one ending - hand it to /brief, keep it as a backlog issue, add it to an overlapping issue of theirs, or keep nothing. Use when the user asks for an opinion or wants to explore an idea rather than asking for a change, and before /brief when the problem or the approach is still open.
-argument-hint: "[idea or question]"
+argument-hint: "[--epic #issue | --base branch] [idea or question]"
 ---
 
 # discuss
@@ -52,6 +52,10 @@ No fixed order and no checklist to march through; cover what the idea needs:
 - What is still open, and who can answer it.
 
 When points pile up, show a short "합의한 것 / 남은 쟁점" list so both sides see where the discussion stands.
+
+## Inside an epic
+
+Pick the target as "Picking the target" in `${CLAUDE_PLUGIN_ROOT}/templates/epic.md` says. On an epic, read its parent issue and its child issues (`gh api repos/<repo>/issues/<parent>/sub_issues`) with their results, as context for the discussion, and say in one line which epic you picked. In the ending, 바로 진행 passes the epic on to `/brief` with `--epic #<parent>`. A backlog issue is created with `--parent <parent>` and carries the `## 타겟 브랜치` section the guide describes. A target other than an epic is passed on as `--base <branch>`.
 
 ## Ending
 
