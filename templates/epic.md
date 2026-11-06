@@ -73,7 +73,7 @@ The user can drop a child or a whole epic at any moment by asking in chat, whate
    - The worktree this session runs in goes last, after the report, as `/debrief` does.
 5. **Report** what went, and post to Slack as below.
 
-`--discard` is for this path only. Everywhere else the exit codes 3 and 4 of `worktree.sh` stop the run.
+`--discard` is for this path only. Everywhere else the exit codes 3 and 4 of `worktree.sh` stop the run. Run it from the main checkout. When it still fails (a locked worktree, a branch git will not delete), leave that branch on the remote too, report its message and go on with the rest; never remove it by other means.
 
 ## Slack
 
